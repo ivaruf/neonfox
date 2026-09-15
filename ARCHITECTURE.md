@@ -1,4 +1,4 @@
-# Trailblazers — architecture and lane contract
+# NeonFox — architecture and lane contract
 
 A Kurve-style arena game: riders on glowing orbs leave solid trails, touch a
 trail or the wall and you are out, last rider standing takes the round. This
@@ -227,8 +227,8 @@ export class UI {
 // audio.js
 export class Sfx {
   constructor()               // volumes from localStorage, try/catch, defaults 0.6 music / 0.8 effects
-  get musicVolume(); setMusicVolume(v)   // 0..1, persisted 'trailblazers.vol.music.v1'
-  get sfxVolume();   setSfxVolume(v)     // 0..1, persisted 'trailblazers.vol.sfx.v1'
+  get musicVolume(); setMusicVolume(v)   // 0..1, persisted 'neonfox.vol.music.v1'
+  get sfxVolume();   setSfxVolume(v)     // 0..1, persisted 'neonfox.vol.sfx.v1'
   unlock()                    // create/resume AudioContext on first gesture; starts the theme
   click(); ready(); go(); crash(); roundWin(); matchWin()
   taunt(voice = 0, delay = 0)  // the yip a fox makes when it celebrates; `voice`
@@ -259,7 +259,7 @@ export class Sfx {
   Space starts from the menu.
 - Arena size: `ARENA_SIZES[ui.arena].half` is applied with `world.setArena` and
   `view.setArena` before every match, attract included, so the menu previews
-  the size live; the choice persists in localStorage `trailblazers.arena.v1`.
+  the size live; the choice persists in localStorage `neonfox.arena.v1`.
 - Humans take palette slots 0 and 1; AI fill the rest in order. Names: "You"
   for a solo human, "P1"/"P2" for two, `PALETTE[i].name` for AI.
 - Routes events: roundStart -> trails.reset, riders alive, banner "Round N /

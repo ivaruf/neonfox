@@ -101,7 +101,7 @@ function boot() {
   // per hub CLAUDE.md §6: private mode and quota limits are real.
   let savedArena = ARENA_DEFAULT;
   try {
-    const parsed = parseInt(localStorage.getItem("trailblazers.arena.v1"), 10);
+    const parsed = parseInt(localStorage.getItem("neonfox.arena.v1"), 10);
     if (Number.isInteger(parsed) && parsed >= 0 && parsed < ARENA_SIZES.length) {
       savedArena = parsed;
     }
@@ -285,7 +285,7 @@ function boot() {
    * picked mid-match just waits for the next round to start or end. */
   function onArena(index) {
     try {
-      localStorage.setItem("trailblazers.arena.v1", String(index));
+      localStorage.setItem("neonfox.arena.v1", String(index));
     } catch {
       // localStorage unavailable; the choice just won't survive a reload.
     }

@@ -24,11 +24,11 @@
  * skipping it would desync it from anything timed against it.
  */
 
-const MUSIC_KEY = "trailblazers.vol.music.v1";
-const SFX_KEY = "trailblazers.vol.sfx.v1";
+const MUSIC_KEY = "neonfox.vol.music.v1";
+const SFX_KEY = "neonfox.vol.sfx.v1";
 // Pre-volume-sliders key: a single on/off toggle. Read once as a migration
 // fallback (see the constructor) and never written back to.
-const OLD_SOUND_KEY = "trailblazers.sound.v1";
+const OLD_SOUND_KEY = "neonfox.sound.v1";
 
 const DEFAULT_MUSIC_VOLUME = 0.6;
 const DEFAULT_SFX_VOLUME = 0.8;
@@ -193,7 +193,7 @@ export class Sfx {
       source.start(0);
       this._themeSource = source;
     } catch (err) {
-      console.warn("Trailblazers: could not load audio/theme.m4a", err);
+      console.warn("NeonFox: could not load audio/theme.m4a", err);
     }
   }
 

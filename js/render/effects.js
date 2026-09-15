@@ -78,7 +78,7 @@ export function createEffects(scene) {
     } catch (err) {
       // An effect is decoration. If a driver or a Babylon change breaks it,
       // the round must still play out.
-      console.warn("trailblazers: burst failed", err);
+      console.warn("neonfox: burst failed", err);
     }
   }
 

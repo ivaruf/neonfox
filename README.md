@@ -1,8 +1,13 @@
-# Trailblazers
+# NeonFox
 
-Riders gliding on glowing orbs, leaving neon trails in a small arena. Touch a
-trail or the wall and you are out; the last rider standing takes the round.
-A 3D take on *Achtung, die Kurve*, built as a playable proof of concept.
+Foxes running on glowing balls, leaving neon trails in a small arena. Touch a
+trail or the wall and you are out; the last one riding takes the round. A 3D
+take on *Achtung, die Kurve*.
+
+The directory and the GitHub repo are still called `trailblazers`, which was
+the working name. The slug is the published URL and the storage prefix, so
+renaming the repo to `neonfox` is worth doing before this is published, and
+it is the owner's to do.
 
 Part of the [games hub](../CLAUDE.md). In development: not deployed and not
 in the arcade yet.
