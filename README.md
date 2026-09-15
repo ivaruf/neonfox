@@ -152,6 +152,6 @@ playing it.
   screen itself: they are set once, so they do not need to be permanently in
   front of a player who came here to ride.
 - **Multiplayer has no host migration and no TURN.** Both doors out of the
-  paddock — Blaze! and Play together — are the same size, but the peer-to-peer
+  paddock — Blaze! and Multiplayer — are the same size, but the peer-to-peer
   one carries the honest limits `docs/P2P.md` writes down: the host closing
   its tab ends the game, and a network pair that needs a relay never connects.

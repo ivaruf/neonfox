@@ -157,8 +157,16 @@ button:focus-visible {
   margin: 10px 0;
   text-align: left;
 }
+/*
+ * One gutter for every row, so every control in the menu starts at the same x
+ * (hub CLAUDE.md §2). 76px rather than 60 since "Local players" arrived: the
+ * longest word in it, PLAYERS, is about 64px at this size and tracking, so the
+ * label wraps to two lines and still fits inside the gutter instead of pushing
+ * its row out of line with the others. Two short lines are shorter than the
+ * 40px control beside them, so the row does not grow either.
+ */
 .label {
-  flex: 0 0 60px;
+  flex: 0 0 76px;
   color: var(--ink-dim);
   font-size: 12px;
   letter-spacing: 0.14em;
@@ -443,6 +451,80 @@ button:focus-visible {
 }
 
 /*
+ * THE CORNER CLUSTER: sound and fullscreen, as icons, top right.
+ *
+ * A pill of round icon buttons on the arena's own dark glass — fishtank's
+ * shape, because the problem is the same one. Neither of these belongs to a
+ * round and neither is a setting of the game, so neither wants a row in the
+ * menu; and in a corner, at this size, a symbol survives where a word would
+ * have to be shrunk until nobody reads it anyway.
+ *
+ * 42px targets. The hub asks for touch targets that stay comfortable and a
+ * tablet is the common case, so these are deliberately larger than the glyph
+ * inside them needs.
+ */
+#corner-tools {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(8, 12, 36, 0.62);
+  border: 1px solid rgba(130, 170, 255, 0.24);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.icon-button {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-dim);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.icon-button:hover {
+  color: var(--ink);
+  background: rgba(70, 230, 255, 0.16);
+}
+.icon-button:active {
+  transform: scale(0.94);
+}
+/* Stroked, not filled, so one `currentColor` drives the whole glyph and the
+ * hover state is a single property. */
+.icon-button svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* The fullscreen glyph has two states in one file: corners pushing out, and
+ * the same four pulled in. aria-pressed picks, so the picture and the label
+ * js/screen.js writes can never disagree. */
+.icon-button .icon-on {
+  display: none;
+}
+.icon-button[aria-pressed="true"] .icon-off {
+  display: none;
+}
+.icon-button[aria-pressed="true"] .icon-on {
+  display: inline;
+}
+.icon-button[aria-pressed="true"] {
+  color: var(--rim);
+}
+
+/*
  * The in-match pause pill, top right, opposite the scoreboard. It borrows
  * .ghost's shape but not its transparency: .ghost is written for a panel's
  * own dark glass, and this one stands on the arena, where a trail can sweep
@@ -501,10 +583,12 @@ button:focus-visible {
 }
 
 /*
- * Session-level controls: how loud, whether the OS chrome is showing, and how
- * to leave. None of it is gameplay, so all three sit as their own .ghost
- * pills rather than joining a .row's label + slider/seg shape, in a small
- * flex row that wraps if the panel gets narrow enough to need it.
+ * What is left of the tools row: the way out of the arcade, alone now that
+ * sound and fullscreen have become icons in #corner-tools. It stays a .ghost
+ * pill rather than joining a .row's label + slider/seg shape because it is
+ * not gameplay, and the rules below still size a cluster even when the
+ * cluster is one — the max-width is what stops a lone survivor stretching
+ * across the panel.
  */
 .menu-tools {
   display: flex;
@@ -530,18 +614,6 @@ button:focus-visible {
   font-size: 13px;
   padding: 6px 10px;
 }
-/*
- * The fullscreen toggle borrows .ghost's pill and focus-ring look, but not
- * the strikethrough .ghost[aria-pressed="false"] above: that rule was
- * written for the old on/off sound switch, where "false" meant "disabled".
- * Here aria-pressed only tracks whether we are CURRENTLY fullscreen, and
- * the resting "not yet fullscreen" state is not a lesser state to cross out.
- */
-#screen-toggle[aria-pressed] {
-  text-decoration: none;
-  opacity: 1;
-}
-
 .hint {
   margin: 4px 0 14px;
   color: var(--ink-dim);
@@ -770,7 +842,7 @@ kbd {
     padding: 20px 18px 16px;
   }
   .label {
-    flex-basis: 52px;
+    flex-basis: 68px;
   }
   .chip {
     font-size: 12px;

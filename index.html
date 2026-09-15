@@ -112,22 +112,24 @@
           <span class="update-sub">Tap to take it</span>
         </button>
 
+        <!-- data-seg="humans" is untouched by the rename: that string is the
+             contract js/ui.js reads, not something the player ever sees. -->
         <div class="row" id="row-riders">
-          <span class="label">Riders</span>
+          <span class="label">Local players</span>
           <div
             class="seg"
             data-seg="humans"
             role="group"
-            aria-label="Human riders"
+            aria-label="Local players"
           >
-            <button type="button" data-v="1" aria-pressed="true">Solo</button>
-            <button type="button" data-v="2">Two, one keyboard</button>
+            <button type="button" data-v="1" aria-pressed="true">1P</button>
+            <button type="button" data-v="2">2P</button>
           </div>
         </div>
 
         <div class="row" id="row-rivals">
-          <span class="label">Rivals</span>
-          <div class="seg" data-seg="ai" role="group" aria-label="AI rivals">
+          <span class="label">Bots</span>
+          <div class="seg" data-seg="ai" role="group" aria-label="Bots">
             <button type="button" data-v="1">1</button>
             <button type="button" data-v="2">2</button>
             <button type="button" data-v="3" aria-pressed="true">3</button>
@@ -169,8 +171,8 @@
 
         <!--
           The paddock's two doors, and they are the same size on purpose.
-          Blaze! used to be a full-width gradient with "Play together" as a
-          thin ghost pill beneath it, which read as the game plus a footnote.
+          Blaze! used to be a full-width gradient with the multiplayer door as
+          a thin ghost pill beneath it, which read as the game plus a footnote.
           Riding against a friend on another screen is the same kind of
           choice as riding against the rivals, so it gets the same pill; only
           the gradient differs, and both are mixed from the rider palette.
@@ -178,7 +180,7 @@
         <div class="play">
           <button type="button" id="start" class="primary">Blaze!</button>
           <button type="button" id="together" class="primary together">
-            Play together
+            Multiplayer
           </button>
         </div>
 
@@ -189,30 +191,16 @@
         </p>
 
         <!--
-          Session-level controls: how loud, whether the OS chrome is showing,
-          and how to leave. None of it is gameplay, so none of it is a .row
-          with a slider — they are plain .ghost pills. Two of the three start
-          hidden: only js/screen.js (fullscreen support) and js/ui.js
-          (window.ArcadeExit present) ever remove that hidden attribute, so a
-          browser or a hosting context that cannot do the thing never shows a
-          button that would do nothing. Sound is always available and so is
-          always here.
-
-          The label below is only the resting one: js/screen.js repaints it
-          from the fullscreenchange event, so Escape and the browser's own
-          chrome flip it to "Exit fullscreen" without anyone clicking this.
+          Leaving the arcade. Sound and fullscreen used to sit beside this as
+          two more word pills; they are icons in the top-right corner now
+          (#corner-tools, further down) because neither is about the game and
+          both are wanted from more than one screen. This one stays in the
+          panel: it is a sentence, not a symbol, and it only exists at all
+          when js/ui.js finds window.ArcadeExit — a browser or a hosting
+          context that cannot do the thing never shows a button that would do
+          nothing.
         -->
         <div class="menu-tools">
-          <button type="button" id="sound-open" class="ghost">Sound</button>
-          <button
-            type="button"
-            id="screen-toggle"
-            class="ghost"
-            aria-pressed="false"
-            hidden
-          >
-            Fullscreen
-          </button>
           <button type="button" id="quit" class="ghost" hidden>
             Back to the den
           </button>
@@ -287,6 +275,61 @@
           Back to the paddock
         </button>
       </section>
+
+      <!--
+        THE CORNER. Sound and fullscreen, as icons, in the top-right — the
+        shape fishtank arrived at, and for its reasons: neither belongs to a
+        round, neither is a setting of the game, and a symbol survives being
+        shrunk to a corner where a word does not.
+
+        Shown with the paddock and taken away for a match, because that same
+        corner is where the Pause pill lives once a round is running and two
+        things cannot have one corner. (fishtank keeps its cluster on every
+        screen; doing that here means deciding what the sound icon should do
+        to a match in progress, which is a question for its own turn.)
+
+        Art carries the meaning, so each button carries a real aria-label and
+        a title, and js/screen.js rewrites the fullscreen one as the state
+        changes — the label is the only thing that can tell a screen reader
+        which way the toggle is pointing.
+      -->
+      <div id="corner-tools">
+        <button
+          type="button"
+          id="sound-open"
+          class="icon-button"
+          aria-label="Sound"
+          title="Sound"
+        >
+          <!-- A speaker and two waves. Not a mute button and deliberately
+               without the slash fishtank's carries: this one opens a menu. -->
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M11 5 6 9H3v6h3l5 4Z" />
+            <path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14" />
+          </svg>
+        </button>
+        <!--
+          Hidden until js/screen.js has checked that this browser has element
+          fullscreen at all — iPhone Safari does not, and a button that does
+          nothing when pressed is worse than no button.
+        -->
+        <button
+          type="button"
+          id="screen-toggle"
+          class="icon-button"
+          aria-pressed="false"
+          aria-label="Fullscreen"
+          title="Fullscreen"
+          hidden
+        >
+          <!-- Four corners pushing out, and the same four pulled in for the
+               pressed state. CSS shows one and hides the other. -->
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path class="icon-off" d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6" />
+            <path class="icon-on" d="M3 9h6V3m12 6h-6V3M9 15H3v6m12 0v-6h6" />
+          </svg>
+        </button>
+      </div>
 
       <!--
         The way to the pause overlay for everyone without an Escape key,

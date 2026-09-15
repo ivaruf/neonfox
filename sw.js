@@ -88,7 +88,13 @@
 //         actions — and a landscape phone gets a two-column paddock laid over
 //         the same markup by grid area instead of a column it has to scroll.
 //         CSS and four id attributes; no script changed.
-const VERSION = "v1.5.0";
+// v1.6.0  THE CORNER, AND THREE PLAINER NAMES. Sound and fullscreen leave the
+//         menu for an icon cluster in the top-right, fishtank's shape; the
+//         sound icon opens the same panel the word pill did. Riders becomes
+//         "Local players" (1P / 2P), Rivals becomes "Bots", and the second
+//         door says "Multiplayer". The label gutter widens to 76px so every
+//         row still starts at the same x with a longer word in it.
+const VERSION = "v1.6.0";
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting

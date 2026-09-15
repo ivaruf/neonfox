@@ -11,7 +11,7 @@
  *
  * It creates its own DOM rather than reading ids out of index.html, because
  * index.html belongs to another lane. The one thing it cannot make for itself
- * is the way in: a "Play together" button in the paddock. If index.html has a
+ * is the way in: a "Multiplayer" button in the paddock. If index.html has a
  * #together button this file adopts it; if it does not, it inserts one after
  * #start, so the feature works either way and the markup can catch up later.
  *
@@ -85,7 +85,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   const panel = el("section", "panel");
   panel.id = "lobby";
   panel.hidden = true;
-  panel.setAttribute("aria-label", "Play together");
+  panel.setAttribute("aria-label", "Multiplayer");
 
   panel.append(el("p", "kicker", "Ride with a friend"));
   const heading = el("h1", null, "Together");
@@ -460,7 +460,7 @@ export function mountEntry(onClick) {
   // weight; #start sits inside the .play row, so inserting after it lands
   // this in that row and the pair shares its width evenly either way.
   button.className = "primary together";
-  button.textContent = "Play together";
+  button.textContent = "Multiplayer";
   start.insertAdjacentElement("afterend", button);
   button.addEventListener("click", onClick);
   return button;

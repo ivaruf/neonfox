@@ -65,6 +65,10 @@ export class UI {
 
     this.menuEl = root.querySelector("#menu");
     this.soundEl = root.querySelector("#sound");
+    /* Sound and fullscreen, top right. Up whenever the paddock or the sound
+     * menu is, gone for a match — the Pause pill takes that corner once a
+     * round is running, and two things cannot have one corner. */
+    this.cornerEl = root.querySelector("#corner-tools");
     this.pauseEl = root.querySelector("#pause");
     this.pauseScrimEl = root.querySelector("#pause-scrim");
     this.pauseKickerEl = root.querySelector("#pause-kicker");
@@ -362,6 +366,7 @@ export class UI {
   showMenu() {
     this.menuEl.hidden = false;
     if (this.soundEl) this.soundEl.hidden = true;
+    if (this.cornerEl) this.cornerEl.hidden = false;
     // The menu and the in-match overlays are mutually exclusive states.
     this.hidePause();
     this.hideBanner();
@@ -378,6 +383,7 @@ export class UI {
   hideMenu() {
     this.menuEl.hidden = true;
     if (this.soundEl) this.soundEl.hidden = true;
+    if (this.cornerEl) this.cornerEl.hidden = true;
   }
 
   /** The sound menu, in the paddock's place. */
