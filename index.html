@@ -9,9 +9,34 @@
     <title>NeonFox</title>
     <meta
       name="description"
-      content="Riders gliding on glowing orbs, leaving neon trails in a small arena. A Kurve-style arcade game."
+      content="Foxes running on glowing orbs, leaving neon trails in a small arena. Touch a trail or the wall and you are out; the last one riding takes the round. A 3D take on Achtung, die Kurve."
     />
     <meta name="theme-color" content="#0a1030" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!--
+      The PWA layer. Every path here is RELATIVE, so the game works from
+      /trailblazers/ (the repo's working name), from /neonfox/ once the repo is
+      renamed, and from a domain root, with no edits. The arcade reads this
+      manifest to build the game's cabinet: it splits `name` on the em-dash into
+      a title and a tagline, so that field is doing two jobs.
+    -->
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icons/icon-180.png" />
+    <!--
+      A real 180 for iOS, not the 192 pointed at sideways — see icons/ and
+      tools/make-icons.py, which is the source of truth for all four PNGs.
+      The tab favicon is an inline SVG of the same mark reduced to its two
+      essentials, an orb and the curve behind it: no file, so no request and
+      nothing for a filename filter to object to.
+    -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230a1030'/><path d='M3 27c6 2 13-1 15-7 1-4-2-7-5-6' fill='none' stroke='%2346e6ff' stroke-width='3' stroke-linecap='round'/><circle cx='21' cy='11' r='6' fill='%2346e6ff'/><circle cx='20' cy='10' r='2.6' fill='%23eaf8ff'/></svg>"
+    />
+
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
@@ -28,6 +53,19 @@
       <section id="menu" class="panel" aria-labelledby="title">
         <p class="kicker">Neon Kurve for orb riders</p>
         <h1 id="title">NeonFox</h1>
+
+        <!--
+          UPDATE READY. Hidden until a new service worker has installed and is
+          waiting; tapping it is the only thing in the whole game that posts
+          SKIP_WAITING. It sits inside #menu on purpose — the panel is hidden
+          for the whole of a match, so the control simply does not exist on
+          screen while a round is running and no deploy can end one. Owned end
+          to end by js/update.js, which nothing else imports.
+        -->
+        <button type="button" id="update" hidden>
+          <span class="update-title">New build ready</span>
+          <span class="update-sub">Tap to take it</span>
+        </button>
 
         <div class="row">
           <span class="label">Riders</span>
@@ -94,6 +132,14 @@
             <output id="sfx-vol-out" for="sfx-vol">80</output>
           </div>
         </div>
+
+        <!--
+          Which build is actually serving this session, asked of the service
+          worker rather than baked into the page — a string compiled into the
+          HTML tells you where the HTML came from, which during a bad release is
+          the one thing you already know. Stays hidden when there is no worker.
+        -->
+        <p id="build" hidden></p>
       </section>
 
       <!-- Live scoreboard during a match. -->
@@ -186,6 +232,14 @@
         });
       })();
     </script>
+    <!--
+      The PWA's update affordance, and the service worker registration behind
+      it. Its own module graph, loaded BEFORE main.js on purpose: a failed
+      import anywhere in the game's graph aborts that whole graph, and an update
+      button that dies with the thing it is meant to update is no use to
+      anybody. It touches no other module and no other module knows it is here.
+    -->
+    <script type="module" src="js/update.js"></script>
     <script type="module" src="js/main.js"></script>
   </body>
 </html>

@@ -111,9 +111,10 @@ playing it.
 
 ## Intentionally simplified
 
-- **No service worker, manifest or icons yet.** The hub's PWA layer is added
-  when the game heads for the arcade; leaving it out avoids stale-cache pain
-  while the code changes daily.
+- **The service worker caches code and media separately.** Precaching 27 MB
+  of models and audio would make every release cost more than the install,
+  so the code cache turns over with `VERSION` and the media cache only when
+  a model or a track actually changes.
 - **Collision is grid-based and approximate**, a tenth of a unit. It is
   deliberate: reliable and cheap beats exact.
 - **The AI looks ahead with five fixed manoeuvres** and no memory. It is

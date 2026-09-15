@@ -275,6 +275,81 @@ h1 {
   color: var(--ink);
   background: rgba(40, 60, 120, 0.4);
 }
+/*
+ * The update pill. Shown only while a new service worker sits waiting, and
+ * driven entirely by js/update.js; the markup is in #menu so it cannot be
+ * reached during a match.
+ *
+ * It is deliberately NOT the .primary gradient. Blaze! is what the player came
+ * to press, and a second full-brightness pill directly above it would make the
+ * paddock ask two questions at once. So it takes Mochi's magenta — a rider
+ * colour, from the same palette as everything else here — on the panel's own
+ * dark glass, and breathes once every few seconds instead of shouting.
+ */
+#update {
+  display: block;
+  width: 100%;
+  margin: 0 0 16px;
+  min-height: 52px;
+  padding: 8px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 95, 180, 0.5);
+  background: linear-gradient(180deg, rgba(88, 20, 62, 0.5), rgba(22, 14, 48, 0.6));
+  color: var(--ink);
+  text-align: center;
+  animation: breathe 3s ease-in-out infinite;
+}
+#update:hover {
+  border-color: #ff5fb4;
+  background: linear-gradient(180deg, rgba(118, 26, 82, 0.6), rgba(30, 18, 60, 0.7));
+}
+#update:disabled {
+  /* The tap has been accepted and the page is about to reload itself. */
+  opacity: 0.65;
+  cursor: progress;
+  animation: none;
+}
+.update-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ff9fd0;
+}
+.update-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+@keyframes breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(255, 95, 180, 0);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(255, 95, 180, 0.45);
+  }
+}
+/* Noticed, not nagging: a steady glow for anyone who has asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  #update {
+    animation: none;
+    box-shadow: 0 0 18px rgba(255, 95, 180, 0.35);
+  }
+}
+
+/* Which build is serving this session, answered by the service worker. */
+#build {
+  margin: 14px 0 0;
+  color: var(--ink-dim);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
 .ghost[aria-pressed="false"] {
   text-decoration: line-through;
   opacity: 0.7;
