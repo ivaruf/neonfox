@@ -80,9 +80,12 @@ function boot() {
    * starts. A rejection means rider.js has already console.warned and every
    * rider quietly stays on the fallback, so there is nothing to do here.
    */
-  preloadRiders(view.scene).then(() => {
-    if (mode === "menu") enterMenu();
-  }, () => {});
+  preloadRiders(view.scene).then(
+    () => {
+      if (mode === "menu") enterMenu();
+    },
+    () => {},
+  );
 
   /*
    * The real simulation, which solo and attract play step here in the page.
@@ -104,6 +107,7 @@ function boot() {
     onSfxVolume,
     onArena,
     onTogether,
+    onSound,
   });
 
   // Restore the saved arena size before the very first match (the attract
@@ -113,7 +117,11 @@ function boot() {
   let savedArena = ARENA_DEFAULT;
   try {
     const parsed = parseInt(localStorage.getItem("neonfox.arena.v1"), 10);
-    if (Number.isInteger(parsed) && parsed >= 0 && parsed < ARENA_SIZES.length) {
+    if (
+      Number.isInteger(parsed) &&
+      parsed >= 0 &&
+      parsed < ARENA_SIZES.length
+    ) {
       savedArena = parsed;
     }
   } catch {
@@ -207,7 +215,10 @@ function boot() {
     // to the field (target: 0); a real match instead uses whatever the host
     // set on the "Win at" slider, read here rather than baked into opts by
     // the caller so beginMatch() doesn't have to know Match's own contract.
-    match = new Match(world, specs, { ...opts, target: opts.attract ? 0 : ui.target });
+    match = new Match(world, specs, {
+      ...opts,
+      target: opts.attract ? 0 : ui.target,
+    });
     const events = [];
     match.start(events);
 
@@ -267,7 +278,7 @@ function boot() {
         name: p.name,
         hex: PALETTE[p.colorIndex].hex,
       })),
-      match.target
+      match.target,
     );
     // The first roundStart fired inside startMatch, before the scoreboard
     // rows existed, so paint the zeroes onto the fresh HUD here.
@@ -372,7 +383,7 @@ function boot() {
         name: p.name,
         hex: PALETTE[p.colorIndex].hex,
       })),
-      match.target
+      match.target,
     );
     ui.setScores(match.scores, aliveMap());
     ui.setTouchVisible(true);
@@ -391,6 +402,19 @@ function boot() {
   function onMenu() {
     sfx.click();
     enterMenu();
+  }
+
+  /*
+   * The sound menu opening or closing. ui.js has already decided which panel
+   * is on screen; this is only the noise that press deserves — and the
+   * unlock, because opening the mixer is a genuine user gesture and the
+   * whole point of standing in front of the effects slider is to hear it
+   * move. Doing that here rather than the first time the slider is dragged
+   * means the very first drag makes a sound too.
+   */
+  function onSound() {
+    sfx.unlock();
+    sfx.click();
   }
 
   function onMusicVolume(v) {
@@ -535,7 +559,12 @@ function boot() {
     // Human turns above still reach the sim exactly as before; a dead
     // rider's seat is simply ignored there. Spectating only decides what the
     // camera does with the same seats once nobody is left to steer.
-    if (inPlay() && match.state === "playing" && !humansAlive() && !spectating) {
+    if (
+      inPlay() &&
+      match.state === "playing" &&
+      !humansAlive() &&
+      !spectating
+    ) {
       spectating = true;
       spectateStop = 1; // the first living rider; stops()[0] is the overview
       view.setMode("follow");

@@ -71,7 +71,13 @@
 // v1.3.0  A WAY IN AND A WAY OUT. js/screen.js joins the precache: a
 //         fullscreen toggle, a quit button when the arcade's exit.js answers,
 //         and Space no longer starts a match from a focused control.
-const VERSION = "v1.3.0";
+// v1.4.0  TWO DOORS AND A MIXING DESK. Solo and together are the same pill in
+//         the paddock now, and the volume sliders moved out of it into a
+//         #sound panel of their own. ../arcade/exit.js is marked data-handled,
+//         so serving this game on its own no longer raises a crash bar over a
+//         file it was written not to need. No new files: index.html, the
+//         stylesheet and js/ui.js carry all of it.
+const VERSION = "v1.4.0";
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting

@@ -138,6 +138,10 @@ playing it.
   composed in Sonic Pi and rendered, rather than synthesized at runtime. The
   theme is a render; the small cues are still WebAudio oscillators from
   before the rule changed and want moving. Music and effects have separate
-  volume sliders on the menu.
-- **No multiplayer networking.** The structure is ready for it; the code is
-  not written.
+  volume sliders, behind the paddock's Sound pill rather than on the title
+  screen itself: they are set once, so they do not need to be permanently in
+  front of a player who came here to ride.
+- **Multiplayer has no host migration and no TURN.** Both doors out of the
+  paddock — Blaze! and Play together — are the same size, but the peer-to-peer
+  one carries the honest limits `docs/P2P.md` writes down: the host closing
+  its tab ends the game, and a network pair that needs a relay never connects.

@@ -17,7 +17,14 @@
  * follow the same "silent restore" shape: setVolumes(music, sfx) moves both
  * without firing onMusicVolume/onSfxVolume, so main.js can put a saved
  * mix back on screen at boot without that itself counting as the player
- * choosing a new one.
+ * choosing a new one. Those two sliders now live in their own #sound panel
+ * rather than in the paddock, which changes nothing about the wiring — the
+ * ids are the same and both panels are inside the same root — beyond the
+ * one new job this file picks up: swapping #menu and #sound so only ever
+ * one of them is on screen. That swap is pure DOM state, the same kind of
+ * thing showMenu/hideMenu already are, so it lives here rather than in the
+ * glue; the only thing main.js is told is that a sound button was pressed
+ * (onSound), because making a noise is its department, not this one's.
  */
 
 import { MAX_PLAYERS, ARENA_SIZES } from "./config.js";
@@ -38,14 +45,17 @@ export class UI {
       onMusicVolume,
       onSfxVolume,
       onTogether,
+      onSound,
     } = {},
   ) {
     this.root = root;
     this.onArena = onArena || (() => {});
     this.onMusicVolume = onMusicVolume || (() => {});
     this.onSfxVolume = onSfxVolume || (() => {});
+    this.onSound = onSound || (() => {});
 
     this.menuEl = root.querySelector("#menu");
+    this.soundEl = root.querySelector("#sound");
     this.hudEl = root.querySelector("#hud");
     this.scoresEl = root.querySelector("#scores");
     this.targetEl = root.querySelector("#target-label");
@@ -107,6 +117,31 @@ export class UI {
     const together = root.querySelector("#together");
     if (together && onTogether)
       together.addEventListener("click", () => onTogether());
+
+    /*
+     * The door to the sound menu, and the way back out of it. Both hand the
+     * press to main.js before swapping panels: opening the mixer is a real
+     * user gesture, and it is the gesture that lets the glue unlock the
+     * audio context, so by the time the effects slider is on screen dragging
+     * it can actually be heard. Focus follows the panel that appeared —
+     * hiding the element that currently holds focus otherwise drops it on
+     * the body, which strands anyone steering this with a keyboard.
+     */
+    this.soundOpenEl = root.querySelector("#sound-open");
+    const soundBack = root.querySelector("#sound-back");
+    if (this.soundOpenEl) {
+      this.soundOpenEl.addEventListener("click", () => {
+        this.onSound();
+        this.showSound();
+      });
+    }
+    if (soundBack) {
+      soundBack.addEventListener("click", () => {
+        this.onSound();
+        this.showMenu();
+        this.soundOpenEl?.focus();
+      });
+    }
 
     // Leaving the whole arcade, not just this game's own menu (#to-menu
     // does that, from a match banner, back to #menu). arcade/exit.js is
@@ -267,14 +302,30 @@ export class UI {
 
   showMenu() {
     this.menuEl.hidden = false;
+    if (this.soundEl) this.soundEl.hidden = true;
     // The menu and the in-match overlays are mutually exclusive states.
     this.hideBanner();
     this.hideHud();
     this.hideSpectate();
   }
 
+  /*
+   * hideMenu takes the sound panel with it, and every caller depends on that
+   * without knowing it: the lobby, and a match started from the keyboard,
+   * both only ask for the paddock to go away. Leaving a mixer floating over
+   * a running round would be the bug.
+   */
   hideMenu() {
     this.menuEl.hidden = true;
+    if (this.soundEl) this.soundEl.hidden = true;
+  }
+
+  /** The sound menu, in the paddock's place. */
+  showSound() {
+    if (!this.soundEl) return;
+    this.menuEl.hidden = true;
+    this.soundEl.hidden = false;
+    this.soundEl.focus();
   }
 
   /** players: [{ id, name, hex }]; rebuilds the chip list from scratch. */

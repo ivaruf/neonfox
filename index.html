@@ -56,8 +56,19 @@
       header explains why). It draws nothing — the quit button below, in
       the menu, is NeonFox's own. Classic and deferred on purpose, so
       /arcade/ being unreachable costs only that button, never the page.
+
+      It is EXPECTED to 404 sometimes, and data-handled says so: the crash
+      bar at the bottom of this file skips any script tag carrying that
+      attribute. Serve this directory on its own — `python3 -m http.server`
+      rooted at the game rather than at ~/projects/games — and "../" cannot
+      climb above the server root, so the browser asks for /arcade/exit.js
+      and is told no. On ivaruf.github.io/neonfox/ the same relative path
+      reaches the sibling repo and loads. js/ui.js only ever asks whether
+      window.ArcadeExit turned up, so both outcomes are already correct;
+      what would be wrong is a red bar announcing a missing file the game
+      was written not to need.
     -->
-    <script src="../arcade/exit.js" defer></script>
+    <script src="../arcade/exit.js" defer data-handled="optional"></script>
   </head>
   <body>
     <!--
@@ -156,14 +167,82 @@
           </div>
         </div>
 
-        <button type="button" id="start" class="primary">Blaze!</button>
-        <button type="button" id="together" class="ghost">Play together</button>
+        <!--
+          The paddock's two doors, and they are the same size on purpose.
+          Blaze! used to be a full-width gradient with "Play together" as a
+          thin ghost pill beneath it, which read as the game plus a footnote.
+          Riding against a friend on another screen is the same kind of
+          choice as riding against the rivals, so it gets the same pill; only
+          the gradient differs, and both are mixed from the rider palette.
+        -->
+        <div class="play">
+          <button type="button" id="start" class="primary">Blaze!</button>
+          <button type="button" id="together" class="primary together">
+            Play together
+          </button>
+        </div>
 
         <p class="hint">
           <kbd>←</kbd><kbd>→</kbd> steer · rider two on <kbd>A</kbd
           ><kbd>D</kbd> · <kbd>R</kbd> restarts the match · steer while the
           round loads to aim
         </p>
+
+        <!--
+          Session-level controls: how loud, whether the OS chrome is showing,
+          and how to leave. None of it is gameplay, so none of it is a .row
+          with a slider — they are plain .ghost pills. Two of the three start
+          hidden: only js/screen.js (fullscreen support) and js/ui.js
+          (window.ArcadeExit present) ever remove that hidden attribute, so a
+          browser or a hosting context that cannot do the thing never shows a
+          button that would do nothing. Sound is always available and so is
+          always here.
+        -->
+        <div class="menu-tools">
+          <button type="button" id="sound-open" class="ghost">Sound</button>
+          <button
+            type="button"
+            id="screen-toggle"
+            class="ghost"
+            aria-pressed="false"
+            hidden
+          >
+            Fill the arena
+          </button>
+          <button type="button" id="quit" class="ghost" hidden>
+            Back to the den
+          </button>
+        </div>
+
+        <!--
+          Which build is actually serving this session, asked of the service
+          worker rather than baked into the page — a string compiled into the
+          HTML tells you where the HTML came from, which during a bad release is
+          the one thing you already know. Stays hidden when there is no worker.
+        -->
+        <p id="build" hidden></p>
+      </section>
+
+      <!--
+        The sound menu. Both sliders used to sit in the paddock between the
+        way into a match and the way out of the game, which put a mixing desk
+        in the middle of a title screen — and they are set once, so by the
+        hub's own rule they belong behind a door rather than permanently on
+        screen. The ids did not move, so js/ui.js wires exactly the controls
+        it always did; only which panel they sit in changed. ui.js swaps the
+        two panels, so the paddock and this are never both up, and
+        tabindex="-1" is here so opening it can put focus inside the thing
+        that just appeared instead of dropping it on the body.
+      -->
+      <section
+        id="sound"
+        class="panel"
+        aria-labelledby="sound-title"
+        tabindex="-1"
+        hidden
+      >
+        <p class="kicker">How loud is the arena</p>
+        <h2 id="sound-title">Sound</h2>
 
         <div class="row">
           <label class="label" for="music-vol">Music</label>
@@ -195,37 +274,14 @@
           </div>
         </div>
 
-        <!--
-          Session-level controls: whether the OS chrome is showing, and how
-          to leave. Neither is gameplay, so neither is a .row with a
-          slider — both are plain .ghost pills, and both start hidden. Only
-          js/screen.js (fullscreen support) and js/ui.js (window.ArcadeExit
-          present) ever remove that hidden attribute, so a browser or a
-          hosting context that cannot do the thing never shows a button
-          that would do nothing.
-        -->
-        <div class="menu-tools">
-          <button
-            type="button"
-            id="screen-toggle"
-            class="ghost"
-            aria-pressed="false"
-            hidden
-          >
-            Fill the arena
-          </button>
-          <button type="button" id="quit" class="ghost" hidden>
-            Back to the den
-          </button>
-        </div>
+        <p class="hint">
+          The theme rides under the whole match. Effects are the yips, the
+          crashes and the fanfare — drag that one and you will hear it.
+        </p>
 
-        <!--
-          Which build is actually serving this session, asked of the service
-          worker rather than baked into the page — a string compiled into the
-          HTML tells you where the HTML came from, which during a bad release is
-          the one thing you already know. Stays hidden when there is no worker.
-        -->
-        <p id="build" hidden></p>
+        <button type="button" id="sound-back" class="ghost">
+          Back to the paddock
+        </button>
       </section>
 
       <!-- Live scoreboard during a match. -->
@@ -306,6 +362,11 @@
           "error",
           function (e) {
             var t = e.target;
+            // data-handled marks a script whose failure is already dealt
+            // with: the two CDN tags name the vendor copy behind them, and
+            // ../arcade/exit.js says "optional" because it is another
+            // repo's file and is simply absent when this game is served on
+            // its own. Any non-empty value counts.
             if (t && t.tagName === "SCRIPT" && t.dataset && t.dataset.handled)
               return;
             if (t && t.tagName === "SCRIPT") {

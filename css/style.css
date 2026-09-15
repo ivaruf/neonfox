@@ -112,18 +112,42 @@ button:focus-visible {
  * rather than hidden, because display:none takes it from the accessibility
  * tree too.
  */
-h1 {
+/*
+ * Scoped to #title, not to every h1 on the page. It used to be a bare `h1`,
+ * which reaches every panel — and js/net/lobby.js builds its heading as an
+ * h1 with text in it, so "Together" and "Find a game" were being rendered at
+ * font-size 0. A heading with no artwork behind it takes the rule below
+ * instead.
+ */
+#title {
   margin: 2px 0 10px;
   font-size: 0;
   line-height: 0;
 }
-h1 img {
+#title img {
   display: block;
   width: 100%;
   height: auto;
   /* The art is trimmed to its own glow, which reaches well past the fox, so
    * a little negative margin stops the panel looking over-padded. */
   margin: -4% -2% -6%;
+}
+
+/*
+ * Every other panel's heading — the sound menu's, and the two the lobby
+ * writes. The paddock spends its heading on codex's logo; these are words,
+ * so they carry the rim light the logo carries in its own artwork.
+ */
+.panel h1,
+.panel h2 {
+  margin: 0 0 14px;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 14px rgba(70, 230, 255, 0.5),
+    0 0 40px rgba(70, 230, 255, 0.25);
 }
 
 .row {
@@ -280,6 +304,50 @@ h1 img {
   transform: scale(0.98);
 }
 
+/*
+ * The paddock's two doors. Equal width, equal height, equal type, because a
+ * match against the rivals and a match against a friend on another screen are
+ * the same size of decision — the old pairing put a full-brightness Blaze!
+ * over a thin ghost pill and said otherwise.
+ *
+ * They wrap their labels rather than shrink their type: "Play together" is
+ * twice the word count of "Blaze!" and takes two lines on a narrow phone,
+ * which the shared min-height absorbs so both pills stay exactly as tall as
+ * each other whatever the viewport does to the text.
+ */
+.play {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0 12px;
+}
+.play .primary {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 17px;
+  line-height: 1.15;
+  letter-spacing: 0.08em;
+}
+/*
+ * Same pill, different door. Blaze! keeps the cool half of the palette
+ * (Bolt's blue running into Mochi through the rim cyan); together takes the
+ * warm half — Plum, Mochi, Tango — so the pair reads as two choices rather
+ * than one button drawn twice.
+ */
+.primary.together {
+  background: linear-gradient(135deg, #b07cff, #ff5fb4 55%, #ffa03c);
+  box-shadow:
+    0 0 24px rgba(255, 95, 180, 0.5),
+    0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.primary.together:hover {
+  box-shadow:
+    0 0 36px rgba(255, 95, 180, 0.75),
+    0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
 .ghost {
   min-height: 38px;
   padding: 6px 16px;
@@ -381,10 +449,10 @@ h1 img {
 }
 
 /*
- * Session-level controls: whether the OS chrome is showing, and how to
- * leave. Neither is gameplay, so both sit as their own .ghost pills rather
- * than joining a .row's label + slider/seg shape, in a small flex row that
- * wraps if the panel gets narrow enough to need it.
+ * Session-level controls: how loud, whether the OS chrome is showing, and how
+ * to leave. None of it is gameplay, so all three sit as their own .ghost
+ * pills rather than joining a .row's label + slider/seg shape, in a small
+ * flex row that wraps if the panel gets narrow enough to need it.
  */
 .menu-tools {
   display: flex;

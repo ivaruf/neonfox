@@ -200,7 +200,7 @@ export class Input {
 
 // ui.js
 export class UI {
-  constructor(root, { onStart, onRematch, onMenu, onArena, onMusicVolume, onSfxVolume })
+  constructor(root, { onStart, onRematch, onMenu, onArena, onMusicVolume, onSfxVolume, onTogether, onSound })
   get humans()   // 1 | 2 from the Riders row
   get ais()      // 1..5 from the Rivals row; humans + ais <= MAX_PLAYERS enforced by disabling
   get arena()    // index into ARENA_SIZES from the slider
@@ -209,7 +209,12 @@ export class UI {
   // until the host moves it, after which their number sticks for the session.
   setArena(i)    // move the slider and its label without firing onArena
   // onArena(index) fires on the slider's `change` (release); the name label follows `input` live
-  showMenu(); hideMenu();
+  showMenu(); hideMenu(); showSound();
+  // #menu and #sound are one slot: showMenu shows the paddock and hides the
+  // sound panel, showSound does the reverse, hideMenu takes both away (a match
+  // started from the keyboard must not leave a mixer floating over the round).
+  // onSound() fires on both the Sound pill and its Back — the glue's cue to
+  // click and unlock the audio context, nothing about which panel is up.
   showHud(players /* [{ id, name, hex }] */, target); hideHud();
   setScores(scores /* id -> points */, aliveById /* id -> bool */)
   banner(text, { sub = '', hex = '', actions = false } = {}); hideBanner();
@@ -217,9 +222,9 @@ export class UI {
   setSpectate(text, hex)     // caption above the touch buttons: whose ride the camera is on
   hideSpectate()
   setVolumes(music, sfx)     // move both sliders and their readouts without firing the callbacks
-  // The volume sliders fire onMusicVolume(0..1) / onSfxVolume(0..1) on `input`,
-  // live while dragging, because a volume you cannot hear until you let go is
-  // not a volume control.
+  // The volume sliders live in #sound, not #menu, and fire onMusicVolume(0..1)
+  // / onSfxVolume(0..1) on `input`, live while dragging, because a volume you
+  // cannot hear until you let go is not a volume control.
   touchButtons               // { left, right } HTMLButtonElements
 }
 // Uses the ids already in index.html. No new DOM structure without updating index.html.

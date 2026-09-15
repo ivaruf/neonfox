@@ -456,7 +456,10 @@ export function mountEntry(onClick) {
   const button = document.createElement("button");
   button.type = "button";
   button.id = "together";
-  button.className = "ghost";
+  // The same pill Blaze! wears, because the paddock gives its two doors equal
+  // weight; #start sits inside the .play row, so inserting after it lands
+  // this in that row and the pair shares its width evenly either way.
+  button.className = "primary together";
   button.textContent = "Play together";
   start.insertAdjacentElement("afterend", button);
   button.addEventListener("click", onClick);
