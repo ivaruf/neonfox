@@ -1,5 +1,25 @@
 # Trailblazers — Codex concepts
 
+## Running fox · orb gait study
+
+`fox-running.blend` and `fox-running.glb` contain the new running study;
+`fox-running-rider.glb` is the separate animated rider. The orb geometry remains
+the same as `fox-detailed-orb.glb`. Previous detailed cruising and original
+lower-detail fox assets are preserved.
+
+`Run_On_Orb` is a 0.8-second loop at 30 fps. Twelve leg bones articulate four
+legs, with opposite diagonal pairs alternating. Stance targets sweep along the
+orb surface; recovery steps lift clear before coming forward again. Body bounce,
+ear/fur motion and the existing six-bone tail provide secondary movement.
+`RiderRoot` and `OrbRoot` remain unkeyed and independent for jumps and flips.
+
+`fox-running-preview.png` is the still; `fox-run-preview.gif` and
+`fox-run-preview.mp4` show the gait. `build_fox_run.py` reads the detailed cruising
+Blender file and writes the new assets and animation frames. The clip duration,
+matching endpoints, skin export and independent roots were checked. Rendered
+contact/recovery poses were reviewed. This is an authored animation study; no
+gameplay integration or playtesting was performed.
+
 ## Detailed fox · cruising study
 
 The original `orange-fox.blend` and its GLBs remain untouched as the lower-detail
