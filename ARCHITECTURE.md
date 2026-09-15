@@ -99,6 +99,9 @@ export function createScene(canvas) => ({
   update(dt),            // once per frame before scene.render(): camera + shake decay
   setMode(mode),         // 'play' whole-arena view | 'orbit' slow menu orbit | 'follow' chase cam
   setFollow(x, y, heading), // sim pose of the rider to chase; call every frame while in 'follow'
+  spin(dYaw, dPitch),    // spectator orbit: accumulate a yaw/pitch offset (radians); pitch clamped
+  zoom(factor),          // multiply the spectator distance scale (clamped 0.35..3)
+  resetOrbit(),          // yaw, pitch and zoom back to defaults (round start, stop changes)
   kick(amount),          // camera shake impulse in arena units (0.4 small, 0.9 big)
   setArena(half),        // rebuild floor, beams and slabs for a new half-size; refit camera
 });
@@ -158,6 +161,10 @@ export class Input {
   constructor()                       // listens on window
   turn(seat)                          // -1 | 0 | 1; seat 0: ArrowLeft/ArrowRight + touch; seat 1: A/D and Q/E
   bindTouch(leftButton, rightButton)  // pointer events with capture; toggles .held
+  bindDrag(canvas)                    // pointer drag, wheel and two-finger pinch on the arena
+  takeDrag()                          // {dx, dy, dz} accumulated since last call, then zeroed (reused object);
+                                      // dx/dy drag in CSS px, dz zoom in wheel-pixel units (pinch is converted: 1 px of pinch spread = -1 dz)
+  zoomKey()                           // +1 ArrowUp (in) | -1 ArrowDown (out) | 0, held state
   onCommand = null                    // (name) => void: 'start' Enter/Space, 'restart' R, 'menu' Escape
 }
 // Left is +1. Prevent default on arrows and space so the page never scrolls.
@@ -216,6 +223,18 @@ export class Sfx {
   holds. If the followed rider dies the view moves on to the next living one.
   The caption names who you are riding with; roundStart returns to 'play' and
   hides it.
+- **Spinning while spectating.** Dragging on the arena orbits the camera:
+  horizontal drag is yaw, vertical is pitch, `view.spin(dx * 0.006, -dy * 0.004)`
+  per step from `input.takeDrag()`. Holding a steering control for longer than
+  `SPIN_HOLD_SECONDS` (0.3) spins yaw continuously at `SPIN_RATE` (1.8 rad/s)
+  in that direction while held; a control released before that threshold
+  counts as a tap and cycles the stop on release. In 'follow' the offset
+  orbits around the followed rider (azimuth = heading + π + yaw, elevation
+  base + pitch); in the overview stop it rotates the whole arena view (alpha
+  target = yaw, beta target = PLAY_BETA + pitch). Zoom: `view.zoom(Math.exp(dz * 0.0015))`
+  from the same `takeDrag()`, and `view.zoom(Math.exp(zoomKey() * ZOOM_KEY_RATE * TICK))`
+  while an arrow is held; the scale multiplies the follow distance and the
+  overview fit distance. `resetOrbit()` on every stop change and round start.
 
 ## Ownership
 

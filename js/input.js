@@ -1,6 +1,7 @@
 /*
  * input.js — keyboard + touch buttons -> turn per seat, plus one-shot
- * commands (start / restart / menu).
+ * commands (start / restart / menu), plus the spectator camera's own reads:
+ * a drag/pinch/wheel accumulator and the up/down zoom keys.
  *
  * This module owns nothing but a live "what is currently held" picture: a
  * Set of key codes plus two touch flags. turn(seat) reads that picture on
@@ -13,7 +14,17 @@
  *
  * No DOM structure is invented here: bindTouch() is handed the two button
  * elements index.html already defines and only ever reads/writes their
- * `held` class and pointer capture.
+ * `held` class and pointer capture. bindDrag() is handed the arena canvas
+ * itself and reads pointer/wheel events already scoped to it — CSS already
+ * sets `touch-action: none` there, so a finger drag never scrolls the page,
+ * and attaching to the canvas rather than window means the touch steering
+ * buttons (their own elements, capturing their own pointers) never reach it.
+ *
+ * The drag/pinch/wheel picture is an accumulator, same idea as `held`: three
+ * numbers (dx, dy, dz) that grow between takeDrag() calls and are handed
+ * back and zeroed once a step, so a frame's worth of pointer motion is spent
+ * exactly once by whoever asked for it (main.js, once a step, while
+ * spectating — see ARCHITECTURE.md "Spinning while spectating").
  */
 
 const SCROLL_KEYS = new Set([
@@ -37,6 +48,13 @@ export class Input {
     // turn(0) simply ORs the two sources together instead.
     this._touchLeft = false;
     this._touchRight = false;
+
+    // Drag/pinch/wheel accumulator (see the header comment) plus a second,
+    // identically-shaped object that takeDrag() copies into and hands out —
+    // so the object a caller is reading from is never the one this class is
+    // still zeroing on the very next pointer event.
+    this._drag = { dx: 0, dy: 0, dz: 0 };
+    this._dragOut = { dx: 0, dy: 0, dz: 0 };
 
     window.addEventListener("keydown", (event) => {
       // Arrows and space must never scroll the page, even on the very
@@ -86,6 +104,14 @@ export class Input {
     return this._touchLeft || this._touchRight;
   }
 
+  /** +1 ArrowUp (zoom in) | -1 ArrowDown (zoom out) | 0 neither or both held. */
+  zoomKey() {
+    const up = this.held.has("ArrowUp");
+    const down = this.held.has("ArrowDown");
+    if (up === down) return 0;
+    return up ? 1 : -1;
+  }
+
   /**
    * Wire the two on-screen steering buttons. Pointer capture (not a plain
    * click/press pair) means a thumb that drifts off the button while still
@@ -120,5 +146,98 @@ export class Input {
 
     wire(leftButton, "_touchLeft");
     wire(rightButton, "_touchRight");
+  }
+
+  /**
+   * Wire the spectator camera's drag/pinch/wheel input onto the arena
+   * canvas. One pointer down accumulates its CSS-pixel motion straight into
+   * dx/dy; a second pointer down switches to pinch, where it is the *change*
+   * in the distance between the two pointers that accumulates, into dz —
+   * fingers spreading apart shrink dz (zoom in), matching wheel-up below, so
+   * main.js never has to know which gesture produced a given dz. Pointer
+   * capture is per-pointer (not exclusive), so both fingers of a pinch can
+   * be tracked at once without one stealing the other's events.
+   */
+  bindDrag(canvas) {
+    const pointers = new Map(); // pointerId -> last {x, y} in CSS px
+    let lastSpread = null; // distance between the two pointers, previous frame
+
+    const spread = () => {
+      if (pointers.size < 2) return null;
+      const [a, b] = pointers.values();
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    };
+
+    canvas.addEventListener("pointerdown", (event) => {
+      try {
+        canvas.setPointerCapture(event.pointerId);
+      } catch {
+        // Capture can fail (e.g. the pointer already went away); the move
+        // and up handlers below still key off the id in `pointers`.
+      }
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      lastSpread = spread();
+    });
+
+    canvas.addEventListener("pointermove", (event) => {
+      const p = pointers.get(event.pointerId);
+      if (!p) return; // a pointer that never landed on the canvas (e.g. a touch button)
+      const dx = event.clientX - p.x;
+      const dy = event.clientY - p.y;
+      p.x = event.clientX;
+      p.y = event.clientY;
+
+      if (pointers.size >= 2) {
+        // Pinching: only the spread (zoom) is meaningful, so the pan/orbit
+        // accumulator is left untouched while a second finger is down.
+        const now = spread();
+        if (lastSpread != null && now != null) {
+          this._drag.dz += -(now - lastSpread);
+        }
+        lastSpread = now;
+      } else {
+        this._drag.dx += dx;
+        this._drag.dy += dy;
+      }
+    });
+
+    const release = (event) => {
+      pointers.delete(event.pointerId);
+      lastSpread = spread();
+    };
+    canvas.addEventListener("pointerup", release);
+    canvas.addEventListener("pointercancel", release);
+
+    // Wheel deltas arrive in one of three units; only "line" shows up on any
+    // device likely to reach this game, so it is the only one normalised —
+    // to about one text line's worth of pixels, the browsers' own rule of
+    // thumb for DOM_DELTA_LINE.
+    canvas.addEventListener(
+      "wheel",
+      (event) => {
+        event.preventDefault();
+        const scale = event.deltaMode === 1 ? 16 : 1;
+        this._drag.dz += event.deltaY * scale;
+      },
+      { passive: false },
+    );
+  }
+
+  /**
+   * The drag/pinch/wheel accumulator since the last call, then zeroed. Hands
+   * back `_dragOut` rather than `_drag` itself: main.js reads the returned
+   * object after this call returns, by which point `_drag` is already back
+   * at zero and free to accumulate the next step's motion, so there is no
+   * object here that is simultaneously "what the caller is reading" and
+   * "what a pointermove is still writing to".
+   */
+  takeDrag() {
+    this._dragOut.dx = this._drag.dx;
+    this._dragOut.dy = this._drag.dy;
+    this._dragOut.dz = this._drag.dz;
+    this._drag.dx = 0;
+    this._drag.dy = 0;
+    this._drag.dz = 0;
+    return this._dragOut;
   }
 }

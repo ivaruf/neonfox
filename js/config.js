@@ -62,6 +62,12 @@ export const SELF_IGNORE_TICKS = 10;
  * disc six cells wide, so the 0.15 units moved per tick never leave holes. */
 export const GRID_CELL = 0.1;
 
+/* Spectator camera: hold a steering control this long and it spins the view
+ * instead of switching it; the spin runs at SPIN_RATE while held. */
+export const SPIN_HOLD_SECONDS = 0.3;
+export const SPIN_RATE = 1.8; // radians per second
+export const ZOOM_KEY_RATE = 1.0; // natural-log units per second while an arrow is held
+
 /* Visual-only numbers. */
 export const TRAIL_HEIGHT = 0.34;
 export const TRAIL_POINT_SPACING = 0.25; // ribbon vertex spacing along the trail

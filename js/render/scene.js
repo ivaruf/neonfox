@@ -17,6 +17,14 @@
  * trail read from behind a rider is a wall you are about to hit rather than a
  * line on a map.
  *
+ * A spectator can also move the camera: spin() accumulates a yaw and a pitch
+ * offset and zoom() a distance scale, which the chase applies around the rider
+ * it is following and the overview applies to the whole arena. They are
+ * offsets on top of each view rather than a camera of their own, so
+ * resetOrbit() is all it takes to put either view back exactly where it was —
+ * and while nobody is spectating they sit at their defaults and neither view
+ * knows they exist.
+ *
  * The arena is a SQUARE spanning -half..half on both x and z, and the half-
  * size is now chosen in the menu rather than fixed: 18 to 48 units, applied
  * before every match — attract included, so the menu previews the size live.
@@ -70,6 +78,26 @@ const FOLLOW_BACK = 9;
 const FOLLOW_HEIGHT = 5.5;
 const FOLLOW_AHEAD = 5;
 const FOLLOW_AIM_HEIGHT = 0.8; // just above the trails, not down at the floor
+
+/* The same chase offset said in polar: a radius and an elevation about the
+ * rider. Derived rather than typed so the two forms cannot drift apart —
+ * atan2(5.5, 9) is 0.55 rad and the radius is 10.55 — and it is the polar form
+ * a spectator's yaw and pitch are added to. */
+const FOLLOW_ELEV = Math.atan2(FOLLOW_HEIGHT, FOLLOW_BACK);
+const FOLLOW_RADIUS = Math.hypot(FOLLOW_BACK, FOLLOW_HEIGHT);
+
+/* Limits on what a spectator can do to the camera. Pitch is an offset on the
+ * base elevation of whichever view is running: down 0.35 rad still leaves the
+ * chase above the trails and out of the floor, up 0.75 stops short of straight
+ * overhead, where a look-at with a +y up vector has no idea which way is up.
+ * The overview is clamped absolutely instead — it starts nearly overhead, so
+ * the same offsets would push it through the ceiling. */
+const PITCH_MIN = -0.35;
+const PITCH_MAX = 0.75;
+const PLAY_BETA_MIN = 0.12;
+const PLAY_BETA_MAX = 1.25;
+const ZOOM_MIN = 0.35; // a third of the way in
+const ZOOM_MAX = 3; // three times out, enough to see the whole vast arena
 
 /* Two lenses. The overview wants a long one so the square does not bow at the
  * corners; the chase wants a wide one so the speed reads as speed. */
@@ -206,6 +234,15 @@ export function createScene(canvas) {
   let followX = 0;
   let followY = 0;
   let followHeading = 0;
+
+  /* The spectator's own offsets, applied by both the chase and the overview.
+   * They are allowed to snap: nothing reads them but the desired position and
+   * aim, and those are smoothed, so a jump here comes out as a glide. yaw is
+   * deliberately never wrapped — a held spin should keep turning the same way
+   * past half a turn, not reverse — and resetOrbit() unwinds it instead. */
+  let yaw = 0;
+  let pitch = 0;
+  let zoomScale = 1;
 
   // Start where the fit says rather than gliding in from the origin on the
   // first frame: there is nothing to transition from when the game opens.
@@ -422,9 +459,16 @@ export function createScene(canvas) {
       distTarget = fit.dist * ORBIT_CLOSE;
       tzTarget = 0;
     } else {
-      alpha += (0 - alpha) * k;
-      beta += (PLAY_BETA - beta) * k;
-      distTarget = fit.dist;
+      // The overview, plus whatever the spectator has done to it. Rotating
+      // alpha turns the square within the frame, so the fitted corners can
+      // leave it — the fit is solved for alpha 0 and is not re-solved per
+      // angle. That is the spectator's choice to make, and the cost of the
+      // alternative (fitting a rotated square every frame) buys nothing for
+      // the one view that matters, which is the one at yaw 0.
+      alpha += (yaw - alpha) * k;
+      beta +=
+        (clamp(PLAY_BETA + pitch, PLAY_BETA_MIN, PLAY_BETA_MAX) - beta) * k;
+      distTarget = fit.dist * zoomScale;
       tzTarget = fit.tz;
     }
 
@@ -440,15 +484,30 @@ export function createScene(canvas) {
       // (x, 0, y), so the rider's forward along the floor is (cos h, 0, sin h).
       const fx = Math.cos(followHeading);
       const fz = Math.sin(followHeading);
+
+      // The chase as a polar offset about the rider: half a turn round from
+      // the way it is facing puts the camera behind it, and the spectator's
+      // yaw walks round from there. At yaw 0 and pitch 0 this is exactly the
+      // back-9 up-5.5 boom FOLLOW_ELEV and FOLLOW_RADIUS were derived from.
+      const az = followHeading + Math.PI + yaw;
+      const elev = FOLLOW_ELEV + pitch;
+      const r = FOLLOW_RADIUS * zoomScale;
+      const flat = r * Math.cos(elev);
       desiredPos.copyFromFloats(
-        followX - fx * FOLLOW_BACK,
-        FOLLOW_HEIGHT,
-        followY - fz * FOLLOW_BACK
+        followX + flat * Math.cos(az),
+        r * Math.sin(elev),
+        followY + flat * Math.sin(az)
       );
+
+      // Look ahead of the rider only while the camera is actually behind it.
+      // Spun round to the side or the front, cos(yaw) goes to zero or negative
+      // and the aim collapses onto the rider itself — leading a rider you are
+      // looking at head-on would push it out of the frame backwards.
+      const lead = FOLLOW_AHEAD * Math.max(0, Math.cos(yaw));
       desiredAim.copyFromFloats(
-        followX + fx * FOLLOW_AHEAD,
+        followX + fx * lead,
         FOLLOW_AIM_HEIGHT,
-        followY + fz * FOLLOW_AHEAD
+        followY + fz * lead
       );
     } else {
       sphericalInto(desiredPos);
@@ -512,6 +571,32 @@ export function createScene(canvas) {
     followHeading = heading;
   }
 
+  /* Add to the spectator's orbit. Both arguments are deltas in radians, which
+   * is what a drag and a held control both produce naturally; accumulating
+   * here rather than taking absolute angles means main.js never has to hold a
+   * copy of the camera's state to add to. */
+  function spin(dYaw, dPitch) {
+    yaw += dYaw;
+    pitch = clamp(pitch + dPitch, PITCH_MIN, PITCH_MAX);
+  }
+
+  /* Multiplicative, not additive: a drag of the same length should change the
+   * view by the same proportion whether it starts close in or far out. */
+  function zoom(factor) {
+    zoomScale = clamp(zoomScale * factor, ZOOM_MIN, ZOOM_MAX);
+  }
+
+  /* Back to the view as designed — called on every change of stop and at the
+   * start of a round. alpha comes home the short way: after a long held spin
+   * yaw is several turns from zero, and the overview would otherwise unwind
+   * every one of them on its way back. */
+  function resetOrbit() {
+    yaw = 0;
+    pitch = 0;
+    zoomScale = 1;
+    alpha = wrapAngle(alpha);
+  }
+
   function setMode(next) {
     if (next === mode) return;
     if (mode === "orbit") {
@@ -532,7 +617,23 @@ export function createScene(canvas) {
     shake = Math.max(shake, amount);
   }
 
-  return { engine, scene, update, setMode, setFollow, kick, setArena };
+  return {
+    engine,
+    scene,
+    update,
+    setMode,
+    setFollow,
+    spin,
+    zoom,
+    resetOrbit,
+    kick,
+    setArena,
+  };
+}
+
+/* Into [lo, hi]. */
+function clamp(v, lo, hi) {
+  return v < lo ? lo : v > hi ? hi : v;
 }
 
 /* Exponential lerp of one vector toward another, in place: the whole camera

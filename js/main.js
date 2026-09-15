@@ -31,6 +31,9 @@ import {
   PALETTE,
   ARENA_SIZES,
   ARENA_DEFAULT,
+  SPIN_HOLD_SECONDS,
+  SPIN_RATE,
+  ZOOM_KEY_RATE,
 } from "./config.js";
 import { World } from "./sim/world.js";
 import { Match } from "./sim/match.js";
@@ -94,6 +97,7 @@ function boot() {
   const riders = new Map(); // player id -> rider from createRider
 
   input.bindTouch(ui.touchButtons.left, ui.touchButtons.right);
+  input.bindDrag(document.getElementById("arena"));
   ui.setSound(sfx.enabled);
 
   let match = null;
@@ -103,19 +107,21 @@ function boot() {
   let goTimer = 0; // seconds of "Go!" banner left, counted in sim time
 
   /*
-   * Spectating (ARCHITECTURE.md "Spectating"): once every human rider is out
-   * but the round is still being fought over by the AI, steering stops
-   * steering a corpse and instead cycles the camera through a chase view of
-   * whoever is still alive, with an overview stop at one end of the cycle.
-   * spectateStop indexes into stops() below: 0 is the overview, 1.. are
-   * living riders in roster order. prevTurn holds each seat's turn from the
-   * previous step so a press can be told from a held key (an edge, not a
-   * level) the same way input.js already treats start/restart/menu.
+   * Spectating (ARCHITECTURE.md "Spectating" and "Spinning while
+   * spectating"): once every human rider is out but the round is still being
+   * fought over by the AI, steering stops steering a corpse. A tap of a
+   * seat's steering control instead cycles the camera through a chase view
+   * of whoever is still alive, with an overview stop at one end of the
+   * cycle; holding it past SPIN_HOLD_SECONDS spins that view instead of
+   * switching it. spectateStop indexes into stops() below: 0 is the
+   * overview, 1.. are living riders in roster order.
    */
   let spectating = false;
   let spectateStop = 0;
   let lastSpectateCaption = null; // last text handed to ui.setSpectate, so a step where nothing changed writes to the DOM zero times instead of sixty a second
-  const prevTurn = [0, 0];
+  let lastResolvedStop; // last value read from stops()[spectateStop]; deliberately starts undefined, which never equals a real stop (null or an id), so the very first resolve always counts as a change
+  const holdTime = [0, 0]; // seconds seat 0/1's steering control has been held continuously, while spectating
+  const heldDir = [0, 0]; // the direction each seat was steering, remembered so its release can be judged a tap or the end of a spin
 
   /* One Map, refilled every step: the sim reads it and never keeps it, so
    * there is no reason to allocate a new one sixty times a second. */
@@ -183,7 +189,9 @@ function boot() {
     spectating = false;
     spectateStop = 0;
     lastSpectateCaption = null;
+    lastResolvedStop = undefined;
     ui.hideSpectate();
+    view.resetOrbit();
     // Four rivals is enough to fill the arena with trails without the field
     // wiping itself out while someone is still reading the title.
     startMatch(buildSpecs(0, 4), { attract: true });
@@ -200,7 +208,9 @@ function boot() {
     spectating = false;
     spectateStop = 0;
     lastSpectateCaption = null;
+    lastResolvedStop = undefined;
     ui.hideSpectate();
+    view.resetOrbit();
     ui.hideMenu();
     startMatch(buildSpecs(ui.humans, ui.ais), {});
     ui.showHud(
@@ -293,6 +303,19 @@ function boot() {
     return list;
   }
 
+  /*
+   * A tap — a steering control released before it spun the view — moves the
+   * spectator one stop in the direction it was held: left (+1) back toward
+   * the overview, right (-1) forward through the living riders. Same cycle
+   * the direction ran under the old press-edge switch this replaces.
+   */
+  function cycleStop(dir) {
+    const list = stops();
+    const delta = dir > 0 ? -1 : 1;
+    spectateStop = (spectateStop + delta + list.length) % list.length;
+    sfx.click();
+  }
+
   function step() {
     // The "Go!" flash is counted in sim time, not by setTimeout: a paused or
     // backgrounded tab must not come back to a banner that expired while
@@ -303,18 +326,6 @@ function boot() {
         goTimer = 0;
         ui.hideBanner();
       }
-    }
-
-    // Press-edge detection for the spectator switch, ahead of reading the
-    // same seats for the sim's own steering: a held direction must move the
-    // view exactly once, on the frame it is first pressed, not once per tick
-    // for as long as the button stays down.
-    let pressedDir = 0; // +1 left / -1 right, the sim's own turn convention
-    for (let seat = 0; seat < 2; seat++) {
-      const t = input.turn(seat);
-      const pressed = t !== 0 && prevTurn[seat] === 0;
-      prevTurn[seat] = t;
-      if (pressed) pressedDir = t;
     }
 
     humanTurns.clear();
@@ -328,7 +339,7 @@ function boot() {
 
     // Human turns above still reach the sim exactly as before; a dead
     // rider's seat is simply ignored there. Spectating only decides what the
-    // camera does with the same presses once nobody is left to steer.
+    // camera does with the same seats once nobody is left to steer.
     if (
       mode === "match" &&
       match.state === "playing" &&
@@ -341,21 +352,58 @@ function boot() {
     }
 
     if (spectating && mode === "match") {
-      const list = stops();
-      if (pressedDir !== 0) {
-        // Left (+1) steps back toward the overview, right (-1) steps forward
-        // through the riders — the opposite sign from the sim's own steering
-        // because this is a menu of stops, not a heading.
-        const delta = pressedDir > 0 ? -1 : 1;
-        spectateStop = (spectateStop + delta + list.length) % list.length;
-        sfx.click();
+      // Tap vs hold, per seat: released before SPIN_HOLD_SECONDS cycles the
+      // stop (cycleStop, below — the same switch the old press-edge version
+      // did); held past it spins the view instead, continuously, for as long
+      // as it stays down. Both seats are tracked independently because a
+      // solo death still leaves the second seat free on a two-player
+      // keyboard, and their spin contributions are simply summed, so holding
+      // opposite directions on both seats cancels rather than fighting.
+      let spinYaw = 0;
+      for (let seat = 0; seat < 2; seat++) {
+        const t = input.turn(seat);
+        if (t !== 0) {
+          holdTime[seat] += TICK;
+          heldDir[seat] = t;
+          if (holdTime[seat] >= SPIN_HOLD_SECONDS) spinYaw += t;
+        } else if (holdTime[seat] > 0) {
+          if (holdTime[seat] < SPIN_HOLD_SECONDS) cycleStop(heldDir[seat]);
+          holdTime[seat] = 0;
+          heldDir[seat] = 0;
+        }
       }
-      // A rider dying between switches shrinks the list; clamp rather than
-      // index past the end, which walks the view on to whoever is left.
+      // Sign chosen so holding right orbits the camera to the right of the
+      // rider: turn() gives left = +1 / right = -1, the opposite sign from
+      // the yaw we want, hence the negation. Flip it here if it reads
+      // backwards on screen — scene.js does not need to change either way.
+      if (spinYaw !== 0) view.spin(-spinYaw * SPIN_RATE * TICK, 0);
+
+      // Drag, pinch and wheel, then the zoom keys — each read once a step so
+      // a frame's worth of pointer motion is spent exactly once.
+      const d = input.takeDrag();
+      if (d.dx || d.dy) view.spin(d.dx * 0.006, -d.dy * 0.004);
+      if (d.dz) view.zoom(Math.exp(d.dz * 0.0015));
+      const zk = input.zoomKey();
+      // zoomKey() gives +1 for ArrowUp, which must zoom IN — a factor below
+      // 1 — the opposite sign from a literal reading of the constant, hence
+      // the negation here.
+      if (zk) view.zoom(Math.exp(-zk * ZOOM_KEY_RATE * TICK));
+
+      const list = stops();
+      // A rider dying between switches can shrink the list out from under
+      // the current index; clamp rather than index past the end, which
+      // walks the view on to whoever is left.
       if (spectateStop >= list.length) {
         spectateStop = list.length ? list.length - 1 : 0;
       }
       const stop = list[spectateStop];
+      // Any change of stop — a tap, or the clamp above moving on from a
+      // rider who just died — snaps the orbit back to its default offset,
+      // so a wild spin never carries over onto whoever is followed next.
+      if (stop !== lastResolvedStop) {
+        lastResolvedStop = stop;
+        view.resetOrbit();
+      }
       if (stop === null) {
         view.setMode("play");
         if (lastSpectateCaption !== "Overview") {
@@ -372,6 +420,16 @@ function boot() {
           ui.setSpectate(caption, PALETTE[p.colorIndex].hex);
         }
       }
+    } else {
+      // Not spectating: steering still reaches the sim exactly as before
+      // (above), and any pointer motion or held-key time collected while
+      // this was just a menu or an ordinary match must not pile up and
+      // detonate into a stray spin the moment spectating begins.
+      input.takeDrag();
+      holdTime[0] = 0;
+      holdTime[1] = 0;
+      heldDir[0] = 0;
+      heldDir[1] = 0;
     }
   }
 
@@ -400,7 +458,9 @@ function boot() {
           spectating = false;
           spectateStop = 0;
           lastSpectateCaption = null;
+          lastResolvedStop = undefined;
           ui.hideSpectate();
+          view.resetOrbit();
           if (inMatch) {
             ui.setScores(match.scores, aliveMap());
             ui.banner("Steer to aim", { sub: "Round " + e.round });

@@ -31,6 +31,7 @@ the byte-identical fallback when the CDN is blocked or you are offline.
 | Restart the match               | `R`                          | —                           |
 | Back to the menu                | `Esc`                        | Back to the paddock         |
 | Out of the round: switch view   | `←` `→` cycle survivors and overview | the same two buttons |
+| Out of the round: spin / zoom   | hold `←` `→` to spin, `↑` `↓` to zoom, or drag and wheel | hold a button to spin, drag to spin, pinch to zoom |
 
 Once every human rider is out, the camera drops in behind one of the
 survivors and the steering controls cycle the view through them and back to
