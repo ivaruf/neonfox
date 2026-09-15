@@ -136,9 +136,13 @@ export function createRider(scene, hex) => ({
   dispose(),
 });
 // Three tiers, best available at call time, each with the same contract:
-//   1. the codex detailed fox GLB, instantiated from the preloaded container
-//      with cloned materials tinted to hex, its Cruise_Wind clip looping
-//      from a random phase;
+//   1. the codex fox GLB named by RIDER_MODEL, instantiated from the
+//      preloaded container with cloned materials tinted to hex, its one clip
+//      looping from a random phase at a speed-derived rate. The ball under
+//      OrbRoot rolls: rider.js accumulates distance from successive setPose
+//      calls and turns OrbRoot about its local X by distance / ORB_RADIUS,
+//      and paints panel seams on the orb material so the roll is visible at
+//      all (a smooth emissive sphere spinning looks like one standing still);
 //   2. blue-cat.js procedural cat, tinted and merged (the old path);
 //   3. a primitive orb + capsule.
 // A failure at any tier console.warns and drops to the next. Scale root by

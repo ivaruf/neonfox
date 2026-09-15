@@ -62,6 +62,28 @@ export const SELF_IGNORE_TICKS = 10;
  * disc six cells wide, so the 0.15 units moved per tick never leave holes. */
 export const GRID_CELL = 0.1;
 
+/*
+ * Which rider model rides. Both are codex's detailed fox and differ only in
+ * what the rider does: 'gliding' crouches on a floating orb (Cruise_Wind),
+ * 'running' runs on top of a ball that rolls (Run_On_Orb, twelve leg bones).
+ * The running one is a concept under evaluation, so this stays a one-line
+ * switch until it is settled.
+ */
+export const RIDER_MODELS = {
+  running: "models/fox-running.glb",
+  gliding: "models/fox-detailed.glb",
+};
+export const RIDER_MODEL = RIDER_MODELS.running;
+
+/*
+ * The ball rolls without slipping: one turn per circumference travelled. The
+ * model's orb is 1.44 across before RIDER_SCALE, so the radius below is what
+ * turns distance into rotation. Stride follows the same speed, so the paws
+ * plant on a surface moving at the speed the fox is actually going.
+ */
+export const ORB_RADIUS = (1.44 / 2) * 0.8; // model diameter x RIDER_SCALE
+export const STRIDE_REFERENCE_SPEED = 9; // clip authored to read right at this speed
+
 /* Spectator camera: hold a steering control this long and it spins the view
  * instead of switching it; the spin runs at SPIN_RATE while held. */
 export const SPIN_HOLD_SECONDS = 0.3;

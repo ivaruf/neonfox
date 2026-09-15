@@ -1,0 +1,7 @@
+# Python bytecode from the codex concept build scripts. Regenerated on every
+# run, and one .pyc already reached a commit before this file existed.
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store

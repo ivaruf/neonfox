@@ -75,10 +75,13 @@ Web Worker and the others render snapshots. Nothing under `js/sim/` touches
 Babylon or the DOM, and every random number comes from a seeded generator so
 a round can be replayed from its seed.
 
-The rider is codex's detailed fox, `models/fox-detailed.glb` (copied from
-`codex-concepts/`), loaded once through Babylon's glTF loader and
-instantiated per player with its fur, accents and orb tinted to the player's
-colour and its two-second cruise clip looping from a random phase. It is a
+The rider is codex's detailed fox, loaded once through Babylon's glTF loader
+and instantiated per player with its fur, accents and orb tinted to the
+player's colour and its clip looping from a random phase. Two versions exist
+and `RIDER_MODEL` in `js/config.js` picks between them: `fox-running.glb`,
+where the fox runs on top of a ball that rolls beneath it, and
+`fox-detailed.glb`, where it crouches on a gliding orb. The running one is
+the current concept and the default. It is a
 10 MB, 276k-vertex model: the top quality tier. The lower-detail
 `orange-fox` is earmarked for the lowest quality setting once quality tiers
 exist. Until the GLB has arrived, and if it ever fails, riders fall back to
