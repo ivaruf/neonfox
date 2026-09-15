@@ -354,10 +354,12 @@ function boot() {
 
   /*
    * Multiplayer lives behind one door in the paddock, and everything on the
-   * other side of it is js/net/. The lobby reads three of the paddock's own
-   * settings when it opens a game — those stay the host's to set and travel
-   * to guests on join (js/net/host.js) — and hands back a session once a
-   * match actually begins.
+   * other side of it is js/net/. The lobby reads four of the paddock's own
+   * settings when it opens a game — arena, target and bots stay the host's to
+   * set and travel to guests on join (js/net/host.js); local players is this
+   * device's alone and decides how many seats it brings. None of the four is
+   * asked for twice: the lobby has no controls of its own for any of them.
+   * It hands back a session once a match actually begins.
    */
   const lobby = createLobby({
     root: document.getElementById("ui"),
@@ -366,6 +368,10 @@ function boot() {
       arenaIndex: () => ui.arena,
       target: () => ui.target,
       ais: () => ui.ais,
+      // Local players, answered in the paddock before anyone opens this
+      // screen. The lobby used to ask a second time in its own words; one
+      // number with two controls is one number that can disagree with itself.
+      humans: () => ui.humans,
     },
     onPlay: (session) => {
       sfx.unlock();

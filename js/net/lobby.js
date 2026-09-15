@@ -130,39 +130,32 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   nameRow.append(nameLabel, nameInput);
   panel.append(nameRow);
 
-  /* Seats on THIS device. The owner's rule, said out loud rather than
-   * enforced in silence: a phone has one pair of buttons and one person
-   * holding it, so it brings one rider. A keyboard can still seat two. */
-  const seatRow = el("div", "row");
-  seatRow.append(el("span", "label", "Riders"));
-  const seatSeg = el("div", "seg");
-  seatSeg.setAttribute("role", "group");
-  seatSeg.setAttribute("aria-label", "Riders from this device");
-  const seat1 = el("button", null, "Just me");
-  const seat2 = el("button", null, "Two, one keyboard");
-  for (const [b, v] of [
-    [seat1, "1"],
-    [seat2, "2"],
-  ]) {
-    b.type = "button";
-    b.dataset.v = v;
-    b.setAttribute("aria-pressed", String(v === "1"));
-    seatSeg.append(b);
-  }
-  if (coarse) {
-    seat2.disabled = true;
-    seat2.title = "One rider per phone or tablet";
-  }
-  seatRow.append(seatSeg);
-  panel.append(seatRow);
-  const seatNote = el(
-    "p",
-    "note",
-    coarse
-      ? "This is a touch device, so it brings one rider: one pair of buttons, one pair of hands. A computer at the other end can still seat two on its keyboard."
-      : "Two riders share this keyboard — arrows and A/D — and count as two of the six.",
-  );
+  /*
+   * Seats on THIS device are NOT asked for here. The paddock's Local players
+   * row has already been answered before anybody reaches this screen, and a
+   * second control for the same number is both a question the player has
+   * answered and a chance for the two to disagree. settings.humans() is the
+   * one answer; seats() below reads it at the moment a game is opened.
+   *
+   * The owner's rule still holds and is still enforced twice — once here,
+   * because a phone has one pair of buttons and one pair of hands, and again
+   * host-side in cleanSeats(), because a guest must not be able to claim its
+   * own state. What is left of the old paragraph is one line, and only when
+   * the clamp actually takes something away: silently seating one rider when
+   * the paddock was asked for two is the kind of thing that reads as a bug.
+   */
+  const seatNote = el("p", "note");
+  seatNote.hidden = true;
   panel.append(seatNote);
+
+  function paintSeatNote() {
+    const clamped = coarse && settings.humans() > 1;
+    seatNote.hidden = !clamped;
+    if (clamped) {
+      seatNote.textContent =
+        "Touch device, so it brings one rider: one pair of buttons, one pair of hands. The second seat needs a keyboard.";
+    }
+  }
 
   /* ------------------------------------------------------------ hosting -- */
 
@@ -294,15 +287,6 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
     showMode(pressed(modeSeg));
     if (pressed(modeSeg) === "host") openGame();
   });
-  wireSeg(seatSeg, () => {
-    // Changing your own seat count reopens the game, because the roster it
-    // handed out is now wrong. Cheap: nobody has joined yet in practice.
-    if (pressed(modeSeg) === "host" && session) {
-      tearDown();
-      openGame();
-    }
-  });
-
   nameInput.addEventListener("change", () => {
     try {
       localStorage.setItem(NAME_KEY, nameInput.value.trim());
@@ -311,7 +295,9 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
     }
   });
 
-  const seats = () => (coarse ? 1 : Number(pressed(seatSeg)) || 1);
+  /* One answer, read fresh every time a game is opened, so going back to the
+   * paddock and changing Local players is picked up on the way in again. */
+  const seats = () => (coarse ? 1 : Math.max(1, settings.humans()));
 
   function attach(next) {
     session = next;
@@ -425,6 +411,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
       ui.hideMenu();
       panel.hidden = false;
       entered = [];
+      paintSeatNote();
       paintCode();
       showMode(pressed(modeSeg));
       if (pressed(modeSeg) === "host") openGame();

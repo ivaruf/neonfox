@@ -94,7 +94,12 @@
 //         "Local players" (1P / 2P), Rivals becomes "Bots", and the second
 //         door says "Multiplayer". The label gutter widens to 76px so every
 //         row still starts at the same x with a longer word in it.
-const VERSION = "v1.6.0";
+// v1.7.0  ONE PLACE TO SAY HOW MANY OF YOU THERE ARE. The multiplayer lobby
+//         had its own Riders row — Just me / Two, one keyboard — asking again
+//         for the number the paddock's Local players row had already been
+//         given. It reads that one instead, and says something only when a
+//         touch device has to clamp it.
+const VERSION = "v1.7.0";
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting
