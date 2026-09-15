@@ -76,9 +76,9 @@
 //         #sound panel of their own. ../arcade/exit.js is marked data-handled,
 //         so serving this game on its own no longer raises a crash bar over a
 //         file it was written not to need. The fullscreen toggle says
-//         "Fullscreen" / "Exit fullscreen" rather than naming the arena. No
-//         new files: index.html, the stylesheet, js/ui.js and js/screen.js
-//         carry all of it.
+//         "Fullscreen" / "Exit fullscreen" rather than naming the arena.
+//         js/render/marker.js joins the precache: the arrow over your own
+//         rider and the ring that pulses around it through the countdown.
 const VERSION = "v1.4.0";
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
@@ -123,6 +123,7 @@ const ASSETS = [
   "./js/net/webrtc.js",
   "./js/render/blue-cat.js",
   "./js/render/effects.js",
+  "./js/render/marker.js",
   "./js/render/rider.js",
   "./js/render/scene.js",
   "./js/render/trails.js",

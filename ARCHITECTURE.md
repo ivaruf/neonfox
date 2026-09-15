@@ -25,6 +25,8 @@ js/render/           reads the sim, draws it with Babylon
   rider.js           one rider per player: GLB fox, or procedural cat, or primitives
   trails.js          chunked neon ribbons built from world strokes
   effects.js         elimination burst
+  marker.js          "this one is you": the arrow over your own rider, and the
+                     ring that pulses around it through the countdown
 js/input.js          keyboard + touch buttons -> turn per seat, commands
 js/ui.js             menu, scoreboard, banners, touch button visibility
 js/audio.js          WebAudio blips and the looping theme, lazily created on first gesture
@@ -180,6 +182,23 @@ export class TrailRenderer {
 // effects.js
 export function createEffects(scene) => ({ burst(x, y, hex) })  // sim coords
 // Additive ParticleSystem, ~140 particles, manualEmitCount, disposeOnStop.
+
+// marker.js
+export function createMarker(scene, hex) => ({
+  root,
+  setPose(x, y),        // sim coords, from render()'s interpolated position
+  setAlive(alive),      // edge-triggered, like rider.setAlive
+  setReady(on, time),   // the countdown ring: true at roundStart, false at go
+  update(time),         // once a frame; bobs the arrow, breathes the ring
+  dispose(),
+})
+// Built ONLY for players with kind === "human" — the seats on this device in
+// both modes, because shadow.js maps a net roster's `mine` onto that same
+// field. Its own root rather than a child of rider.root: that node carries
+// the rider's bank, which would tilt a ground ring, and rider.dispose()
+// would take these meshes with it. Opaque emissive, so the ring pulses in
+// brightness and scale and keeps the glow layer instead of being excluded
+// from it the way scene.js's transparent wall slabs are.
 ```
 
 ## DOM lane contracts
@@ -273,8 +292,9 @@ export class Sfx {
   the size live; the choice persists in localStorage `neonfox.arena.v1`.
 - Humans take palette slots 0 and 1; AI fill the rest in order. Names: "You"
   for a solo human, "P1"/"P2" for two, `PALETTE[i].name` for AI.
-- Routes events: roundStart -> trails.reset, riders alive, banner "Round N /
-  steer to aim"; go -> banner "Go!" briefly; eliminated -> rider hidden,
+- Routes events: roundStart -> trails.reset, riders and markers alive, banner
+  "Round N / steer to aim", `setReady(true)`; go -> banner "Go!" briefly and
+  `setReady(false)`; eliminated -> rider and marker hidden,
   burst, kick, crash sound, scores, and `celebrate()` on the owner of the
   trail that did it when that is another rider still alive (never a wall,
   never your own trail), with `sfx.taunt(colorIndex)` to match; roundOver -> banner in the winner's colour;
@@ -282,7 +302,14 @@ export class Sfx {
   surviving winner `celebrate(2)`: the round is over, so there are a couple
   of seconds with nothing to do but watch them gloat, with a taunt under each
   of the two flips.
-- Attract mode shows no HUD or banners.
+- **Markers.** `spawnCast()` builds one rider per player and a marker for
+  each whose `kind` is "human" — the seats on this device, in a local match
+  and a net one alike. Both kinds of match go through that one function, so
+  the two cannot drift. `render()` hands each marker the same interpolated
+  position it gave the rider model and calls `update(time)`; `setReady(on)`
+  raises the countdown ring on every marker at once, and is gated on being in
+  a match the same way the banners and cues are.
+- Attract mode shows no HUD or banners, and has no humans, so no markers.
 - **Spectating.** Once no human rider is alive in a match (solo: you died;
   two on one keyboard: both did) and the round is still running, the camera
   drops into 'follow' on the first living rider and the steering controls
@@ -311,6 +338,7 @@ export class Sfx {
 | ------ | --------------------------------------- |
 | sim    | js/sim/*, js/config.js (done)           |
 | scene  | js/render/scene.js, js/render/effects.js|
+| marker | js/render/marker.js                     |
 | rider  | js/render/blue-cat.js, js/render/rider.js|
 | trails | js/render/trails.js                     |
 | dom    | js/input.js, js/ui.js, js/audio.js, js/screen.js |

@@ -39,6 +39,7 @@ import { World } from "./sim/world.js";
 import { Match } from "./sim/match.js";
 import { createScene } from "./render/scene.js";
 import { createRider, preloadRiders } from "./render/rider.js";
+import { createMarker } from "./render/marker.js";
 import { TrailRenderer } from "./render/trails.js";
 import { createEffects } from "./render/effects.js";
 import { Input } from "./input.js";
@@ -132,6 +133,18 @@ function boot() {
   const trails = new TrailRenderer(view.scene);
   const fx = createEffects(view.scene);
   const riders = new Map(); // player id -> rider from createRider
+  /*
+   * player id -> marker, and only for the riders somebody on THIS device is
+   * steering: the arrow overhead and the ring that pulses through the
+   * countdown. `kind === "human"` is the whole test and it is right in both
+   * modes — js/net/shadow.js already reduces "the host says these ids are
+   * yours" to the same field, so a guest marks its own riders and not the
+   * strangers it is sharing the arena with. Attract mode has no humans, so
+   * the paddock never grows arrows. Deliberately sparser than `riders`:
+   * usually four of six ids are simply absent from it, so every lookup below
+   * is written to expect a miss.
+   */
+  const markers = new Map();
 
   input.bindTouch(ui.touchButtons.left, ui.touchButtons.right);
   input.bindDrag(document.getElementById("arena"));
@@ -194,6 +207,39 @@ function boot() {
   }
 
   /*
+   * Throw away the cast of the previous match and build one for whoever
+   * `world.players` now holds: a rider per player, a marker for the ones
+   * steered from this device, and the trail renderer bound to both. Both
+   * kinds of match arrive here — the local one below and the net one further
+   * down — because they differ in where the players came from and in nothing
+   * else, and two copies of this loop would be two places to forget the
+   * markers.
+   */
+  function spawnCast() {
+    for (const rider of riders.values()) rider.dispose();
+    riders.clear();
+    for (const marker of markers.values()) marker.dispose();
+    markers.clear();
+
+    const hexById = new Map();
+    for (const p of world.players) {
+      const hex = PALETTE[p.colorIndex].hex;
+      riders.set(p.id, createRider(view.scene, hex));
+      if (p.kind === "human") markers.set(p.id, createMarker(view.scene, hex));
+      hexById.set(p.id, hex);
+    }
+    trails.bind(world.players, hexById);
+  }
+
+  /* The countdown ring, on every marker at once. roundStart raises it and go
+   * releases it, both only while actually in a match — the attract game
+   * behind the paddock has no humans and therefore no markers, but saying it
+   * here as well keeps the rule in one place if that ever changes. */
+  function setReady(ready) {
+    for (const marker of markers.values()) marker.setReady(ready, time);
+  }
+
+  /*
    * Tear down the previous field and stand up a new one. Riders are built
    * after match.start() because that is what calls world.setup() and gives
    * us the player list; the events start() produced are routed last, once
@@ -201,8 +247,6 @@ function boot() {
    */
   function startMatch(specs, opts) {
     world = soloWorld; // a local match always steps the World in this page
-    for (const rider of riders.values()) rider.dispose();
-    riders.clear();
 
     // The arena is sized before the world places anyone; the scene only
     // rebuilds the floor, beams and camera fit when the half-size actually
@@ -222,13 +266,7 @@ function boot() {
     const events = [];
     match.start(events);
 
-    const hexById = new Map();
-    for (const p of world.players) {
-      const hex = PALETTE[p.colorIndex].hex;
-      riders.set(p.id, createRider(view.scene, hex));
-      hexById.set(p.id, hex);
-    }
-    trails.bind(world.players, hexById);
+    spawnCast();
 
     handleEvents(events);
   }
@@ -366,15 +404,7 @@ function boot() {
     match = net.match;
     view.setArena(world.half);
 
-    for (const rider of riders.values()) rider.dispose();
-    riders.clear();
-    const hexById = new Map();
-    for (const p of world.players) {
-      const hex = PALETTE[p.colorIndex].hex;
-      riders.set(p.id, createRider(view.scene, hex));
-      hexById.set(p.id, hex);
-    }
-    trails.bind(world.players, hexById);
+    spawnCast();
     trails.reset();
 
     ui.showHud(
@@ -683,6 +713,17 @@ function boot() {
 
       riders.get(p.id).setPose(ix, iy, ih, p.turn, time);
 
+      // Only the seats on this device have one, so this is a lookup that
+      // misses four times out of six and does nothing when it does. The
+      // marker takes the same interpolated position as the model above and
+      // none of its rotation: an arrow and a ground ring must not wear the
+      // rider's bank (js/render/marker.js explains why it keeps its own root).
+      const marker = markers.get(p.id);
+      if (marker) {
+        marker.setPose(ix, iy);
+        marker.update(time);
+      }
+
       // The chase camera used to be posed inside step(), at sim rate, which
       // is exactly the tremor this function exists to remove; posing it
       // here instead, from the same interpolated coordinates as the rider
@@ -707,6 +748,7 @@ function boot() {
         case "roundStart": {
           trails.reset();
           for (const rider of riders.values()) rider.setAlive(true);
+          for (const marker of markers.values()) marker.setAlive(true);
           // A fresh round means everyone is alive again, so any spectator
           // camera from the round before belongs to a race that is over.
           clearSpectate();
@@ -720,6 +762,11 @@ function boot() {
             ui.setScores(match.scores, aliveMap());
             ui.banner("Steer to aim", { sub: "Round " + e.round });
             sfx.ready();
+            // "Steer to aim" is the instruction; the ring is what says which
+            // rider it is addressed to. Up for the whole countdown, which is
+            // the one stretch of a round where nobody has laid any trail yet
+            // and the six of them are hardest to tell apart.
+            setReady(true);
           }
           break;
         }
@@ -730,6 +777,10 @@ function boot() {
             ui.banner("Go!", { sub: "" });
             goTimer = GO_FLASH_SECONDS;
             sfx.go();
+            // Released rather than switched off: marker.js swells and dims it
+            // over a third of a second. The arrow overhead stays for the rest
+            // of the round.
+            setReady(false);
           }
           break;
         }
@@ -741,6 +792,9 @@ function boot() {
           // about yet. Say nothing rather than throw into the render loop.
           if (!p) break;
           riders.get(e.id)?.setAlive(false);
+          // An arrow hanging over an empty patch of floor is worse than no
+          // arrow, so the marker goes out with the rider it belongs to.
+          markers.get(e.id)?.setAlive(false);
           fx.burst(p.x, p.y, PALETTE[p.colorIndex].hex);
           // Your own crash is worth more shake than a rival's.
           view.kick(p.kind === "human" ? 0.9 : 0.4);
