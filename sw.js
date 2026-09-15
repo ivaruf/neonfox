@@ -82,7 +82,13 @@
 //         And a pause overlay on Escape (or the in-match Pause pill), which
 //         is where restarting a match now lives — R no longer throws one
 //         away on a single stray keypress, and neither does Escape.
-const VERSION = "v1.4.0";
+// v1.5.0  THE MENU RULES, APPLIED. The hub grew four of them (CLAUDE.md §2)
+//         and this game failed two. Groups of equal standing are now drawn at
+//         one size — the segmented rows, the tools cluster, the banner's two
+//         actions — and a landscape phone gets a two-column paddock laid over
+//         the same markup by grid area instead of a column it has to scroll.
+//         CSS and four id attributes; no script changed.
+const VERSION = "v1.5.0";
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting

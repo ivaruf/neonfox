@@ -165,7 +165,15 @@ button:focus-visible {
   text-transform: uppercase;
 }
 
-/* Segmented rows: a set of pills where exactly one is pressed. */
+/*
+ * Segmented rows: a set of pills where exactly one is pressed.
+ *
+ * `flex: 1 1 0` and pointedly not `1 1 auto` (hub §2, "a group of equals looks
+ * equal"). Auto sizes each pill to its own text, which turned the Riders row
+ * into a small "Solo" beside a large "Two, one keyboard" — two options of
+ * equal standing drawn at two different sizes, which tells the player the
+ * small one matters less. From a zero basis they simply split the row.
+ */
 .seg {
   display: flex;
   flex-wrap: wrap;
@@ -173,7 +181,8 @@ button:focus-visible {
   flex: 1;
 }
 .seg button {
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 40px;
   padding: 6px 12px;
   border-radius: 999px;
@@ -505,6 +514,23 @@ button:focus-visible {
   margin: 14px 0 0;
 }
 /*
+ * One size for the whole cluster, same rule as the .seg pills and the two
+ * doors: a toolbar of ragged widths reads as three unrelated things rather
+ * than one set (fishtank's three header buttons are identical squares for
+ * exactly this reason). The max-width is what stops a lone survivor — the
+ * paddock hides both Fullscreen and Back to the den when the browser or the
+ * host cannot do them, leaving Sound on its own — from stretching the width
+ * of the panel. Type drops a step because three equal thirds is a narrower
+ * pill than these labels were written for.
+ */
+.menu-tools > * {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 190px;
+  font-size: 13px;
+  padding: 6px 10px;
+}
+/*
  * The fullscreen toggle borrows .ghost's pill and focus-ring look, but not
  * the strikethrough .ghost[aria-pressed="false"] above: that rule was
  * written for the old on/off sound switch, where "false" meant "disabled".
@@ -604,19 +630,33 @@ kbd {
   text-align: center;
   pointer-events: none;
 }
+/*
+ * The two things you can do with a finished match, at one size — the same
+ * rule as the paddock's two doors. Equal size is not equal weight: Rematch
+ * keeps the gradient and the way out stays a ghost pill, so the hierarchy is
+ * carried by colour where it belongs rather than by one button being bigger.
+ * A guest's banner has no Rematch at all (js/ui.js hides it), and max-width
+ * is what stops the survivor stretching across the whole banner.
+ */
 #banner-actions {
   pointer-events: auto;
   display: flex;
   gap: 10px;
   justify-content: center;
-  align-items: center;
+  align-items: stretch;
   flex-wrap: wrap;
   margin-top: 8px;
+}
+#banner-actions > * {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 220px;
 }
 #banner-actions .primary {
   width: auto;
   margin: 0;
-  padding: 0 28px;
+  padding: 0 16px;
+  font-size: 17px;
 }
 #banner-sub {
   margin: 0;
@@ -739,5 +779,177 @@ kbd {
   #touch button {
     width: 88px;
     height: 88px;
+  }
+}
+
+/* ============ Landscape phones: the paddock turns sideways ============
+ *
+ * A phone on its side is 300-430px tall and a browser toolbar can take fifty
+ * of those. Every panel here is one column, and the column that fits a
+ * portrait phone with room to spare runs well past the fold sideways — so the
+ * paddock scrolled, and what scrolls off the bottom of a column is whatever
+ * was last in it, which here is the way out of the game.
+ *
+ * What a sideways phone has instead is width, so the paddock becomes a grid
+ * that spends it: the logo and the two doors down the left, everything that
+ * is a setting down the right, and the things that read as one line — the
+ * hint, the tools, the build — full width underneath. The grid is laid over
+ * the existing markup BY AREA, so nothing moves in index.html and portrait is
+ * untouched. The sound and pause panels need no areas at all: they are short
+ * enough that standing their two slider rows side by side is the whole fix.
+ *
+ * This is maxgear's shape, copied deliberately rather than reinvented (hub
+ * CLAUDE.md §2), including its 500px cut: a tablet is taller than that
+ * whichever way up it is held, and keeps the stacked layout.
+ *
+ * .panel keeps its overflow: auto behind all of this. That is a safety net
+ * for a viewport shorter than anything measured here, not the plan.
+ */
+@media (orientation: landscape) and (max-height: 500px) {
+  .panel {
+    width: min(760px, calc(100% - 20px));
+    max-height: calc(100% - 12px);
+    padding: 14px 18px 12px;
+    border-radius: 18px;
+  }
+
+  /* Controls lose a few pixels of height, and no more than a few: this fires
+   * on a phone, where a finger is still the pointer (hub §2, touch targets
+   * stay comfortable). 38 is the floor, not an invitation to go lower. */
+  .seg button,
+  .slider,
+  .ghost {
+    min-height: 38px;
+  }
+  .primary {
+    min-height: 46px;
+  }
+  .row {
+    margin: 0;
+  }
+
+  #menu {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "logo   riders"
+      "logo   rivals"
+      "logo   arena"
+      "kicker target"
+      "update play"
+      "hint   hint"
+      "tools  tools"
+      "build  build";
+    align-content: center;
+    align-content: safe center;
+    gap: 6px 20px;
+  }
+  #title {
+    grid-area: logo;
+    margin: 0;
+    align-self: center;
+  }
+  /* The art is trimmed to its own glow and portrait pulls it in with negative
+   * margins; here it is height that is scarce, so it is capped against the
+   * three rows beside it and centred in whatever width that leaves. */
+  #title img {
+    width: auto;
+    max-width: 100%;
+    max-height: 100%;
+    margin: 0 auto;
+  }
+  #menu .kicker {
+    grid-area: kicker;
+    align-self: center;
+    margin: 0;
+  }
+  #update {
+    grid-area: update;
+    margin: 0;
+    min-height: 44px;
+  }
+  #row-riders {
+    grid-area: riders;
+  }
+  #row-rivals {
+    grid-area: rivals;
+  }
+  #row-arena {
+    grid-area: arena;
+  }
+  #row-target {
+    grid-area: target;
+  }
+  .play {
+    grid-area: play;
+    margin: 0;
+  }
+  #menu .hint {
+    grid-area: hint;
+    align-self: center;
+    margin: 0;
+  }
+  #menu .menu-tools {
+    grid-area: tools;
+    margin: 0;
+  }
+  /* The hint and the tools run the full width rather than sharing a row with
+   * something: at half a panel the hint wraps to three lines and the three
+   * tool pills get narrower than their own labels. Across the whole panel the
+   * hint is one line and the pills sit at their 190px cap, centred. */
+  #build {
+    grid-area: build;
+    margin: 2px 0 0;
+    font-size: 10px;
+  }
+
+  /*
+   * The sound and pause panels are short enough that they need no areas: put
+   * the two slider rows beside each other and let everything else — heading,
+   * note, buttons — keep the full width it was written for.
+   */
+  #sound,
+  #pause {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-content: center;
+    align-content: safe center;
+    gap: 8px 20px;
+  }
+  #sound > :not(.row),
+  #pause > :not(.row) {
+    grid-column: 1 / -1;
+  }
+  #sound h2,
+  #pause h2 {
+    margin: 0;
+  }
+  #sound .kicker,
+  #pause .kicker {
+    margin: 0;
+  }
+  #sound .hint,
+  #pause .hint {
+    margin: 0;
+  }
+  #pause .primary,
+  #sound .ghost {
+    margin: 0;
+  }
+
+  /* The steering buttons are the one thing that must NOT shrink sideways —
+   * they are the whole control scheme on a touch device — but a 104px circle
+   * on a 320px-tall screen owns a third of it, so they come in a little and
+   * sit tighter to the corners. */
+  #touch {
+    padding: 0 12px 10px;
+  }
+  #touch button {
+    width: 76px;
+    height: 76px;
+    font-size: 28px;
+  }
+  #spectate {
+    bottom: 12px;
   }
 }
