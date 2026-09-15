@@ -79,6 +79,9 @@
 //         "Fullscreen" / "Exit fullscreen" rather than naming the arena.
 //         js/render/marker.js joins the precache: the arrow over your own
 //         rider and the ring that pulses around it through the countdown.
+//         And a pause overlay on Escape (or the in-match Pause pill), which
+//         is where restarting a match now lives — R no longer throws one
+//         away on a single stray keypress, and neither does Escape.
 const VERSION = "v1.4.0";
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.

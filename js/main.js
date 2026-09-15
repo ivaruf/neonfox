@@ -109,6 +109,10 @@ function boot() {
     onArena,
     onTogether,
     onSound,
+    onResume: () => setPaused(false),
+    onRestart: onPauseRestart,
+    onLeave: onPauseLeave,
+    onEscape,
   });
 
   // Restore the saved arena size before the very first match (the attract
@@ -157,6 +161,17 @@ function boot() {
    * Everything the player is told, and the spectator camera, key off this
    * rather than off which of the two it is. */
   const inPlay = () => mode === "match" || mode === "net";
+  /*
+   * The pause overlay is up. It is deliberately not the same thing as the
+   * game being stopped, because only one of the two modes can stop: a local
+   * match is a simulation this page owns and may hold wherever it likes,
+   * while a net match is the host's simulation and carries on regardless —
+   * so Escape there raises the same panel over a round that is still being
+   * ridden, and the panel says so. frozen() is the narrower question, and it
+   * is the one the clock asks.
+   */
+  let paused = false;
+  const frozen = () => paused && mode === "match";
   let acc = 0; // leftover frame time owed to the sim
   let time = 0; // seconds since load, for the riders' idle bob
   let goTimer = 0; // seconds of "Go!" banner left, counted in sim time
@@ -283,6 +298,10 @@ function boot() {
   }
 
   function enterMenu() {
+    // Whatever was holding still, stop holding it: this is reached from a
+    // paused match as well as from a finished one, and the attract game is
+    // about to start behind the panel.
+    setPaused(false);
     // Leaving for the paddock ends a net game for this device, whichever end
     // of it we were, and closes the lobby if that is where we still are. The
     // host's guests are told; a guest simply goes.
@@ -300,9 +319,11 @@ function boot() {
     ui.hideHud();
     ui.hideBanner();
     ui.setTouchVisible(false);
+    ui.setPauseButton(false);
   }
 
   function beginMatch() {
+    setPaused(false);
     mode = "match";
     view.setMode("play");
     goTimer = 0;
@@ -322,6 +343,7 @@ function boot() {
     // rows existed, so paint the zeroes onto the fresh HUD here.
     ui.setScores(match.scores, aliveMap());
     ui.setTouchVisible(true);
+    ui.setPauseButton(true, false);
   }
 
   function onStart() {
@@ -392,6 +414,7 @@ function boot() {
    * camera — is the same code the solo game runs.
    */
   function beginNetMatch() {
+    setPaused(false);
     mode = "net";
     view.setMode("play");
     goTimer = 0;
@@ -417,6 +440,8 @@ function boot() {
     );
     ui.setScores(match.scores, aliveMap());
     ui.setTouchVisible(true);
+    // "Menu", not "Pause": this one does not stop.
+    ui.setPauseButton(true, true);
   }
 
   /* Rematch is the same field again — the menu still holds the choice. In a
@@ -432,6 +457,97 @@ function boot() {
   function onMenu() {
     sfx.click();
     enterMenu();
+  }
+
+  /*
+   * Raise or lower the pause overlay.
+   *
+   * Only a local match actually stops, and it stops in one place — the render
+   * loop, below — rather than by each system being told to hold still. What
+   * happens here is the rest of it: the panel, and the touch buttons, which
+   * would otherwise sit under the panel steering a rider that is not moving.
+   * A net match keeps its buttons: its rider IS still moving, and taking the
+   * controls away from a player whose fox is alive would be the one genuinely
+   * unfair thing this overlay could do.
+   *
+   * scene.animationsEnabled is what stops the foxes jogging on the spot. It
+   * is Babylon's own clips — the gait, the backflip — which run off the
+   * engine's clock and know nothing about our accumulator, so freezing `time`
+   * alone would leave a still arena full of running animals.
+   */
+  function setPaused(next) {
+    if (next === paused || (next && !inPlay())) return;
+    paused = next;
+    if (next) {
+      if (mode === "match") view.scene.animationsEnabled = false;
+      // A net rider is still out there and still steerable, so it keeps its
+      // buttons; a stopped one would be steering a statue from under the
+      // panel, so it does not.
+      ui.setTouchVisible(mode === "net");
+      ui.setPauseButton(false);
+      ui.showPause({
+        live: mode === "net",
+        canRestart: mode !== "net" || !!net?.rematch,
+      });
+    } else {
+      // Unconditional, and not the mirror of the line above on purpose: this
+      // is reached both by a match resuming and by one being abandoned, and
+      // in the second case `mode` has often already moved on. Whatever froze
+      // the clips, they run again — the attract match behind the paddock must
+      // never inherit a still scene.
+      view.scene.animationsEnabled = true;
+      ui.hidePause();
+      ui.setPauseButton(inPlay());
+      // Coming back from a pause on a finished match must not put the
+      // steering buttons back over the Rematch banner (matchOver took them
+      // away on purpose).
+      if (inPlay()) ui.setTouchVisible(match?.state !== "matchOver");
+    }
+  }
+
+  /* The pause overlay's two ways out. Both drop the overlay first, so
+   * whatever they do next starts from a game that is running again — a
+   * restart into a scene with animationsEnabled still false would deal a
+   * fresh round of statues. */
+  function onPauseRestart() {
+    setPaused(false);
+    onRematch();
+  }
+
+  function onPauseLeave() {
+    setPaused(false);
+    onMenu();
+  }
+
+  /*
+   * Escape, which used to abandon the match outright — the same one-keypress
+   * hazard R was, and worse for sitting on the key a player reaches for to
+   * get OUT of things. It is the pause overlay now, opened and closed, and it
+   * no longer destroys anything at all; leaving is a button on the panel.
+   * That is also why a finished match is not a special case here: there is
+   * nothing left to protect it from, and the overlay is a perfectly good
+   * place to turn the music down after the fanfare.
+   *
+   * ui.js is handed this same function for the in-match Pause pill, so the
+   * key and the button can never come to mean different things.
+   *
+   * Outside a match it backs out of whatever is sitting over the paddock: the
+   * sound menu, or the lobby (which enterMenu closes). In the bare paddock it
+   * restarts the attract match, which is what it has always done and is
+   * harmless.
+   */
+  function onEscape() {
+    if (inPlay()) {
+      sfx.click();
+      setPaused(!paused);
+      return;
+    }
+    if (ui.soundOpen) {
+      sfx.click();
+      ui.showMenu();
+      return;
+    }
+    onMenu();
   }
 
   /*
@@ -471,6 +587,14 @@ function boot() {
     if (mode === "menu") enterMenu();
   }
 
+  /*
+   * There is no 'restart' command any more. R used to throw the whole match
+   * away on one unmodified keypress, a stray reach from the A/D rider two
+   * steers with, and nothing asked first. Restarting is still one press —
+   * it is on the pause overlay, next to the way out — but you have to stop
+   * the game to reach it, which is exactly the deliberation the key was
+   * missing. See js/input.js, which no longer sends one.
+   */
   input.onCommand = (name) => {
     if (name === "start") {
       if (mode === "menu") onStart();
@@ -479,13 +603,8 @@ function boot() {
         // at all for a guest — same rule as the button.
         if (mode !== "net" || net?.rematch) onRematch();
       }
-    } else if (name === "restart") {
-      // R throws the whole match away. In a net match that is the host's
-      // call and nobody else's, so a guest's R does nothing.
-      if (mode === "match") beginMatch();
-      else if (mode === "net") net?.rematch?.();
     } else if (name === "menu") {
-      onMenu();
+      onEscape();
     }
   };
 
@@ -880,6 +999,25 @@ function boot() {
     // minute of ticks, and paying that debt would freeze the page. Better to
     // drop the time than to spiral.
     const dt = Math.min(0.1, view.engine.getDeltaTime() / 1000);
+
+    /*
+     * The one place a pause actually happens, and the reason nothing else in
+     * this file had to learn about it. Neither the sim nor `time` advances —
+     * `time` being the clock the riders' lean, the markers' bob and the ring's
+     * pulse all read, so freezing it is what makes the picture still rather
+     * than merely motionless. The camera is deliberately still updated: a
+     * phone rotated or a window resized while paused must reframe, and the
+     * scene is still rendered, because a paused game is a picture of a game.
+     * The accumulator is zeroed rather than left standing, so coming back does
+     * not pay out a lump of ticks the player never saw.
+     */
+    if (frozen()) {
+      acc = 0;
+      view.update(dt);
+      view.scene.render();
+      return;
+    }
+
     time += dt;
     acc += dt;
     let steps = 0;

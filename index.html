@@ -184,8 +184,8 @@
 
         <p class="hint">
           <kbd>←</kbd><kbd>→</kbd> steer · rider two on <kbd>A</kbd
-          ><kbd>D</kbd> · <kbd>R</kbd> restarts the match · steer while the
-          round loads to aim
+          ><kbd>D</kbd> · <kbd>Esc</kbd> pauses · steer while the round loads to
+          aim
         </p>
 
         <!--
@@ -286,6 +286,106 @@
         <button type="button" id="sound-back" class="ghost">
           Back to the paddock
         </button>
+      </section>
+
+      <!--
+        The way to the pause overlay for everyone without an Escape key,
+        which on a tablet is everyone. Without it a touch player could not
+        pause, could not reach the volume mid-match, and — the real hole —
+        had no way out of a match at all short of losing it.
+        It sits before #pause-scrim and #pause in the document, so both paint
+        over the top of it; js/ui.js takes it away while the overlay is up in
+        any case, because a Pause button beside an open pause menu is a
+        button asking to be pressed twice. Its label is "Menu" in a net
+        match, where the panel is not a pause and does not claim to be.
+      -->
+      <button type="button" id="pause-open" class="ghost" hidden>Pause</button>
+
+      <!--
+        The scrim behind the pause panel, and only behind that one. It is its
+        own element rather than a ::before on #pause because a negative
+        z-index child paints above its parent's own background, which would
+        tint the glass it is meant to sit behind. js/ui.js shows it only for a
+        match that is genuinely stopped: a net game carries on without this
+        device, and dimming an arena somebody is still riding in would be a
+        lie told in CSS. It sits before #pause and after nothing, so the
+        scoreboard and the touch buttons still paint over the top of it.
+      -->
+      <div id="pause-scrim" hidden></div>
+
+      <!--
+        The pause overlay. Escape raises it mid-match and lowers it again; it
+        is the only thing between a player and the two irreversible acts in
+        this game, restarting the match and leaving it, which is why both of
+        those now live here rather than on a bare keypress.
+        It carries its own pair of volume sliders rather than sending anyone
+        back to #sound. The two moments genuinely want different things: in
+        the paddock the mix is set once and belongs behind a door (hub §2),
+        and in the middle of a match it wants to be one tap away. They are
+        the same two numbers either way — js/ui.js moves both pairs together
+        — so there is no second setting to get out of step, only a second
+        place to reach the one setting.
+        Everything that reads differently for a net match is written by
+        js/ui.js when it opens this: a game on two screens cannot be stopped
+        from one of them, and the panel says so rather than pretending.
+      -->
+      <section
+        id="pause"
+        class="panel"
+        aria-labelledby="pause-title"
+        tabindex="-1"
+        hidden
+      >
+        <p class="kicker" id="pause-kicker">Nothing moves until you say so</p>
+        <h2 id="pause-title">Paused</h2>
+        <p class="hint" id="pause-note"></p>
+
+        <div class="row">
+          <label class="label" for="pause-music-vol">Music</label>
+          <div class="slider">
+            <input
+              type="range"
+              id="pause-music-vol"
+              min="0"
+              max="100"
+              step="1"
+              value="60"
+            />
+            <output id="pause-music-vol-out" for="pause-music-vol">60</output>
+          </div>
+        </div>
+
+        <div class="row">
+          <label class="label" for="pause-sfx-vol">Effects</label>
+          <div class="slider">
+            <input
+              type="range"
+              id="pause-sfx-vol"
+              min="0"
+              max="100"
+              step="1"
+              value="80"
+            />
+            <output id="pause-sfx-vol-out" for="pause-sfx-vol">80</output>
+          </div>
+        </div>
+
+        <button type="button" id="resume" class="primary">Keep riding</button>
+
+        <!--
+          The two ways out, both of which throw the match away, both kept
+          deliberately quiet next to Keep riding. #pause-restart is hidden by
+          js/ui.js for a guest in a net match, where calling for another match
+          is the host's alone and this button would do nothing.
+        -->
+        <div class="menu-tools">
+          <button type="button" id="pause-restart" class="ghost">
+            Restart the match
+          </button>
+          <button type="button" id="pause-leave" class="ghost">
+            Back to the paddock
+          </button>
+        </div>
       </section>
 
       <!-- Live scoreboard during a match. -->

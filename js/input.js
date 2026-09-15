@@ -1,7 +1,14 @@
 /*
  * input.js — keyboard + touch buttons -> turn per seat, plus one-shot
- * commands (start / restart / menu), plus the spectator camera's own reads:
- * a drag/pinch/wheel accumulator and the up/down zoom keys.
+ * commands (start / menu), plus the spectator camera's own reads: a
+ * drag/pinch/wheel accumulator and the up/down zoom keys.
+ *
+ * THERE IS NO RESTART KEY, and its absence is the design. R used to throw the
+ * whole match away the instant it went down — one unmodified letter, a stray
+ * reach from the A and D that rider two steers with, and nothing asked
+ * first. Restarting is still one press, but it is on the pause overlay now,
+ * which means stopping the game to get to it. 'menu' is Escape and no longer
+ * abandons a match either; main.js turns it into that overlay.
  *
  * This module owns nothing but a live "what is currently held" picture: a
  * Set of key codes plus two touch flags. turn(seat) reads that picture on
@@ -54,7 +61,7 @@ export class Input {
     /** @type {Set<string>} currently held KeyboardEvent.code values */
     this.held = new Set();
 
-    /** (name: 'start' | 'restart' | 'menu') => void, set by main.js */
+    /** (name: 'start' | 'menu') => void, set by main.js */
     this.onCommand = null;
 
     // Touch is tracked separately from `held` because a synthetic code
@@ -84,8 +91,6 @@ export class Input {
       if (!this.onCommand) return;
       if (event.code === "Enter" || event.code === "Space") {
         if (!isInteractive(event.target)) this.onCommand("start");
-      } else if (event.code === "KeyR") {
-        this.onCommand("restart");
       } else if (event.code === "Escape") {
         this.onCommand("menu");
       }

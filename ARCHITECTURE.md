@@ -213,7 +213,10 @@ export class Input {
   takeDrag()                          // {dx, dy, dz} accumulated since last call, then zeroed (reused object);
                                       // dx/dy drag in CSS px, dz zoom in wheel-pixel units (pinch is converted: 1 px of pinch spread = -1 dz)
   zoomKey()                           // +1 ArrowUp (in) | -1 ArrowDown (out) | 0, held state
-  onCommand = null                    // (name) => void: 'start' Enter/Space, 'restart' R, 'menu' Escape
+  onCommand = null                    // (name) => void: 'start' Enter/Space, 'menu' Escape
+// There is deliberately NO 'restart' command. R used to fire one on a single
+// unmodified keypress — a stray reach from rider two's A/D — and nothing
+// asked first. Restarting lives on the pause overlay now.
 }
 // Left is +1. Prevent default on arrows and space so the page never scrolls.
 
@@ -228,7 +231,9 @@ export class UI {
   // until the host moves it, after which their number sticks for the session.
   setArena(i)    // move the slider and its label without firing onArena
   // onArena(index) fires on the slider's `change` (release); the name label follows `input` live
-  showMenu(); hideMenu(); showSound();
+  showMenu(); hideMenu(); showSound(); get soundOpen
+  showPause({ live, canRestart }); hidePause(); get pauseOpen
+  setPauseButton(visible, live)   // the in-match pill; `live` is remembered
   // #menu and #sound are one slot: showMenu shows the paddock and hides the
   // sound panel, showSound does the reverse, hideMenu takes both away (a match
   // started from the keyboard must not leave a mixer floating over the round).
@@ -285,8 +290,9 @@ export class Sfx {
   are restored onto the sliders at boot with `ui.setVolumes(...)`.
 - Modes: `menu` runs an attract match (4 AI, `attract: true`) behind the
   panel with the camera in `orbit`; `match` runs the chosen field with the
-  camera in `play`. R restarts the match, Escape returns to the menu, Enter or
-  Space starts from the menu.
+  camera in `play`. Enter or Space starts from the menu; Escape (and the
+  in-match Pause pill, which ui.js wires to the same `onEscape`) raises the
+  pause overlay.
 - Arena size: `ARENA_SIZES[ui.arena].half` is applied with `world.setArena` and
   `view.setArena` before every match, attract included, so the menu previews
   the size live; the choice persists in localStorage `neonfox.arena.v1`.
@@ -309,6 +315,17 @@ export class Sfx {
   position it gave the rider model and calls `update(time)`; `setReady(on)`
   raises the countdown ring on every marker at once, and is gated on being in
   a match the same way the banners and cues are.
+- **Pause.** `paused` is "the overlay is up"; `frozen()` is the narrower
+  `paused && mode === "match"`, and only that stops anything. The render loop
+  is the single place it happens: when frozen it advances neither the sim nor
+  `time` (the clock the riders' lean, the markers' bob and the ring's pulse
+  read), zeroes `acc` so resuming pays out no backlog, and still calls
+  `view.update(dt)` and `scene.render()` so a resize reframes a held picture.
+  `scene.animationsEnabled` is what stops Babylon's own clips, which run off
+  the engine clock; un-pausing restores it unconditionally, because this is
+  reached by abandoning a match as well as by resuming one. A net match never
+  freezes — it is the host's simulation — so it keeps its touch buttons and
+  the panel says plainly that the round carries on.
 - Attract mode shows no HUD or banners, and has no humans, so no markers.
 - **Spectating.** Once no human rider is alive in a match (solo: you died;
   two on one keyboard: both did) and the round is still running, the camera

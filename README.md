@@ -34,14 +34,24 @@ you are offline.
 | Rider two steers (two on one keyboard) | `A` `D` or `Q` `E`    | —                           |
 | Aim before the round starts     | steer during the countdown   | same                        |
 | Start / rematch                 | `Enter` or `Space`           | Blaze! / Rematch            |
-| Restart the match               | `R`                          | —                           |
-| Back to the menu                | `Esc`                        | Back to the paddock         |
+| Pause (and the way out)         | `Esc`                        | the Pause pill, top right   |
+| Restart the match               | on the pause overlay         | same                        |
 | Out of the round: switch view   | `←` `→` cycle survivors and overview | the same two buttons |
 | Out of the round: spin / zoom   | hold `←` `→` to spin, `↑` `↓` to zoom, or drag and wheel | hold a button to spin, drag to spin, pinch to zoom |
 
 Once every human rider is out, the camera drops in behind one of the
 survivors and the steering controls cycle the view through them and back to
 the overview.
+
+`Esc` and the Pause pill open the same overlay: volume, restart, and the way
+back to the paddock. A local match genuinely stops behind it. A game played
+together does not — it is the host's simulation and cannot be held from one
+screen, so the panel says so and your fox keeps riding while it is up.
+
+There is no restart key. `R` used to throw the whole match away on one
+unmodified press, a stray reach from the `A`/`D` rider two steers with;
+restarting is still one press, but it is on the pause overlay, which means
+stopping the game to get at it.
 
 Crash into another fox's trail and it throws a backflip at you. Survive the
 round and you throw two.

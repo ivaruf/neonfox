@@ -17,14 +17,19 @@
  * follow the same "silent restore" shape: setVolumes(music, sfx) moves both
  * without firing onMusicVolume/onSfxVolume, so main.js can put a saved
  * mix back on screen at boot without that itself counting as the player
- * choosing a new one. Those two sliders now live in their own #sound panel
- * rather than in the paddock, which changes nothing about the wiring — the
- * ids are the same and both panels are inside the same root — beyond the
- * one new job this file picks up: swapping #menu and #sound so only ever
- * one of them is on screen. That swap is pure DOM state, the same kind of
- * thing showMenu/hideMenu already are, so it lives here rather than in the
- * glue; the only thing main.js is told is that a sound button was pressed
- * (onSound), because making a noise is its department, not this one's.
+ * choosing a new one. Each volume is now TWO sliders, in the sound menu and
+ * in the pause overlay, and _paintVolume is the only thing that writes
+ * either: two windows onto one setting, never two settings.
+ *
+ * Panels are this file's other job. #menu, #sound and #pause are shown and
+ * hidden here because that is DOM state, the same kind of thing
+ * showMenu/hideMenu always were — and pointedly not because this file knows
+ * what any of it MEANS. Whether a simulation stops when #pause goes up,
+ * whether a peer-to-peer session is torn down when the player leaves,
+ * whether any of it makes a sound: all main.js's, reported through the
+ * constructor callbacks. showPause() takes `live` and `canRestart` as
+ * arguments for exactly that reason — this file is told a net match cannot
+ * be stopped, it does not work it out.
  */
 
 import { MAX_PLAYERS, ARENA_SIZES } from "./config.js";
@@ -46,6 +51,10 @@ export class UI {
       onSfxVolume,
       onTogether,
       onSound,
+      onResume,
+      onRestart,
+      onLeave,
+      onEscape,
     } = {},
   ) {
     this.root = root;
@@ -56,6 +65,12 @@ export class UI {
 
     this.menuEl = root.querySelector("#menu");
     this.soundEl = root.querySelector("#sound");
+    this.pauseEl = root.querySelector("#pause");
+    this.pauseScrimEl = root.querySelector("#pause-scrim");
+    this.pauseKickerEl = root.querySelector("#pause-kicker");
+    this.pauseTitleEl = root.querySelector("#pause-title");
+    this.pauseNoteEl = root.querySelector("#pause-note");
+    this.pauseRestartEl = root.querySelector("#pause-restart");
     this.hudEl = root.querySelector("#hud");
     this.scoresEl = root.querySelector("#scores");
     this.targetEl = root.querySelector("#target-label");
@@ -70,10 +85,15 @@ export class UI {
     this.spectateTextEl = root.querySelector("#spectate-text");
     this.arenaSizeEl = root.querySelector("#arena-size");
     this.arenaNameEl = root.querySelector("#arena-name");
-    this.musicVolEl = root.querySelector("#music-vol");
-    this.musicVolOutEl = root.querySelector("#music-vol-out");
-    this.sfxVolEl = root.querySelector("#sfx-vol");
-    this.sfxVolOutEl = root.querySelector("#sfx-vol-out");
+    /*
+     * Each volume is two sliders, not one: the sound menu's and the pause
+     * overlay's. They are two places to reach ONE setting, never two
+     * settings — every path that moves a value goes through _paintVolume,
+     * which writes it to both — so a mix set mid-match is the mix the
+     * paddock shows afterwards, and vice versa.
+     */
+    this.musicVols = volumePair(root, "music-vol");
+    this.sfxVols = volumePair(root, "sfx-vol");
 
     const left = root.querySelector("#turn-left");
     const right = root.querySelector("#turn-right");
@@ -143,6 +163,28 @@ export class UI {
       });
     }
 
+    /*
+     * The pause overlay's three buttons. This file shows and hides the panel
+     * (that is DOM state, like every other panel here) and knows nothing
+     * about what pausing means — whether a simulation stops, whether a net
+     * session is torn down, whether a sound plays — which is main.js's to
+     * decide and does not belong in a file that draws.
+     */
+    const bind = (id, fn) => {
+      const el = root.querySelector(id);
+      if (el && fn) el.addEventListener("click", () => fn());
+    };
+    bind("#resume", onResume);
+    bind("#pause-restart", onRestart);
+    bind("#pause-leave", onLeave);
+
+    // The in-match pill that opens it, for every device without an Escape
+    // key. Same callback as the key, so the two can never mean different
+    // things: main.js has one onEscape and this is the other way to it.
+    this.pauseOpenEl = root.querySelector("#pause-open");
+    this._pauseLive = false;
+    bind("#pause-open", onEscape);
+
     // Leaving the whole arcade, not just this game's own menu (#to-menu
     // does that, from a match banner, back to #menu). arcade/exit.js is
     // another repository's file and may simply not be there, so this
@@ -192,16 +234,11 @@ export class UI {
     // Volume, unlike the arena size, is only ever "input": a level you
     // cannot hear until you let go of the thumb is not a volume control, so
     // both the readout and the callback update on every tick of the drag.
-    this.musicVolEl.addEventListener("input", () => {
-      const pct = Number(this.musicVolEl.value);
-      this.musicVolOutEl.textContent = String(pct);
-      this.onMusicVolume(pct / 100);
-    });
-    this.sfxVolEl.addEventListener("input", () => {
-      const pct = Number(this.sfxVolEl.value);
-      this.sfxVolOutEl.textContent = String(pct);
-      this.onSfxVolume(pct / 100);
-    });
+    // Whichever of the pair was dragged, both are repainted — the other one
+    // is a second window onto the same number and must never be caught
+    // showing the old one.
+    this._wireVolume(this.musicVols, (v) => this.onMusicVolume(v));
+    this._wireVolume(this.sfxVols, (v) => this.onSfxVolume(v));
 
     // Once a touch has ever landed on the page, treat the pointer as
     // coarse even on a device whose media query disagrees (some hybrid
@@ -214,6 +251,28 @@ export class UI {
       },
       { once: true, passive: true },
     );
+  }
+
+  /** Wire every slider of one volume pair to repaint the whole pair and
+   *  report the new level once, as a 0..1 fraction. */
+  _wireVolume(controls, emit) {
+    for (const control of controls) {
+      control.input.addEventListener("input", () => {
+        const pct = Number(control.input.value);
+        this._paintVolume(controls, pct);
+        emit(pct / 100);
+      });
+    }
+  }
+
+  /** Put a percentage on every slider and readout of one pair, silently.
+   *  The only writer: the drag above and setVolumes() both come through
+   *  here, which is what keeps the two copies from ever disagreeing. */
+  _paintVolume(controls, pct) {
+    for (const control of controls) {
+      control.input.value = String(pct);
+      control.out.textContent = String(pct);
+    }
   }
 
   /** One button per row is pressed at a time; clicking sets that and clears the rest. */
@@ -304,6 +363,7 @@ export class UI {
     this.menuEl.hidden = false;
     if (this.soundEl) this.soundEl.hidden = true;
     // The menu and the in-match overlays are mutually exclusive states.
+    this.hidePause();
     this.hideBanner();
     this.hideHud();
     this.hideSpectate();
@@ -326,6 +386,63 @@ export class UI {
     this.menuEl.hidden = true;
     this.soundEl.hidden = false;
     this.soundEl.focus();
+  }
+
+  /** Whether the sound menu is the panel currently up, so Escape can know
+   *  what it is backing out of. */
+  get soundOpen() {
+    return !!this.soundEl && !this.soundEl.hidden;
+  }
+
+  /*
+   * The pause overlay.
+   *
+   * `live` is the honest half of this: a net match is somebody else's
+   * simulation and cannot be stopped from here, so the panel says what is
+   * actually happening instead of calling itself Paused over a round that is
+   * still being ridden — and the scrim stays down, because dimming an arena
+   * the player may still need to steer in would be a lie told in CSS.
+   *
+   * `canRestart` is false for a guest, where calling for another match is the
+   * host's alone; a button that does nothing is worse than no button (the
+   * same rule the match-over banner's Rematch already follows).
+   */
+  showPause({ live = false, canRestart = true } = {}) {
+    if (!this.pauseEl) return;
+    this.pauseKickerEl.textContent = live
+      ? "The round carries on without you"
+      : "Nothing moves until you say so";
+    this.pauseTitleEl.textContent = live ? "Still riding" : "Paused";
+    this.pauseNoteEl.textContent = live
+      ? "A game on two screens cannot be stopped from one of them. Your fox is still out there, and the arrows still steer it."
+      : "The arena is holding still. Pick up where you left off, or don't.";
+    this.pauseRestartEl.hidden = !canRestart;
+    if (this.pauseScrimEl) this.pauseScrimEl.hidden = live;
+    this.pauseEl.hidden = false;
+    this.pauseEl.focus();
+  }
+
+  hidePause() {
+    if (this.pauseEl) this.pauseEl.hidden = true;
+    if (this.pauseScrimEl) this.pauseScrimEl.hidden = true;
+  }
+
+  /*
+   * The in-match pill that opens the overlay. `live` is remembered rather
+   * than required, because the two things that move this button ask
+   * different questions: a match beginning knows whether it is a net one and
+   * says so once, while the overlay opening and closing only knows that the
+   * button should go and come back.
+   */
+  setPauseButton(visible, live) {
+    if (!this.pauseOpenEl) return;
+    if (live !== undefined) this._pauseLive = live;
+    this.pauseOpenEl.textContent = this._pauseLive ? "Menu" : "Pause";
+    this.pauseOpenEl.hidden = !visible;
+  }
+
+  get pauseOpen() {
+    return !!this.pauseEl && !this.pauseEl.hidden;
   }
 
   /** players: [{ id, name, hex }]; rebuilds the chip list from scratch. */
@@ -399,16 +516,14 @@ export class UI {
     this.bannerEl.hidden = true;
   }
 
-  /** Move both volume sliders and their readouts without firing the
-   *  onMusicVolume/onSfxVolume callbacks — used at boot to restore a saved
-   *  mix, so restoring it doesn't itself count as the player moving them. */
+  /** Move every volume slider and readout — both homes of both channels —
+   *  without firing the onMusicVolume/onSfxVolume callbacks. Used at boot to
+   *  restore a saved mix, so restoring it doesn't itself count as the player
+   *  moving them. */
   setVolumes(music, sfx) {
-    const musicPct = Math.round(Math.max(0, Math.min(1, music)) * 100);
-    const sfxPct = Math.round(Math.max(0, Math.min(1, sfx)) * 100);
-    this.musicVolEl.value = String(musicPct);
-    this.musicVolOutEl.textContent = String(musicPct);
-    this.sfxVolEl.value = String(sfxPct);
-    this.sfxVolOutEl.textContent = String(sfxPct);
+    const pct = (v) => Math.round(Math.max(0, Math.min(1, v)) * 100);
+    this._paintVolume(this.musicVols, pct(music));
+    this._paintVolume(this.sfxVols, pct(sfx));
   }
 
   /** Caption above the touch buttons: whose ride the spectator camera has
@@ -437,4 +552,21 @@ export class UI {
     }
     this.touchEl.hidden = !(visible && coarse);
   }
+}
+
+/*
+ * One volume, in both of the places it can be reached: the sound menu's
+ * `#<name>` and the pause overlay's `#pause-<name>`. Either may be missing —
+ * a panel can be edited out of index.html without this file caring — so the
+ * pair is whatever is actually there, and every loop over it simply runs
+ * fewer times.
+ */
+function volumePair(root, name) {
+  const controls = [];
+  for (const id of [name, `pause-${name}`]) {
+    const input = root.querySelector(`#${id}`);
+    const out = root.querySelector(`#${id}-out`);
+    if (input && out) controls.push({ input, out });
+  }
+  return controls;
 }

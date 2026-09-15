@@ -433,6 +433,49 @@ button:focus-visible {
   }
 }
 
+/*
+ * The in-match pause pill, top right, opposite the scoreboard. It borrows
+ * .ghost's shape but not its transparency: .ghost is written for a panel's
+ * own dark glass, and this one stands on the arena, where a trail can sweep
+ * underneath it at any moment. A touch target that stays comfortable on a
+ * tablet (hub §2) without being large enough to compete with the game.
+ */
+#pause-open {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  min-height: 36px;
+  padding: 6px 16px;
+  background: rgba(8, 12, 36, 0.62);
+  border-color: rgba(130, 170, 255, 0.24);
+  color: var(--ink);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+#pause-open:hover {
+  background: rgba(30, 46, 100, 0.72);
+}
+
+/*
+ * The scrim behind a genuinely stopped match. Deep enough that the panel is
+ * easy to read over a bright arena, light enough that the player can still
+ * see the round they are about to go back to — a pause that hides the game
+ * makes the way back feel like starting over. Shown by js/ui.js only for a
+ * local match; a net game is still being ridden and is left bright.
+ */
+#pause-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 6, 20, 0.5);
+}
+
+/* The pause panel's own note: the sentence that says what this moment is.
+ * .hint's bottom margin is written for the paddock, where it sits above the
+ * sliders; here it sits under the heading and wants less room. */
+#pause-note {
+  margin: 0 0 12px;
+}
+
 /* Which build is serving this session, answered by the service worker. */
 #build {
   margin: 14px 0 0;
