@@ -525,6 +525,11 @@ function boot() {
           ui.hideSpectate();
           view.resetOrbit();
           if (inMatch) {
+            // Clearing the state above is not enough on its own: the camera
+            // is still in 'follow', and with followId now null nothing poses
+            // it, so it would hang behind a rider from the round before.
+            // Attract mode is left alone, since its camera is the menu orbit.
+            view.setMode("play");
             ui.setScores(match.scores, aliveMap());
             ui.banner("Steer to aim", { sub: "Round " + e.round });
             sfx.ready();
@@ -586,6 +591,16 @@ function boot() {
             // over, so there is nothing left to steer anyway.
             ui.setTouchVisible(false);
             ui.hideSpectate();
+            // And with those buttons gone a spectator has no way back to the
+            // overview, so take them there: a winner banner reads badly over
+            // a camera still parked behind somebody's tail.
+            spectating = false;
+            spectateStop = 0;
+            lastSpectateCaption = null;
+            lastResolvedStop = undefined;
+            followId = null;
+            view.resetOrbit();
+            view.setMode("play");
           }
           break;
         }
