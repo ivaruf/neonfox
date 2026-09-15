@@ -5,21 +5,31 @@
  * Three tiers, and the best one available is chosen per rider at the moment
  * createRider() is called, not once per session:
  *
- *   1. models/fox-detailed.glb — the detailed codex fox, instantiated from an
- *      asset container that preloadRiders() fetched once, with its materials
- *      cloned per rider so six foxes are six colours, and its Cruise_Wind clip
- *      looping from a random phase.
+ *   1. the codex fox named by RIDER_MODEL in config.js — currently the running
+ *      one, which runs on top of a ball instead of crouching on a floating orb.
+ *      It is instantiated from an asset container that preloadRiders() fetched
+ *      once, its materials cloned per rider so six foxes are six colours, and
+ *      its one clip looped from a random phase at a rate derived from how fast
+ *      a rider actually travels, so the paws plant on ground that is moving at
+ *      their own speed rather than sliding under them.
  *   2. blue-cat.js — the procedural concept cat, tinted and merged into one
  *      mesh. This was the rider until the fox arrived and is now the safety net.
  *   3. a primitive orb and capsule, for when Babylon itself is not what we
  *      pinned.
  *
- * Per rider rather than per session is deliberate: the fox is a 10 MB file, so
- * the attract match behind the title screen is usually ridden by cats for its
- * first seconds and quietly switches to foxes as riders are rebuilt after the
- * asset lands. Nothing blocks on the download, and a player who never gets it
- * gets a game rather than a spinner. (The codex also has a lower-detail orange
- * fox, earmarked for a low quality tier; it is not wired up yet.)
+ * The ball is rolled here rather than in the clip, because only this file knows
+ * how far the rider went: setPose accumulates the distance between successive
+ * calls and turns OrbRoot by distance / ORB_RADIUS, which is rolling without
+ * slipping and nothing more. A smooth glowing sphere spinning is
+ * indistinguishable from one standing still, so the orb material also gets
+ * painted panel seams — without them the roll is arithmetic nobody can see.
+ *
+ * Per rider rather than per session is deliberate: the fox is an 8.8 MB file,
+ * so the attract match behind the title screen is usually ridden by cats for
+ * its first seconds and quietly switches to foxes as riders are rebuilt after
+ * the asset lands. Nothing blocks on the download, and a player who never gets
+ * it gets a game rather than a spinner. (The codex also has a lower-detail
+ * orange fox, earmarked for a low quality tier; it is not wired up yet.)
  *
  * Everything expensive happens once, at construction: load, clone, tint, merge.
  * What the frame loop calls is setPose(), which only writes numbers into an
@@ -32,7 +42,13 @@
  * fox is the exception and is turned to match; see buildFox().
  */
 
-import { RIDER_SCALE } from '../config.js';
+import {
+  ORB_RADIUS,
+  RIDER_MODEL,
+  RIDER_SCALE,
+  SPEED,
+  STRIDE_REFERENCE_SPEED,
+} from '../config.js';
 import { createBlueCat } from './blue-cat.js';
 
 /* How far the rider banks at full steer, and how briskly it gets there. The
@@ -42,16 +58,31 @@ const LEAN_RATE = 9; // e-folds per second toward the target lean
 const BOB_HEIGHT = 0.04; // arena units of hover wobble, tiers 2 and 3 only
 const BOB_RATE = 5; // radians per second of bob
 
-const MODEL_URL = 'models/fox-detailed.glb';
+/* The clip was authored to read right at STRIDE_REFERENCE_SPEED, so playing it
+ * at this ratio keeps the gait tied to the speed riders actually travel. One
+ * number for the whole game: every rider moves at SPEED. */
+const STRIDE_RATE = SPEED / STRIDE_REFERENCE_SPEED;
+
+/* A spawn puts the rider somewhere else entirely between one frame and the
+ * next. Anything further than this in one call is a teleport, not travel, and
+ * rolling it would spin the ball up like a slot machine on every respawn. */
+const TELEPORT_DISTANCE = 2; // arena units in one setPose
+
+/* Distance for one full turn of the ball. Roll wraps here so the accumulator
+ * stays small: matrices are float32, and an angle that grows all match would
+ * eventually quantise into a visible stutter. */
+const ROLL_WRAP = 2 * Math.PI * ORB_RADIUS;
 
 /*
  * One container for the whole game: instantiateModelsToScene() clones out of it
- * per rider, so 276k vertices are parsed once no matter how many riders or
- * rounds follow. `loading` doubles as the guard against a second fetch — every
- * caller after the first gets the same promise, settled or not.
+ * per rider, so a couple of hundred thousand vertices are parsed once no matter
+ * how many riders or rounds follow. `loading` doubles as the guard against a
+ * second fetch — every caller after the first gets the same promise, settled or
+ * not. `seams` is the shared orb texture, painted on first use (see orbSeams).
  */
 let container = null;
 let loading = null;
+let seams = null;
 let riderCount = 0; // only to keep cloned node and material names unique
 
 /*
@@ -78,10 +109,16 @@ export function preloadRiders(scene) {
   // Babylon 8 moved this to a bare function; the SceneLoader method is the
   // older spelling of the same call and still there in 8.56.2. Prefer the new
   // one, take the old one if a future build drops it the other way round.
+  const cut = RIDER_MODEL.lastIndexOf('/') + 1; // the old call wants folder and file apart
   const load =
     typeof B.LoadAssetContainerAsync === 'function'
-      ? () => B.LoadAssetContainerAsync(MODEL_URL, scene)
-      : () => B.SceneLoader.LoadAssetContainerAsync('models/', 'fox-detailed.glb', scene);
+      ? () => B.LoadAssetContainerAsync(RIDER_MODEL, scene)
+      : () =>
+          B.SceneLoader.LoadAssetContainerAsync(
+            RIDER_MODEL.slice(0, cut),
+            RIDER_MODEL.slice(cut),
+            scene
+          );
 
   // Promise.resolve().then(load) rather than load(): it turns a synchronous
   // throw inside the loader into a rejection, which is what the contract
@@ -98,7 +135,7 @@ export function preloadRiders(scene) {
       container = loaded;
     })
     .catch((err) => {
-      console.warn(`rider: ${MODEL_URL} failed to load, riders use the procedural cat`, err);
+      console.warn(`rider: ${RIDER_MODEL} failed to load, riders use the procedural cat`, err);
       throw err;
     });
 
@@ -123,8 +160,11 @@ export function createRider(scene, hex) {
   model.parent = root;
 
   let bobHeight = BOB_HEIGHT; // the fox clip bobs the body itself; see below
-  let clip = null; // this rider's own clone of Cruise_Wind
-  let skeletons = null; // ditto for the tail bones; root.dispose() reaches neither
+  let clip = null; // this rider's own clone of the run cycle
+  let skeletons = null; // legs and tail; root.dispose() reaches neither
+  let orbRoot = null; // the ball, rolled by hand in setPose
+  let rollBase = 0; // whatever tilt the ball was authored with
+  let orbMats = null; // the orb material clones, holding the shared seam texture
   let tier = 0;
 
   // Tier 1: the fox, if preloadRiders() has landed. All three models share the
@@ -134,7 +174,10 @@ export function createRider(scene, hex) {
       const fox = buildFox(scene, model, colour);
       clip = fox.clip;
       skeletons = fox.skeletons;
-      bobHeight = 0; // Cruise_Wind already rocks the body; two bobs fight
+      orbRoot = fox.orbRoot;
+      rollBase = fox.rollBase;
+      orbMats = fox.orbMats;
+      bobHeight = 0; // the clip bounces the body itself; two bobs fight
       model.scaling.set(RIDER_SCALE, RIDER_SCALE, RIDER_SCALE);
       tier = 1;
     } catch (err) {
@@ -171,6 +214,14 @@ export function createRider(scene, hex) {
   let lean = 0;
   let lastTime = 0;
 
+  /* Roll state. `tracking` is false until setPose has a previous position worth
+   * measuring against: at spawn, and again after any spell hidden, the first
+   * call only records where the rider is. */
+  let rolled = 0;
+  let lastX = 0;
+  let lastY = 0;
+  let tracking = false;
+
   return {
     root,
 
@@ -200,12 +251,40 @@ export function createRider(scene, hex) {
       lastTime = time;
       lean += (turn * LEAN_MAX - lean) * (1 - Math.exp(-LEAN_RATE * dt));
       root.rotation.z = lean;
+
+      /*
+       * Roll the ball by the distance the rider covered since the last call —
+       * rolling without slipping is exactly distance over radius, and measuring
+       * it here rather than from SPEED means it stays true through a countdown,
+       * a pause or a frame that ran long. All scalars: no Vector3 per frame.
+       *
+       * Sign: the fox hangs under the half-turned facing node, so inside it the
+       * direction of travel is local +Z, and a positive rotation about local +X
+       * carries the top of the ball toward +Z. Forward roll is therefore
+       * positive, and this line is the single place to flip if it reads as
+       * rolling backwards in play.
+       */
+      if (orbRoot) {
+        const d = Math.hypot(x - lastX, y - lastY);
+        lastX = x;
+        lastY = y;
+        if (tracking && d < TELEPORT_DISTANCE) {
+          rolled += d;
+          if (rolled > ROLL_WRAP) rolled -= ROLL_WRAP; // one turn is as good as none
+          orbRoot.rotation.x = rollBase + rolled / ORB_RADIUS;
+        }
+        tracking = true; // a teleport reseeds from here rather than rolling
+      }
     },
 
     setAlive(alive) {
       // Eliminated riders vanish; the round's own trail stays as evidence. A
       // hidden fox still costs its skinning every frame, so stop the clip too.
       root.setEnabled(alive);
+      // Whatever happened while this rider was hidden — a respawn across the
+      // arena, a whole round — is not travel, so the roll picks up from
+      // wherever the next setPose puts it instead of catching up in one frame.
+      tracking = false;
       if (clip) {
         // play(), not start(): Babylon's start() returns early on a group that
         // has already started, so it would never come back from a pause().
@@ -220,6 +299,13 @@ export function createRider(scene, hex) {
       if (clip) clip.dispose();
       if (skeletons) {
         for (const skeleton of skeletons) skeleton.dispose();
+      }
+      // Let go of the seam texture first. root.dispose(..., true) disposes each
+      // material's textures, and this one is the whole game's, not this rider's
+      // — dropping the reference is what keeps the second rider's ball painted
+      // after the first one is torn down.
+      if (orbMats) {
+        for (const mat of orbMats) mat.albedoTexture = null;
       }
       // Recurse into children and take the materials with it: every rider mints
       // or clones its own materials, so nothing is shared between riders and
@@ -243,14 +329,14 @@ function buildFox(scene, model, colour) {
    * doNotInstantiate asks for real clones rather than GPU instances. Instances
    * would share their materials and their skeleton, and the two things this
    * game needs per rider are precisely a colour of its own and a tail whipping
-   * on its own phase. Six copies of 276k vertices is the price of that.
+   * on its own phase. Six copies of 220k vertices is the price of that.
    */
   const inst = container.instantiateModelsToScene((name) => `${name}_${uid}`, true, {
     doNotInstantiate: true,
   });
 
   const fox = inst.rootNodes[0];
-  if (!fox) throw new Error(`${MODEL_URL} instantiated with no root node`);
+  if (!fox) throw new Error(`${RIDER_MODEL} instantiated with no root node`);
 
   /*
    * The fox's face points at +Z (glTF's convention, which Babylon's loader
@@ -267,29 +353,140 @@ function buildFox(scene, model, colour) {
   /*
    * One pass over the meshes does both jobs. Nothing in this game picks, so
    * every mesh opts out of the ray tests; and a material reached from several
-   * of the ~178 meshes must be tinted once, hence the Set — the clone's
+   * of the ~180 meshes must be tinted once, hence the Set — the clone's
    * materials are this rider's alone, but they are shared within it.
    */
   const painted = new Set();
+  const orbMats = [];
   for (const mesh of fox.getChildMeshes()) {
     mesh.isPickable = false;
     const mat = mesh.material;
     if (!mat || painted.has(mat)) continue;
     painted.add(mat);
     tintFox(mat, colour);
+    if ((mat.name || '').startsWith('Azure orb')) {
+      // The seams are a white sheet with dark ink, and PBR multiplies albedo
+      // colour by albedo texture, so every rider keeps their own colour and
+      // gains the same dark panel lines. Emissive is untouched: it still glows.
+      mat.albedoTexture = orbSeams(scene);
+      orbMats.push(mat);
+    }
   }
 
-  const clip = inst.animationGroups[0] || null; // "Cruise_Wind", 2.04 s, looping
+  /*
+   * The ball, rolled by hand in setPose. startsWith because
+   * instantiateModelsToScene renames every clone, and the whole OrbRoot turns
+   * rather than the sphere alone: the energy rings belong to the ball, and a
+   * sphere spinning inside a stationary cage reads as two objects.
+   */
+  const orbRoot = fox.getDescendants(false, (node) => node.name.startsWith('OrbRoot'))[0] || null;
+  if (!orbRoot) console.warn('rider: no OrbRoot in the model, the ball will not roll');
+
+  /*
+   * And the thing that would otherwise waste an afternoon: the glTF loader
+   * gives every node a rotationQuaternion, and a node that has one ignores its
+   * Euler `rotation` completely — rotation.x would read back exactly what we
+   * wrote and change nothing on screen. Convert once to Euler and drop the
+   * quaternion so the roll below has somewhere to land. Safe here because no
+   * channel in the clip targets OrbRoot; if one ever did, the animation would
+   * put a quaternion back and the ball would quietly stop rolling.
+   */
+  let rollBase = 0;
+  if (orbRoot) {
+    if (orbRoot.rotationQuaternion) {
+      orbRoot.rotation = orbRoot.rotationQuaternion.toEulerAngles();
+      orbRoot.rotationQuaternion = null;
+    }
+    rollBase = orbRoot.rotation.x; // zero as authored, but do not assume it
+  }
+
+  /*
+   * By index, not by name. The two fox models name their clip differently
+   * (Cruise_Wind, Run_On_Orb) and each has exactly one, and this hub has been
+   * caught before by a glTF exporter renaming a clip out from under it.
+   */
+  const clip = inst.animationGroups[0] || null;
   if (clip) {
-    clip.start(true);
-    // Every rider loops the same 2.04 s of ear, fur and tail, and six foxes
-    // breathing in lockstep reads as a rendering bug rather than a pack. The
-    // offset is cosmetic jitter, so plain Math.random is the right call here
-    // (nothing about it needs to replay identically).
+    // start() takes the ratio as its second argument and would reset it to 1
+    // otherwise. play() in setAlive reuses whatever is set here.
+    clip.start(true, STRIDE_RATE);
+    // Every rider loops the same short cycle, and six foxes running in lockstep
+    // reads as a rendering bug rather than a pack. The offset is cosmetic
+    // jitter, so plain Math.random is the right call here (nothing about it
+    // needs to replay identically).
     clip.goToFrame(clip.from + Math.random() * (clip.to - clip.from));
   }
 
-  return { clip, skeletons: inst.skeletons };
+  return { clip, skeletons: inst.skeletons, orbRoot, rollBase, orbMats };
+}
+
+/*
+ * The ball's panel seams, painted once for the whole game.
+ *
+ * A glowing sphere of one flat colour spins invisibly: there is nothing on it
+ * to follow, so the roll computed in setPose would be arithmetic with no
+ * picture attached. This is a white sheet with a dark grid of longitudes and
+ * latitudes, plus a few markers so a spin about any axis is legible rather than
+ * only the ones that cross a line. White because it multiplies with the
+ * player's albedo colour — the ink darkens, the colour survives.
+ *
+ * It is identical for every rider, so it is built once and shared; the material
+ * clones differ, the texture does not. dispose() detaches it before disposing a
+ * rider's materials, which is what stops the first teardown taking it away from
+ * everyone else.
+ */
+function orbSeams(scene) {
+  if (seams) return seams;
+  const B = BABYLON;
+  const size = 512;
+
+  // Mipmaps: the ball is maybe forty pixels across on a phone and it tumbles,
+  // and 6 px lines minified without them crawl.
+  const tex = new B.DynamicTexture('rider-orb-seams', { width: size, height: size }, scene, true);
+  const ctx = tex.getContext();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, size, size);
+
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+  ctx.lineWidth = 6;
+  ctx.lineCap = 'round';
+
+  // Eight longitudes and five latitudes across the UV rectangle. On a sphere's
+  // default mapping that is meridians and parallels, so the ball reads like a
+  // beach ball rather than a texture swatch.
+  for (let i = 0; i < 8; i++) {
+    const x = ((i + 0.5) * size) / 8;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, size);
+    ctx.stroke();
+  }
+  for (let i = 1; i <= 5; i++) {
+    const y = (i * size) / 6;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(size, y);
+    ctx.stroke();
+  }
+
+  // Dots in a few panels and one chevron: asymmetric marks, so a roll about the
+  // axis that keeps the grid lines where they are is still obviously a roll.
+  for (let i = 0; i < 4; i++) {
+    ctx.beginPath();
+    ctx.arc(((i * 2 + 1) * size) / 8, (i % 2 ? 2.5 : 3.5) * (size / 6), 14, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.beginPath();
+  ctx.moveTo(size * 0.2, size * 0.28);
+  ctx.lineTo(size * 0.3, size * 0.4);
+  ctx.lineTo(size * 0.4, size * 0.28);
+  ctx.stroke();
+
+  tex.update();
+  seams = tex;
+  return seams;
 }
 
 /*
