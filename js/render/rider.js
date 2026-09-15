@@ -5,13 +5,23 @@
  * Three tiers, and the best one available is chosen per rider at the moment
  * createRider() is called, not once per session:
  *
- *   1. the codex fox named by RIDER_MODEL in config.js — currently the running
- *      one, which runs on top of a ball instead of crouching on a floating orb.
- *      It is instantiated from an asset container that preloadRiders() fetched
- *      once, its materials cloned per rider so six foxes are six colours, and
- *      its one clip looped from a random phase at a rate derived from how fast
- *      a rider actually travels, so the paws plant on ground that is moving at
- *      their own speed rather than sliding under them.
+ *   1. the codex fox named by RIDER_MODEL in config.js — currently the
+ *      celebration one, which runs on top of a ball instead of crouching on a
+ *      floating orb. It is instantiated from an asset container that
+ *      preloadRiders() fetched once, with its materials cloned per rider so six
+ *      foxes are six colours.
+ *
+ *      It carries two clips, and they are looked up by the names in config, by
+ *      name and never by index: Run_On_Orb is the gait, looped from a random
+ *      phase at a rate derived from how fast a rider actually travels so the
+ *      paws plant on ground moving at their own speed; Stream_Tag_Backflip is a
+ *      one-shot somersault that celebrate() plays over the top, and it is
+ *      listed FIRST in the file, so index 0 would loop a fox turning
+ *      somersaults forever. main.js triggers it where the fiction does: the
+ *      owner of a trail flips when a rival crashes into it, and the round
+ *      winner flips twice. The flip keys RiderRoot and the gait does not, which
+ *      is why this file remembers that node's resting transform and puts it
+ *      back whenever a flip ends or is cut short by the flipper's own crash.
  *   2. blue-cat.js — the procedural concept cat, tinted and merged into one
  *      mesh. This was the rider until the fox arrived and is now the safety net.
  *   3. a primitive orb and capsule, for when Babylon itself is not what we
@@ -43,6 +53,8 @@
  */
 
 import {
+  CLIP_CELEBRATE,
+  CLIP_RUN,
   ORB_RADIUS,
   RIDER_MODEL,
   RIDER_SCALE,
@@ -58,9 +70,10 @@ const LEAN_RATE = 9; // e-folds per second toward the target lean
 const BOB_HEIGHT = 0.04; // arena units of hover wobble, tiers 2 and 3 only
 const BOB_RATE = 5; // radians per second of bob
 
-/* The clip was authored to read right at STRIDE_REFERENCE_SPEED, so playing it
- * at this ratio keeps the gait tied to the speed riders actually travel. One
- * number for the whole game: every rider moves at SPEED. */
+/* The run clip was authored to read right at STRIDE_REFERENCE_SPEED, so playing
+ * it at this ratio keeps the gait tied to the speed riders actually travel. One
+ * number for the whole game: every rider moves at SPEED. The backflip is not
+ * scaled by it — a somersault has its own timing and is not a gait. */
 const STRIDE_RATE = SPEED / STRIDE_REFERENCE_SPEED;
 
 /* A spawn puts the rider somewhere else entirely between one frame and the
@@ -72,6 +85,11 @@ const TELEPORT_DISTANCE = 2; // arena units in one setPose
  * stays small: matrices are float32, and an angle that grows all match would
  * eventually quantise into a visible stutter. */
 const ROLL_WRAP = 2 * Math.PI * ORB_RADIUS;
+
+/* Flips waiting behind the one in the air. A rider who takes out two rivals in
+ * the same second should flip twice, but a pile-up must not leave a fox
+ * somersaulting for ten seconds while the round carries on beneath it. */
+const MAX_PENDING_FLIPS = 3;
 
 /*
  * One container for the whole game: instantiateModelsToScene() clones out of it
@@ -160,7 +178,10 @@ export function createRider(scene, hex) {
   model.parent = root;
 
   let bobHeight = BOB_HEIGHT; // the fox clip bobs the body itself; see below
-  let clip = null; // this rider's own clone of the run cycle
+  let runClip = null; // this rider's own clone of the gait
+  let flipClip = null; // ...and of the backflip, on a model that has one
+  let riderRoot = null; // the node the backflip throws about, and nothing else does
+  let riderPose = null; // where that node sits when the fox is merely running
   let skeletons = null; // legs and tail; root.dispose() reaches neither
   let orbRoot = null; // the ball, rolled by hand in setPose
   let rollBase = 0; // whatever tilt the ball was authored with
@@ -172,7 +193,10 @@ export function createRider(scene, hex) {
   if (container) {
     try {
       const fox = buildFox(scene, model, colour);
-      clip = fox.clip;
+      runClip = fox.runClip;
+      flipClip = fox.flipClip;
+      riderRoot = fox.riderRoot;
+      riderPose = fox.riderPose;
       skeletons = fox.skeletons;
       orbRoot = fox.orbRoot;
       rollBase = fox.rollBase;
@@ -221,6 +245,82 @@ export function createRider(scene, hex) {
   let lastX = 0;
   let lastY = 0;
   let tracking = false;
+
+  /* Celebration state. `pending` is flips asked for while one was in the air;
+   * `stopping` marks the one case where the clip ending is our own doing and
+   * the handler below must keep its hands off. */
+  let pending = 0;
+  let flipping = false;
+  let stopping = false;
+
+  /* What setAlive last set, so it can act on changes only. A rider is built
+   * alive and running, which is how every round starts. */
+  let enabled = true;
+
+  /* Start the gait looping at the speed the rider travels. stop() first,
+   * because Babylon's start() returns early on a group it thinks is already
+   * running; the fresh random phase keeps riders that resume together — after
+   * a flip, after a round — from falling into lockstep. */
+  function startRun() {
+    if (!runClip) return;
+    runClip.stop();
+    runClip.start(true, STRIDE_RATE);
+    runClip.goToFrame(runClip.from + Math.random() * (runClip.to - runClip.from));
+  }
+
+  /* Put RiderRoot back where the gait expects it. Only the backflip keys that
+   * node, so if a flip is cut short nothing else in the model would ever
+   * correct it and the fox would ride on folded in half. */
+  function restoreRiderPose() {
+    if (!riderRoot || !riderPose) return;
+    riderRoot.position.copyFrom(riderPose.position);
+    riderRoot.scaling.copyFrom(riderPose.scaling);
+    if (riderPose.quaternion) {
+      // The clip keys rotationQuaternion (glTF always does), and a node with a
+      // quaternion ignores its Euler rotation, so the quaternion is what has to
+      // go back — writing rotation here would look right and do nothing.
+      if (riderRoot.rotationQuaternion) {
+        riderRoot.rotationQuaternion.copyFrom(riderPose.quaternion);
+      } else {
+        riderRoot.rotationQuaternion = riderPose.quaternion.clone();
+      }
+    } else {
+      riderRoot.rotationQuaternion = null;
+      riderRoot.rotation.copyFrom(riderPose.rotation);
+    }
+  }
+
+  /* One somersault, played from its first frame at its authored speed. The
+   * gait stops for the duration: two groups keying the same twelve leg bones
+   * would fight, and the flip has to win. */
+  function playFlip() {
+    if (!flipClip) return;
+    flipping = true;
+    if (runClip) runClip.stop();
+    flipClip.play(false);
+    flipClip.goToFrame(flipClip.from);
+  }
+
+  if (flipClip) {
+    /*
+     * Added once, here — not inside celebrate(). An observable that gains a
+     * listener per call is a leak with a visible symptom: the fox would flip
+     * once per kill it had ever made, all at the same time.
+     */
+    flipClip.onAnimationGroupEndObservable.add(() => {
+      // Babylon's stop() fires this too, so a deliberate stop (a rider dying
+      // mid-flip) must not be mistaken for a flip that finished.
+      if (stopping) return;
+      if (pending > 0) {
+        pending -= 1;
+        playFlip();
+        return;
+      }
+      flipping = false;
+      restoreRiderPose();
+      startRun();
+    });
+  }
 
   return {
     root,
@@ -278,25 +378,67 @@ export function createRider(scene, hex) {
     },
 
     setAlive(alive) {
+      /*
+       * Edge-triggered on purpose. The caller is free to hand us the sim's
+       * `alive` flag every frame, and everything below is a transition: a gait
+       * restarted per frame would stand still on frame zero, and the roll's
+       * reseed per frame would leave the ball permanently unable to turn.
+       */
+      if (alive === enabled) return;
+      enabled = alive;
+
       // Eliminated riders vanish; the round's own trail stays as evidence. A
-      // hidden fox still costs its skinning every frame, so stop the clip too.
+      // hidden fox still costs its skinning every frame, so stop the clips too.
       root.setEnabled(alive);
       // Whatever happened while this rider was hidden — a respawn across the
       // arena, a whole round — is not travel, so the roll picks up from
       // wherever the next setPose puts it instead of catching up in one frame.
       tracking = false;
-      if (clip) {
-        // play(), not start(): Babylon's start() returns early on a group that
-        // has already started, so it would never come back from a pause().
-        if (alive) clip.play(true);
-        else clip.pause();
+
+      if (alive) {
+        startRun();
+        return;
       }
+
+      /*
+       * Crashing mid-somersault is a real sequence: the flip is a kill
+       * celebration and a rival's trail does not wait for it. Drop the queue,
+       * end the flip without letting the end handler treat it as finished, and
+       * put RiderRoot back, so whatever this rider is next asked to do starts
+       * from a fox that is the right way up.
+       */
+      pending = 0;
+      flipping = false;
+      if (flipClip) {
+        stopping = true;
+        flipClip.stop();
+        stopping = false;
+      }
+      restoreRiderPose();
+      if (runClip) runClip.stop();
+    },
+
+    celebrate(times = 1) {
+      // No clip, no flip: the cat, the primitives and the gliding fox all take
+      // this call and do nothing, which is what keeps the caller free of tiers.
+      if (!flipClip) return;
+      const wanted = Math.max(1, Math.floor(times));
+      if (flipping) {
+        // Already in the air. Top up rather than restart — a rider who takes
+        // out two rivals in one second flips twice, instead of snapping back to
+        // the first frame halfway through the somersault.
+        pending = Math.min(MAX_PENDING_FLIPS, pending + wanted);
+        return;
+      }
+      pending = Math.min(MAX_PENDING_FLIPS, wanted - 1); // this call flies now
+      playFlip();
     },
 
     dispose() {
-      // The clip and the skeletons are scene-level objects that root.dispose()
+      // The clips and the skeletons are scene-level objects that root.dispose()
       // does not reach, and a clip left running would drive freed nodes.
-      if (clip) clip.dispose();
+      if (runClip) runClip.dispose();
+      if (flipClip) flipClip.dispose();
       if (skeletons) {
         for (const skeleton of skeletons) skeleton.dispose();
       }
@@ -401,23 +543,66 @@ function buildFox(scene, model, colour) {
   }
 
   /*
-   * By index, not by name. The two fox models name their clip differently
-   * (Cruise_Wind, Run_On_Orb) and each has exactly one, and this hub has been
-   * caught before by a glTF exporter renaming a clip out from under it.
+   * The node the backflip throws about. The gait never keys it, which is the
+   * whole reason its resting transform is worth remembering: a flip cut short
+   * leaves RiderRoot mid-somersault and nothing else in the model would ever
+   * put it back. Quaternion first, because that is what a glTF clip keys and
+   * what a node with one actually obeys.
    */
-  const clip = inst.animationGroups[0] || null;
-  if (clip) {
+  const riderRoot =
+    fox.getDescendants(false, (node) => node.name.startsWith('RiderRoot'))[0] || null;
+  const riderPose = riderRoot
+    ? {
+        position: riderRoot.position.clone(),
+        rotation: riderRoot.rotation.clone(),
+        quaternion: riderRoot.rotationQuaternion ? riderRoot.rotationQuaternion.clone() : null,
+        scaling: riderRoot.scaling.clone(),
+      }
+    : null;
+
+  /*
+   * By name, never by index. The celebration model lists the backflip FIRST, so
+   * index 0 used to be the gait and is now a somersault that would loop
+   * forever. The fallback — the first group that is not the celebration — is
+   * what keeps the gliding fox working, whose only clip is called Cruise_Wind
+   * and matches neither name.
+   */
+  const groups = inst.animationGroups || [];
+  const runClip =
+    groups.find((group) => named(group, CLIP_RUN)) ||
+    groups.find((group) => !named(group, CLIP_CELEBRATE)) ||
+    null;
+  const flipClip = groups.find((group) => named(group, CLIP_CELEBRATE)) || null;
+  if (!runClip) console.warn('rider: no run clip in the model, the fox will not move its legs');
+
+  if (flipClip) flipClip.stop(); // the loader may have started it; it is a one-shot
+
+  if (runClip) {
     // start() takes the ratio as its second argument and would reset it to 1
-    // otherwise. play() in setAlive reuses whatever is set here.
-    clip.start(true, STRIDE_RATE);
+    // otherwise. Every later restart goes through startRun() in createRider.
+    runClip.start(true, STRIDE_RATE);
     // Every rider loops the same short cycle, and six foxes running in lockstep
     // reads as a rendering bug rather than a pack. The offset is cosmetic
     // jitter, so plain Math.random is the right call here (nothing about it
     // needs to replay identically).
-    clip.goToFrame(clip.from + Math.random() * (clip.to - clip.from));
+    runClip.goToFrame(runClip.from + Math.random() * (runClip.to - runClip.from));
   }
 
-  return { clip, skeletons: inst.skeletons, orbRoot, rollBase, orbMats };
+  return {
+    runClip,
+    flipClip,
+    riderRoot,
+    riderPose,
+    skeletons: inst.skeletons,
+    orbRoot,
+    rollBase,
+    orbMats,
+  };
+}
+
+/* Clone names gain a suffix, so a clip is matched by its opening words. */
+function named(group, name) {
+  return (group.name || '').startsWith(name);
 }
 
 /*

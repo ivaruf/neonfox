@@ -138,12 +138,15 @@ export function createRider(scene, hex) => ({
   root,                               // TransformNode
   setPose(x, y, heading, turn, time), // sim coords; turn -1..1 for a lean; time for a glide bob
   setAlive(alive),                    // hide when false (and pause its animation)
+  celebrate(times = 1),               // one-shot backflips, then back to the run; a request while one is in the air tops up the count rather than restarting; no-op on a model without the clip
   dispose(),
 });
 // Three tiers, best available at call time, each with the same contract:
 //   1. the codex fox GLB named by RIDER_MODEL, instantiated from the
 //      preloaded container with cloned materials tinted to hex, its one clip
-//      looping from a random phase at a speed-derived rate. The ball under
+//      looping from a random phase at a speed-derived rate. Clips are looked
+//      up by the names in config (CLIP_RUN, CLIP_CELEBRATE), never by index:
+//      the celebration model lists the backflip first. The ball under
 //      OrbRoot rolls: rider.js accumulates distance from successive setPose
 //      calls and turns OrbRoot about its local X by distance / ORB_RADIUS,
 //      and paints panel seams on the orb material so the roll is visible at
@@ -258,8 +261,12 @@ export class Sfx {
   for a solo human, "P1"/"P2" for two, `PALETTE[i].name` for AI.
 - Routes events: roundStart -> trails.reset, riders alive, banner "Round N /
   steer to aim"; go -> banner "Go!" briefly; eliminated -> rider hidden,
-  burst, kick, crash sound, scores; roundOver -> banner in the winner's colour;
-  matchOver -> banner with Rematch / menu actions.
+  burst, kick, crash sound, scores, and `celebrate()` on the owner of the
+  trail that did it when that is another rider still alive (never a wall,
+  never your own trail); roundOver -> banner in the winner's colour;
+  matchOver -> banner with Rematch / menu actions. roundOver also gives the
+  surviving winner `celebrate(2)`: the round is over, so there are a couple
+  of seconds with nothing to do but watch them gloat.
 - Attract mode shows no HUD or banners.
 - **Spectating.** Once no human rider is alive in a match (solo: you died;
   two on one keyboard: both did) and the round is still running, the camera

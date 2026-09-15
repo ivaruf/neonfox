@@ -38,6 +38,9 @@ Once every human rider is out, the camera drops in behind one of the
 survivors and the steering controls cycle the view through them and back to
 the overview.
 
+Crash into another fox's trail and it throws a backflip at you. Survive the
+round and you throw two.
+
 Every rider moves at constant speed and can only turn. Trails break for a
 short gap every few seconds; slip through one if you time it. Starts are
 random, as in the original, but never pointed straight at a nearby wall.

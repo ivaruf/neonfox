@@ -65,14 +65,23 @@ export const GRID_CELL = 0.1;
 /*
  * Which rider model rides. Both are codex's detailed fox and differ only in
  * what the rider does: 'gliding' crouches on a floating orb (Cruise_Wind),
- * 'running' runs on top of a ball that rolls (Run_On_Orb, twelve leg bones).
+ * 'running' runs on top of a ball that rolls (Run_On_Orb, twelve leg bones,
+ * plus the backflip it throws when a rival dies on its trail).
  * The running one is a concept under evaluation, so this stays a one-line
  * switch until it is settled.
  */
 export const RIDER_MODELS = {
-  running: "models/fox-running.glb",
+  running: "models/fox-celebration.glb",
   gliding: "models/fox-detailed.glb",
 };
+
+/*
+ * Clips are picked by name, never by index: the celebration model lists the
+ * backflip first, so taking the first group would loop a somersault. The
+ * gliding model has neither name and falls back to its only clip.
+ */
+export const CLIP_RUN = "Run_On_Orb";
+export const CLIP_CELEBRATE = "Stream_Tag_Backflip";
 export const RIDER_MODEL = RIDER_MODELS.running;
 
 /*

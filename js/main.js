@@ -576,6 +576,14 @@ function boot() {
           fx.burst(p.x, p.y, PALETTE[p.colorIndex].hex);
           // Your own crash is worth more shake than a rival's.
           view.kick(p.kind === "human" ? 0.9 : 0.4);
+          // The fox whose trail did the killing gloats — but never a wall,
+          // never your own trail (that's e.by === e.id, not a kill), and
+          // never a corpse: two riders can cut each other's trails on the
+          // same tick, and the one who "won" that exchange may already be
+          // dead too.
+          if (e.by !== "wall" && e.by !== e.id && world.byId(e.by)?.alive) {
+            riders.get(e.by)?.celebrate();
+          }
           if (inMatch) {
             sfx.crash();
             ui.setScores(match.scores, aliveMap());
@@ -584,6 +592,11 @@ function boot() {
         }
 
         case "roundOver": {
+          // The surviving winner gets to gloat too — attract mode included,
+          // like the burst and kick above, since there are a couple of
+          // seconds of round-over banner with nothing else happening. null
+          // when everybody crashed on the same tick, so nobody celebrates.
+          if (e.winnerId) riders.get(e.winnerId)?.celebrate(2);
           if (inMatch) {
             goTimer = 0; // a pending "Go!" hide must not wipe this banner
             const winner = e.winnerId ? world.byId(e.winnerId) : null;
