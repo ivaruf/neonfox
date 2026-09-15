@@ -51,7 +51,13 @@ touch `document`/`window`.
 - Colours are hex strings from `PALETTE[colorIndex].hex`; convert with
   `BABYLON.Color3.FromHexString` where needed.
 - Fixed timestep: `main.js` steps the sim at `TICK` with an accumulator,
-  clamps frame dt to 0.1 s and runs at most 4 steps per frame.
+  clamps frame dt to 0.1 s and runs at most 4 steps per frame. **Render
+  interpolation:** after stepping, `alpha = acc / TICK` is how far the frame
+  sits into the next tick; riders and the follow camera are posed at
+  `lerp(px, x, alpha)`, `lerp(py, y, alpha)` and the shortest-arc lerp of
+  `ph → heading`. Trails keep using the raw head; the orb covers the gap.
+- The chase camera follows a smoothed heading (`scene.js` eases the given
+  heading at a few radians per second) so AI steering flips do not shake it.
 - No per-frame allocation in draw code: preallocate typed arrays, reuse
   vectors. Sim-side pushes onto stroke arrays are fine.
 - Comments are narrative: every file opens with a purpose block and every
@@ -71,7 +77,8 @@ world.tick(dt, events);    // one step; pushes { type:'eliminated', id, by: id|'
 world.blockedAt(x, y, slot) // AI lookahead helper
 world.alive(); world.byId(id); world.players; world.half; world.tickCount
 // each player: { id, slot, name, colorIndex, kind, seat, x, y, heading,
-//   turn, alive, drawing, strokes, ... }
+//   px, py, ph (pose at the start of the latest tick), turn, alive, drawing,
+//   strokes, ... }
 // strokes: array of flat arrays [x0, y0, h0, x1, y1, h1, ...], one per
 //   unbroken run of trail; a gap ends a stroke, the next begins after it.
 //   Points are ~TRAIL_POINT_SPACING apart; the head is NOT a point until the

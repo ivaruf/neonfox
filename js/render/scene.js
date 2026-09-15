@@ -114,6 +114,12 @@ const FOLLOW_FOV = 0.95;
 const FOLLOW_SMOOTH = 5;
 const VIEW_SMOOTH = 12;
 
+/* How fast the chase's idea of the rider's heading catches up with the real
+ * one. Slower than the camera itself on purpose: this is the filter that
+ * keeps an AI's steering twitch out of the picture entirely, rather than
+ * smoothing a camera that is faithfully chasing a twitch. */
+const HEAD_SMOOTH = 4;
+
 /* Fit tuning. FIT_LIMIT is the fraction of the half-viewport a corner may
  * reach: 0.97 is a 3% margin, enough that the rim beams never touch the edge
  * of the glass on a rounded phone screen. FIT_PASSES is how many times the
@@ -230,10 +236,22 @@ export function createScene(canvas) {
   let shake = 0;
 
   /* The pose being chased, in sim coordinates, last set by setFollow(). Only
-   * read while the mode is 'follow'; main.js keeps it current every frame. */
+   * read while the mode is 'follow'; main.js keeps it current every frame.
+   *
+   * followHead is that heading eased, and the camera uses it instead of the
+   * real one. A rider's heading is not a camera's: an AI threading a gap
+   * flips its steer every few ticks, which the rider wears as a wobble and
+   * the camera would wear as a tremor — worst of all spun round to the front,
+   * where every twitch swings the whole picture. Easing it costs a fraction of
+   * a second of lag on a genuine turn and buys a camera that looks held.
+   * headSnap makes the next setFollow() adopt a heading outright instead of
+   * sweeping to it, so arriving at a rider facing the other way is a cut and
+   * not a half-second orbit around them. */
   let followX = 0;
   let followY = 0;
   let followHeading = 0;
+  let followHead = 0;
+  let headSnap = true;
 
   /* The spectator's own offsets, applied by both the chase and the overview.
    * They are allowed to snap: nothing reads them but the desired position and
@@ -480,16 +498,24 @@ export function createScene(canvas) {
      * given; both write the same two vectors, so everything below is one
      * piece of code that never asks which mode it is in. */
     if (mode === "follow") {
+      // Ease the camera's idea of which way the rider faces toward the real
+      // one, the short way round: wrapped into (-PI, PI] the difference goes
+      // across the seam at ±PI instead of the long way back through zero.
+      const dHead = wrapAngle(followHeading - followHead);
+      followHead = wrapAngle(
+        followHead + dHead * (1 - Math.exp(-dt * HEAD_SMOOTH))
+      );
+
       // Sim heading is the maths angle and sim (x, y) maps to Babylon
       // (x, 0, y), so the rider's forward along the floor is (cos h, 0, sin h).
-      const fx = Math.cos(followHeading);
-      const fz = Math.sin(followHeading);
+      const fx = Math.cos(followHead);
+      const fz = Math.sin(followHead);
 
       // The chase as a polar offset about the rider: half a turn round from
       // the way it is facing puts the camera behind it, and the spectator's
       // yaw walks round from there. At yaw 0 and pitch 0 this is exactly the
       // back-9 up-5.5 boom FOLLOW_ELEV and FOLLOW_RADIUS were derived from.
-      const az = followHeading + Math.PI + yaw;
+      const az = followHead + Math.PI + yaw;
       const elev = FOLLOW_ELEV + pitch;
       const r = FOLLOW_RADIUS * zoomScale;
       const flat = r * Math.cos(elev);
@@ -569,6 +595,12 @@ export function createScene(canvas) {
     followX = x;
     followY = y;
     followHeading = heading;
+    if (headSnap) {
+      // First pose since the stop changed: take the heading as it is rather
+      // than sweeping to it from whoever we were watching before.
+      followHead = heading;
+      headSnap = false;
+    }
   }
 
   /* Add to the spectator's orbit. Both arguments are deltas in radians, which
@@ -595,6 +627,9 @@ export function createScene(canvas) {
     pitch = 0;
     zoomScale = 1;
     alpha = wrapAngle(alpha);
+    // main.js calls this on every change of stop, which is the one moment the
+    // eased heading is about to be a lie about a different rider.
+    headSnap = true;
   }
 
   function setMode(next) {

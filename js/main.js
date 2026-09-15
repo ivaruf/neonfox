@@ -120,6 +120,7 @@ function boot() {
   let spectateStop = 0;
   let lastSpectateCaption = null; // last text handed to ui.setSpectate, so a step where nothing changed writes to the DOM zero times instead of sixty a second
   let lastResolvedStop; // last value read from stops()[spectateStop]; deliberately starts undefined, which never equals a real stop (null or an id), so the very first resolve always counts as a change
+  let followId = null; // id of the player the chase camera should be posed on this frame, or null (overview / not spectating); step() decides who, render() poses the camera so it uses the same interpolated coordinates as the rider model
   const holdTime = [0, 0]; // seconds seat 0/1's steering control has been held continuously, while spectating
   const heldDir = [0, 0]; // the direction each seat was steering, remembered so its release can be judged a tap or the end of a spin
 
@@ -190,6 +191,7 @@ function boot() {
     spectateStop = 0;
     lastSpectateCaption = null;
     lastResolvedStop = undefined;
+    followId = null;
     ui.hideSpectate();
     view.resetOrbit();
     // Four rivals is enough to fill the arena with trails without the field
@@ -209,6 +211,7 @@ function boot() {
     spectateStop = 0;
     lastSpectateCaption = null;
     lastResolvedStop = undefined;
+    followId = null;
     ui.hideSpectate();
     view.resetOrbit();
     ui.hideMenu();
@@ -406,6 +409,7 @@ function boot() {
       }
       if (stop === null) {
         view.setMode("play");
+        followId = null;
         if (lastSpectateCaption !== "Overview") {
           lastSpectateCaption = "Overview";
           ui.setSpectate("Overview", "");
@@ -413,7 +417,10 @@ function boot() {
       } else {
         const p = world.byId(stop);
         view.setMode("follow");
-        view.setFollow(p.x, p.y, p.heading);
+        // step() only decides *whom* to follow; render() poses the camera,
+        // once a frame, on that player's interpolated position so the
+        // camera and the rider model it is chasing never visibly disagree.
+        followId = p.id;
         const caption = "Riding with " + p.name;
         if (lastSpectateCaption !== caption) {
           lastSpectateCaption = caption;
@@ -430,12 +437,43 @@ function boot() {
       holdTime[1] = 0;
       heldDir[0] = 0;
       heldDir[1] = 0;
+      followId = null;
     }
   }
 
-  function render() {
+  /*
+   * alpha is how far the frame sits into the next sim tick (0..1; see the
+   * render loop below). The sim moves in fixed TICK steps but this runs once
+   * a frame, so on a display faster than 60 Hz most frames land between two
+   * ticks — without blending, a rider only advances on the frames that also
+   * ran a step, which is invisible at 60 Hz but reads as a visible tremor at
+   * 120+ (every other frame stands still). Blending from last tick's pose
+   * (px, py, ph) to this tick's (x, y, heading) instead shows a frame that
+   * is up to one tick (16 ms) stale — an age nobody can see — in exchange
+   * for removing motion everybody can (ARCHITECTURE.md "Fixed timestep").
+   * Trails keep drawing to the raw head (world.js already samples strokes
+   * off x/y); the orb riding slightly behind it covers the gap.
+   */
+  function render(alpha) {
     for (const p of world.players) {
-      riders.get(p.id).setPose(p.x, p.y, p.heading, p.turn, time);
+      const ix = p.px + (p.x - p.px) * alpha;
+      const iy = p.py + (p.y - p.py) * alpha;
+      // Shortest-arc lerp: heading wraps at +-PI, so a naive lerp across
+      // that seam would spin the rider the long way round once a tick.
+      let dh = p.heading - p.ph;
+      if (dh > Math.PI) dh -= Math.PI * 2;
+      else if (dh < -Math.PI) dh += Math.PI * 2;
+      const ih = p.ph + dh * alpha;
+
+      riders.get(p.id).setPose(ix, iy, ih, p.turn, time);
+
+      // The chase camera used to be posed inside step(), at sim rate, which
+      // is exactly the tremor this function exists to remove; posing it
+      // here instead, from the same interpolated coordinates as the rider
+      // model, means camera and rider glide together every frame.
+      if (followId !== null && p.id === followId && p.alive) {
+        view.setFollow(ix, iy, ih);
+      }
     }
     trails.update(world);
   }
@@ -459,6 +497,7 @@ function boot() {
           spectateStop = 0;
           lastSpectateCaption = null;
           lastResolvedStop = undefined;
+          followId = null;
           ui.hideSpectate();
           view.resetOrbit();
           if (inMatch) {
@@ -547,7 +586,11 @@ function boot() {
       steps++;
     }
     if (steps === 4) acc = 0; // hit the cap: stop owing time we will never repay
-    render();
+    // How far into the next tick this frame sits, for render()'s
+    // interpolation; a capped frame already zeroed acc above, so it renders
+    // at exactly the latest tick (alpha 0) rather than guessing further.
+    const alpha = acc / TICK;
+    render(alpha);
     view.update(dt);
     view.scene.render();
   });

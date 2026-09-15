@@ -83,6 +83,13 @@ export class World {
       x: 0,
       y: 0,
       heading: 0,
+      // Pose at the start of the latest tick. The renderer interpolates
+      // between (px, py, ph) and (x, y, heading) by how far it is into the
+      // next tick, so a 120 Hz display does not see riders move every other
+      // frame while the camera glides every frame.
+      px: 0,
+      py: 0,
+      ph: 0,
       turn: 0, // -1..1, positive is left
       alive: true,
       drawing: true,
@@ -143,6 +150,9 @@ export class World {
       p.x = x;
       p.y = y;
       p.heading = heading;
+      p.px = x;
+      p.py = y;
+      p.ph = heading;
       p.turn = 0;
       p.alive = true;
       p.drawing = true;
@@ -162,6 +172,7 @@ export class World {
   steerOnly(dt) {
     for (const p of this.players) {
       if (!p.alive) continue;
+      p.ph = p.heading;
       p.heading += p.turn * TURN_RATE * dt;
     }
   }
@@ -175,6 +186,9 @@ export class World {
     for (const p of this.players) {
       if (!p.alive) continue;
 
+      p.px = p.x;
+      p.py = p.y;
+      p.ph = p.heading;
       p.heading += p.turn * TURN_RATE * dt;
       if (p.heading > Math.PI) p.heading -= TAU;
       else if (p.heading < -Math.PI) p.heading += TAU;
