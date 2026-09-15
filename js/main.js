@@ -24,7 +24,14 @@
  * title screen.
  */
 
-import { TICK, GO_FLASH_SECONDS, MAX_PLAYERS, PALETTE } from "./config.js";
+import {
+  TICK,
+  GO_FLASH_SECONDS,
+  MAX_PLAYERS,
+  PALETTE,
+  ARENA_SIZES,
+  ARENA_DEFAULT,
+} from "./config.js";
 import { World } from "./sim/world.js";
 import { Match } from "./sim/match.js";
 import { createScene } from "./render/scene.js";
@@ -64,7 +71,24 @@ function boot() {
     onRematch,
     onMenu,
     onSound,
+    onArena,
   });
+
+  // Restore the saved arena size before the very first match (the attract
+  // one, below) ever spawns, so the title screen already shows the size the
+  // player left it on rather than flashing "Classic" for a frame. try/catch
+  // per hub CLAUDE.md §6: private mode and quota limits are real.
+  let savedArena = ARENA_DEFAULT;
+  try {
+    const parsed = parseInt(localStorage.getItem("trailblazers.arena.v1"), 10);
+    if (Number.isInteger(parsed) && parsed >= 0 && parsed < ARENA_SIZES.length) {
+      savedArena = parsed;
+    }
+  } catch {
+    // localStorage unavailable; the default stands.
+  }
+  ui.setArena(savedArena);
+
   const trails = new TrailRenderer(view.scene);
   const fx = createEffects(view.scene);
   const riders = new Map(); // player id -> rider from createRider
@@ -114,6 +138,13 @@ function boot() {
   function startMatch(specs, opts) {
     for (const rider of riders.values()) rider.dispose();
     riders.clear();
+
+    // The arena is sized before the world places anyone; the scene only
+    // rebuilds the floor, beams and camera fit when the half-size actually
+    // changed, so re-picking the same size between rounds is nearly free.
+    const half = ARENA_SIZES[ui.arena].half;
+    world.setArena(half);
+    view.setArena(half);
 
     match = new Match(world, specs, opts);
     const events = [];
@@ -183,6 +214,19 @@ function boot() {
   function onSound(enabled) {
     sfx.setEnabled(enabled);
     sfx.unlock(); // turning sound on is itself the gesture that permits it
+  }
+
+  /* The slider fires this on release (ui.js's "change", not "input"). Only
+   * the menu's attract match restarts to preview the new size live; a size
+   * picked mid-match just waits for the next round to start or end. */
+  function onArena(index) {
+    try {
+      localStorage.setItem("trailblazers.arena.v1", String(index));
+    } catch {
+      // localStorage unavailable; the choice just won't survive a reload.
+    }
+    sfx.click();
+    if (mode === "menu") enterMenu();
   }
 
   input.onCommand = (name) => {

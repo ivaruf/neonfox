@@ -98,6 +98,7 @@ playing it.
   lean into turns and a glide bob.
 - **One arena shape**, a square, fitted edge to edge by the fixed camera in
   both portrait and landscape. It was a circle first; a square fills a phone
-  screen far better.
+  screen far better. Five sizes on the menu slider, from Tiny to Vast; riders
+  and trails keep their size, so it is a zoom in effect.
 - **No multiplayer networking.** The structure is ready for it; the code is
   not written.

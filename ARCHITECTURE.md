@@ -63,6 +63,7 @@ touch `document`/`window`.
 ```js
 // world.js
 const world = new World(seed?);
+world.setArena(half);      // arena size, from ARENA_SIZES; before setup(). Reallocates the grid.
 world.setup(specs);        // specs: [{ id, name, colorIndex, kind: 'human'|'ai', seat }]
 world.spawn();             // new round: clears grid, scatters riders with a safe runway
 world.steerOnly(dt);       // countdown: aim in place
@@ -98,6 +99,7 @@ export function createScene(canvas) => ({
   update(dt),            // once per frame before scene.render(): camera + shake decay
   setMode(mode),         // 'play' fixed whole-arena view | 'orbit' slow menu orbit
   kick(amount),          // camera shake impulse in arena units (0.4 small, 0.9 big)
+  setArena(half),        // rebuild floor, beams and slabs for a new half-size; refit camera
 });
 // Owns: Engine (DPR capped at 2), Scene, TargetCamera with an exact corner
 // fit that runs the square arena edge to edge in portrait AND landscape
@@ -161,9 +163,12 @@ export class Input {
 
 // ui.js
 export class UI {
-  constructor(root, { onStart, onRematch, onMenu, onSound })
+  constructor(root, { onStart, onRematch, onMenu, onSound, onArena })
   get humans()   // 1 | 2 from the Riders row
   get ais()      // 1..5 from the Rivals row; humans + ais <= MAX_PLAYERS enforced by disabling
+  get arena()    // index into ARENA_SIZES from the slider
+  setArena(i)    // move the slider and its label without firing onArena
+  // onArena(index) fires on the slider's `change` (release); the name label follows `input` live
   showMenu(); hideMenu();
   showHud(players /* [{ id, name, hex }] */, target); hideHud();
   setScores(scores /* id -> points */, aliveById /* id -> bool */)
@@ -189,6 +194,9 @@ export class Sfx {
   panel with the camera in `orbit`; `match` runs the chosen field with the
   camera in `play`. R restarts the match, Escape returns to the menu, Enter or
   Space starts from the menu.
+- Arena size: `ARENA_SIZES[ui.arena].half` is applied with `world.setArena` and
+  `view.setArena` before every match, attract included, so the menu previews
+  the size live; the choice persists in localStorage `trailblazers.arena.v1`.
 - Humans take palette slots 0 and 1; AI fill the rest in order. Names: "You"
   for a solo human, "P1"/"P2" for two, `PALETTE[i].name` for AI.
 - Routes events: roundStart -> trails.reset, riders alive, banner "Round N /

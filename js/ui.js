@@ -5,17 +5,22 @@
  * state, no scores of its own, no notion of who is winning. main.js reads
  * the sim and match objects and calls showHud/setScores/banner accordingly;
  * this file only ever touches the DOM ids index.html already defines (never
- * invents new structure) and reports back through the four constructor
+ * invents new structure) and reports back through the constructor
  * callbacks. The one piece of real logic it does own — humans + ais capped
  * at MAX_PLAYERS — lives here because it is a property of the two segmented
- * rows themselves, not of a running match.
+ * rows themselves, not of a running match. The arena slider is the same
+ * shape as the segmented rows in spirit (a menu choice main.js reads back),
+ * but is its own control: setArena(i) moves it and repaints its label
+ * silently, so main.js can restore a saved preference without that restore
+ * itself firing onArena as if the player had just dragged it.
  */
 
-import { MAX_PLAYERS } from "./config.js";
+import { MAX_PLAYERS, ARENA_SIZES } from "./config.js";
 
 export class UI {
-  constructor(root, { onStart, onRematch, onMenu, onSound } = {}) {
+  constructor(root, { onStart, onRematch, onMenu, onSound, onArena } = {}) {
     this.root = root;
+    this.onArena = onArena || (() => {});
 
     this.menuEl = root.querySelector("#menu");
     this.hudEl = root.querySelector("#hud");
@@ -27,6 +32,8 @@ export class UI {
     this.bannerActionsEl = root.querySelector("#banner-actions");
     this.touchEl = root.querySelector("#touch");
     this.soundEl = root.querySelector("#sound");
+    this.arenaSizeEl = root.querySelector("#arena-size");
+    this.arenaNameEl = root.querySelector("#arena-name");
 
     const left = root.querySelector("#turn-left");
     const right = root.querySelector("#turn-right");
@@ -56,6 +63,18 @@ export class UI {
       const next = this.soundEl.getAttribute("aria-pressed") !== "true";
       this.setSound(next);
       if (onSound) onSound(next);
+    });
+
+    // Two events on purpose: "input" fires on every tick of the drag, so the
+    // label keeps up with the thumb; "change" fires once, when it is
+    // released, which is when main.js actually rebuilds the arena and (in
+    // attract mode) restarts the preview match. Firing that on every "input"
+    // would rebuild the scene dozens of times per drag.
+    this.arenaSizeEl.addEventListener("input", () => {
+      this._paintArenaLabel(this.arena);
+    });
+    this.arenaSizeEl.addEventListener("change", () => {
+      this.onArena(this.arena);
     });
 
     // Once a touch has ever landed on the page, treat the pointer as
@@ -114,6 +133,25 @@ export class UI {
     return Number(
       this.aiSeg.querySelector('button[aria-pressed="true"]').dataset.v,
     );
+  }
+
+  get arena() {
+    return Number(this.arenaSizeEl.value);
+  }
+
+  /** Move the slider and repaint its label without firing onArena — used at
+   *  boot to restore a saved preference, so restoring it doesn't itself
+   *  count as the player choosing a size. */
+  setArena(i) {
+    const clamped = Math.max(0, Math.min(ARENA_SIZES.length - 1, i));
+    this.arenaSizeEl.value = String(clamped);
+    this._paintArenaLabel(clamped);
+  }
+
+  _paintArenaLabel(i) {
+    const name = ARENA_SIZES[i].name;
+    this.arenaNameEl.textContent = name;
+    this.arenaSizeEl.setAttribute("aria-valuetext", name);
   }
 
   showMenu() {

@@ -57,6 +57,18 @@ export class World {
   }
 
   /*
+   * Choose the arena size. Call before setup()/spawn(); the grid is sized to
+   * the arena, so a different half means a fresh grid. Reallocating is a
+   * once-per-match cost and keeps the cell size constant across sizes, so a
+   * trail is exactly as solid on a vast arena as on a tiny one.
+   */
+  setArena(half) {
+    if (half === this.half) return;
+    this.half = half;
+    this.grid = new Grid(half, GRID_CELL);
+  }
+
+  /*
    * specs: [{ id, name, colorIndex, kind: 'human' | 'ai', seat }]
    * Slots are 1-based because 0 means empty in the grid.
    */
@@ -94,21 +106,28 @@ export class World {
     this.grid.clear();
     this.tickCount = 0;
     const inset = this.half * SPAWN_INSET;
+    // A tiny arena cannot hold six riders ten units apart, so the target
+    // shrinks with the square; and rather than give up on a crowded field
+    // and accept whatever the last roll was, keep the best-spread candidate.
+    const separation = Math.min(SPAWN_SEPARATION, this.half / 3);
     const placed = [];
     for (const p of this.players) {
       let x = 0;
       let y = 0;
+      let bestGap = -1;
       for (let attempt = 0; attempt < 50; attempt++) {
-        x = range(this.rng, -inset, inset);
-        y = range(this.rng, -inset, inset);
-        let clear = true;
+        const cx = range(this.rng, -inset, inset);
+        const cy = range(this.rng, -inset, inset);
+        let gap = Infinity;
         for (const q of placed) {
-          if (Math.hypot(x - q[0], y - q[1]) < SPAWN_SEPARATION) {
-            clear = false;
-            break;
-          }
+          gap = Math.min(gap, Math.hypot(cx - q[0], cy - q[1]));
         }
-        if (clear) break;
+        if (gap > bestGap) {
+          bestGap = gap;
+          x = cx;
+          y = cy;
+        }
+        if (gap >= separation) break;
       }
       placed.push([x, y]);
 

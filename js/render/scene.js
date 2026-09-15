@@ -2,14 +2,18 @@
  * scene.js — the room the game is played in: engine, camera, arena, glow.
  *
  * Everything here is scenery. It never reads the sim and the sim never hears
- * about it; main.js calls update(dt) once a frame before scene.render(), plus
- * setMode() when the game moves between the paddock and a match, and kick()
- * when something explodes. That is the whole surface (see ARCHITECTURE.md).
+ * about it; main.js calls update(dt) once a frame before scene.render(),
+ * setMode() when the game moves between the paddock and a match, kick() when
+ * something explodes, and setArena() when the size changes. That is the whole
+ * surface (see ARCHITECTURE.md).
  *
- * The arena is a SQUARE, 60 by 60, spanning -ARENA_HALF..ARENA_HALF on both x
- * and z. That is a framing decision as much as a gameplay one: a circle wastes
- * the corners of every screen it is drawn on, and on a phone held upright it
- * wastes most of the picture. A square can be pushed out to the edges.
+ * The arena is a SQUARE spanning -half..half on both x and z, and the half-
+ * size is now chosen in the menu rather than fixed: 18 to 48 units, applied
+ * before every match — attract included, so the menu previews the size live.
+ * The square itself is a framing decision as much as a gameplay one: a circle
+ * wastes the corners of every screen it is drawn on, and on a phone held
+ * upright it wastes most of the picture. A square can be pushed out to the
+ * edges, at every size it comes in.
  *
  * The camera is deliberately not an ArcRotateCamera. Nothing here is steered
  * by the player, so a plain TargetCamera driven from four numbers — alpha
@@ -26,11 +30,14 @@
  * four inside 97% of the frame, then slides the target along z to centre what
  * the tilt has pushed off. It gains 5-8% in portrait and 23% in landscape,
  * where the old min(1, aspect) clamp simply stopped using the extra width.
+ * Because it re-solves every frame from the live half-size, a change of arena
+ * needs no message: the framing glides to the new size on the usual smoothing.
  *
- * The arena itself is drawn once and never rebuilt: a ground plane carrying a
- * painted DynamicTexture, four glowing beams along the kill line, and four low
- * translucent slabs that say where the wall is without hiding the riders
- * behind it.
+ * The furniture — one floor, four rim beams, four wall slabs — is built by
+ * buildArena(h) and torn down and rebuilt only when the size changes: at most
+ * once per match start, never per frame. The three materials are made once and
+ * shared across rebuilds, so a rebuild disposes meshes and repaints the floor
+ * texture in place; nothing else churns.
  */
 
 import { ARENA_HALF } from "../config.js";
@@ -56,12 +63,23 @@ const FIT_NEAR = 5; // bisection bracket: nothing usable is closer than this
 const FIT_FAR = 2000;
 const FIT_STEPS = 30; // halvings; the bracket ends up narrower than a micron
 
-/* Arena furniture, all derived from the half-size so one constant moves
- * everything. The ground is 0.6 wider than the arena on each side so the wall
- * has something to stand on; the beams straddle the kill line at +0.5. */
-const GROUND_SIZE = ARENA_HALF * 2 + 1.2;
-const EDGE_OFFSET = ARENA_HALF + 0.5; // centre-line of each of the four edges
-const EDGE_LENGTH = ARENA_HALF * 2 + 1.0; // long enough to close at the corners
+/* Arena furniture, all derived from the half-size — which is a runtime value
+ * now, so these are three small functions rather than three constants. The
+ * ground is 0.6 wider than the arena on each side so the wall has something to
+ * stand on; the beams straddle the kill line at +0.5. */
+function groundSize(h) {
+  return h * 2 + 1.2;
+}
+function edgeOffset(h) {
+  return h + 0.5; // centre-line of each of the four edges
+}
+function edgeLength(h) {
+  return h * 2 + 1.0; // long enough to close at the corners
+}
+
+/* The floor texture is square and repainted per arena size; 1024 is plenty
+ * for markings this faint. */
+const FLOOR_TEX = 1024;
 
 export function createScene(canvas) {
   const engine = new BABYLON.Engine(canvas, true, {
@@ -99,11 +117,27 @@ export function createScene(canvas) {
   glow.intensity = 0.7;
 
   buildLights(scene);
-  buildFloor(scene);
-  buildRim(scene);
-  // A transparent surface run through the glow layer blooms into a solid white
-  // band, so every slab of the wall is excluded here rather than in the builder.
-  for (const slab of buildWall(scene)) glow.addExcludedMesh(slab);
+
+  /* The live half-size of the arena. It starts at the config default and is
+   * replaced by setArena() when the menu picks another; everything that draws
+   * or frames the arena reads this one variable, which is what lets a rebuild
+   * be a local affair and the camera look after itself. */
+  let half = ARENA_HALF;
+
+  /* Materials outlive the meshes. Nothing about them depends on the size — the
+   * floor's texture is repainted in place rather than replaced — so they are
+   * made once here and shared by every arena that gets built, and a rebuild
+   * disposes meshes only. */
+  const floorTex = buildFloorTexture(scene);
+  const floorMat = buildFloorMaterial(scene, floorTex);
+  const rimMat = buildRimMaterial(scene);
+  const wallMat = buildWallMaterial(scene);
+
+  /* The furniture itself, replaced wholesale on every size change. */
+  let floor = null;
+  let beams = [];
+  let slabs = [];
+  buildArena(half);
 
   /* Scratch for the fit. Both of these exist so the solver can hand back more
    * than one number per call without allocating inside update() (house rule).
@@ -146,6 +180,69 @@ export function createScene(canvas) {
   }
 
   /*
+   * Build the floor, the four rim beams and the four wall slabs at half-size
+   * h. Runs once at startup and again from setArena(); never from the draw
+   * loop, so the allocation here is not the house rule's business.
+   */
+  function buildArena(h) {
+    // The grid keeps its twelve cells at every size, but the kill-line border
+    // sits at h/(h+0.6) of the mesh, so the paint still has to follow h.
+    paintFloor(floorTex, h);
+
+    // CreateGround already lies flat in the XZ plane facing up, so unlike the
+    // disc it replaced there is no quarter turn to remember. One quad is all
+    // this needs: the detail is in the texture, not in the mesh.
+    floor = BABYLON.MeshBuilder.CreateGround(
+      "floor",
+      { width: groundSize(h), height: groundSize(h), subdivisions: 1 },
+      scene
+    );
+    floor.position.y = 0;
+    floor.material = floorMat;
+    floor.isPickable = false; // nothing in this game picks; save the scene the work
+
+    beams = buildRim(scene, rimMat, h);
+    slabs = buildWall(scene, wallMat, h);
+    // A transparent surface run through the glow layer blooms into a solid
+    // white band, so every slab is excluded — and the exclusions have to be
+    // made again after every rebuild, because these are meshes the layer has
+    // never seen before.
+    for (const slab of slabs) glow.addExcludedMesh(slab);
+  }
+
+  /* The matching teardown: meshes go, materials and the floor texture stay.
+   * Each slab leaves the glow layer's exclusion list before it is disposed —
+   * a disposed mesh left in that list is a dangling reference the layer walks
+   * on every frame. */
+  function clearArena() {
+    for (const slab of slabs) {
+      glow.removeExcludedMesh(slab);
+      slab.dispose();
+    }
+    slabs = [];
+    for (const beam of beams) beam.dispose();
+    beams = [];
+    if (floor) {
+      floor.dispose();
+      floor = null;
+    }
+  }
+
+  /*
+   * Resize the arena. main.js calls this before every match, attract included,
+   * so the menu previews the size live — at most once per match start, which
+   * is why rebuilding meshes here is honest. The camera is deliberately not
+   * touched: fitPlay() reads `half` afresh every frame, so the view glides out
+   * to the new framing on the usual smoothing instead of cutting to it.
+   */
+  function setArena(h) {
+    if (h === half) return;
+    half = h;
+    clearArena();
+    buildArena(h);
+  }
+
+  /*
    * Project the four arena corners and report how far out they land.
    *
    * At alpha 0 the camera sits on the -z side of the target, so the basis is
@@ -158,7 +255,8 @@ export function createScene(canvas) {
    * screen coordinates are sx = v.x / (depth·tanH) and sy = v·u / (depth·tanV),
    * both ±1 at the edge of the frame. Writes its three results into the scan
    * scratch above rather than returning an object — this runs a few hundred
-   * times a frame.
+   * times a frame. The corners come from the live `half`, so the frame after
+   * setArena() is already fitting the new square.
    */
   function scanCorners(d, tzc, b, tanH, tanV) {
     const sb = Math.sin(b);
@@ -171,8 +269,8 @@ export function createScene(canvas) {
     scanSyMax = -Infinity;
 
     for (let i = 0; i < 4; i++) {
-      const qx = i & 1 ? ARENA_HALF : -ARENA_HALF;
-      const qz = i & 2 ? ARENA_HALF : -ARENA_HALF;
+      const qx = i & 1 ? half : -half;
+      const qz = i & 2 ? half : -half;
       const vy = -py; // every corner is on the floor, y = 0
       const vz = qz - pz;
       // v·f, which works out to d + (qz - tz)·sinB: the tilt makes the far
@@ -247,9 +345,9 @@ export function createScene(canvas) {
   function update(dt) {
     // Solved fresh every frame rather than cached: it is a few hundred float
     // operations against a cache key that would have to include the viewport,
-    // the fov and a beta that changes on every frame of a mode transition.
-    // Always fitted at PLAY_BETA — the orbit view is a fraction of the play
-    // framing, so the distance target stays still while the tilt eases over.
+    // the fov, the arena size and a beta that changes on every frame of a mode
+    // transition. Always fitted at PLAY_BETA — the orbit view is a fraction of
+    // the play framing, so the distance target stays still while the tilt eases.
     fitPlay(PLAY_BETA, viewAspect());
 
     // Exponential lerp: frame-rate independent, and it never overshoots.
@@ -317,7 +415,7 @@ export function createScene(canvas) {
     shake = Math.max(shake, amount);
   }
 
-  return { engine, scene, update, setMode, kick };
+  return { engine, scene, update, setMode, kick, setArena };
 }
 
 /* Into (-PI, PI]. */
@@ -375,29 +473,54 @@ function buildLights(scene) {
   dir.intensity = 0.5;
 }
 
+/* The floor's canvas. Made once and handed to paintFloor() again on every
+ * size change: a DynamicTexture is a GPU texture with a 2D context in front of
+ * it, and repainting that context costs a canvas upload, where recreating the
+ * texture would also mean rebuilding the material that points at it. */
+function buildFloorTexture(scene) {
+  const tex = new BABYLON.DynamicTexture(
+    "floorTex",
+    { width: FLOOR_TEX, height: FLOOR_TEX },
+    scene,
+    true
+  );
+  // Clamped: the uvs land exactly on 0 and 1 at the mesh edge, and wrapping
+  // there smears the opposite edge of the canvas into a halo.
+  tex.wrapU = BABYLON.Texture.CLAMP_ADDRESSMODE;
+  tex.wrapV = BABYLON.Texture.CLAMP_ADDRESSMODE;
+  return tex;
+}
+
+function buildFloorMaterial(scene, tex) {
+  const mat = new BABYLON.StandardMaterial("floorMat", scene);
+  mat.diffuseTexture = tex;
+  // A tight specular highlight is what sells the floor as a hard surface the
+  // riders skim over; the emissive is just enough that it is never pure black.
+  mat.specularColor = new BABYLON.Color3(0.25, 0.3, 0.4);
+  mat.specularPower = 32;
+  mat.emissiveColor = new BABYLON.Color3(0.02, 0.03, 0.08);
+  return mat;
+}
+
 /*
- * Floor. One ground plane with a procedurally painted texture: a square grid
- * gives the eye something to judge speed and distance against, which a flat
- * fill cannot, and it agrees with the shape of the arena in a way the old
- * rings and spokes no longer would. Everything is faint on purpose — the
- * trails are the picture.
+ * Paint the floor for half-size h: a square grid gives the eye something to
+ * judge speed and distance against, which a flat fill cannot, and it agrees
+ * with the shape of the arena in a way the old rings and spokes no longer
+ * would. Everything is faint on purpose — the trails are the picture.
  *
  * CreateGround maps the texture once across the whole plane, and the plane is
  * 1.2 wider than the arena so the wall has something to stand on. So the
  * markings are painted inside `edge`, the arena's half-size in texture pixels,
  * which puts the grid on the playable square and the border square exactly on
- * the kill line instead of out at the mesh edge. The motif is symmetric in
- * both axes, so which way round the uvs run does not matter.
+ * the kill line instead of out at the mesh edge. That ratio is h/(h+0.6), so
+ * it shifts a little with every arena size and the paint has to be redone for
+ * each one — the first fillRect covers whatever the last size left behind.
+ * The motif is symmetric in both axes, so which way round the uvs run does
+ * not matter.
  */
-function buildFloor(scene) {
-  const S = 1024;
+function paintFloor(tex, h) {
+  const S = FLOOR_TEX;
   const C = S / 2;
-  const tex = new BABYLON.DynamicTexture(
-    "floorTex",
-    { width: S, height: S },
-    scene,
-    true
-  );
   const ctx = tex.getContext();
 
   ctx.fillStyle = "#0a1128";
@@ -411,10 +534,13 @@ function buildFloor(scene) {
   ctx.fillStyle = lift;
   ctx.fillRect(0, 0, S, S);
 
-  const edge = (C * (ARENA_HALF * 2)) / GROUND_SIZE;
+  const edge = (C * (h * 2)) / groundSize(h);
 
-  // 12 by 12 cells across the playable 60 by 60, so a cell is 5 arena units:
-  // about a second and a half of riding, which is the scale that matters.
+  // 12 by 12 cells across the playable square whatever its size, so a cell is
+  // h/6 units: five at the classic size, about a second and a half of riding.
+  // Holding the count rather than the cell size is deliberate — the camera
+  // fits the square to the screen either way, so a fixed count keeps the floor
+  // looking the same in a tiny arena as in a vast one.
   const step = (edge * 2) / 12;
   ctx.lineWidth = 2;
   ctx.strokeStyle = "rgba(120, 160, 255, 0.08)";
@@ -449,55 +575,33 @@ function buildFloor(scene) {
   ctx.strokeRect(C - edge, C - edge, edge * 2, edge * 2);
 
   tex.update();
-
-  // Clamped: the uvs land exactly on 0 and 1 at the mesh edge, and wrapping
-  // there smears the opposite edge of the canvas into a halo.
-  tex.wrapU = BABYLON.Texture.CLAMP_ADDRESSMODE;
-  tex.wrapV = BABYLON.Texture.CLAMP_ADDRESSMODE;
-
-  const mat = new BABYLON.StandardMaterial("floorMat", scene);
-  mat.diffuseTexture = tex;
-  // A tight specular highlight is what sells the floor as a hard surface the
-  // riders skim over; the emissive is just enough that it is never pure black.
-  mat.specularColor = new BABYLON.Color3(0.25, 0.3, 0.4);
-  mat.specularPower = 32;
-  mat.emissiveColor = new BABYLON.Color3(0.02, 0.03, 0.08);
-
-  // CreateGround already lies flat in the XZ plane facing up, so unlike the
-  // disc it replaced there is no quarter turn to remember. One quad is all
-  // this needs: the detail is in the texture, not in the mesh.
-  const floor = BABYLON.MeshBuilder.CreateGround(
-    "floor",
-    { width: GROUND_SIZE, height: GROUND_SIZE, subdivisions: 1 },
-    scene
-  );
-  floor.position.y = 0;
-  floor.material = mat;
-  floor.isPickable = false; // nothing in this game picks; save the scene the work
-  return floor;
 }
 
-/* The rim: four fat glowing beams along the kill line, one per edge, long
- * enough to meet at the corners so the square closes. Unlit so they read as
- * neon from every angle instead of dimming on the far side. */
-function buildRim(scene) {
+/* Unlit so the rim reads as neon from every angle instead of dimming on the
+ * far side. One material serves every rebuild. */
+function buildRimMaterial(scene) {
   const mat = new BABYLON.StandardMaterial("rimMat", scene);
   mat.emissiveColor = new BABYLON.Color3(0.2, 0.85, 1.0).scale(0.8);
   mat.diffuseColor = new BABYLON.Color3(0, 0, 0);
   mat.specularColor = new BABYLON.Color3(0, 0, 0);
   mat.disableLighting = true;
+  return mat;
+}
 
+/* The rim: four fat glowing beams along the kill line of an arena of half-size
+ * h, one per edge, long enough to meet at the corners so the square closes. */
+function buildRim(scene, mat, h) {
   const beams = [];
   for (let i = 0; i < 4; i++) {
-    // One material and one box shape for all four: the two side beams are the
-    // same beam given a quarter turn, which is cheaper to read than four
-    // hand-written boxes and impossible to get subtly inconsistent.
+    // One box shape for all four: the two side beams are the same beam given a
+    // quarter turn, which is cheaper to read than four hand-written boxes and
+    // impossible to get subtly inconsistent.
     const beam = BABYLON.MeshBuilder.CreateBox(
       "rim" + i,
-      { width: EDGE_LENGTH, height: 0.5, depth: 0.5 },
+      { width: edgeLength(h), height: 0.5, depth: 0.5 },
       scene
     );
-    placeOnEdge(beam, i, 0.25);
+    placeOnEdge(beam, i, 0.25, h);
     beam.material = mat;
     beam.isPickable = false;
     beams.push(beam);
@@ -506,13 +610,13 @@ function buildRim(scene) {
 }
 
 /*
- * The wall: four short slabs standing on the rim. It is barely there (alpha
- * 0.12) because its whole job is to say "the arena ends here" without ever
- * coming between the camera and a rider on the far side. The slabs are
- * excluded from the glow layer by the caller — a transparent surface run
- * through glow blooms into a solid white band.
+ * The wall's material. It is barely there (alpha 0.12) because its whole job
+ * is to say "the arena ends here" without ever coming between the camera and a
+ * rider on the far side. The slabs themselves are excluded from the glow layer
+ * by buildArena() — a transparent surface run through glow blooms into a solid
+ * white band — and have to be excluded again after every rebuild.
  */
-function buildWall(scene) {
+function buildWallMaterial(scene) {
   const mat = new BABYLON.StandardMaterial("wallMat", scene);
   mat.emissiveColor = new BABYLON.Color3(0.2, 0.85, 1.0);
   mat.diffuseColor = new BABYLON.Color3(0, 0, 0);
@@ -520,15 +624,19 @@ function buildWall(scene) {
   mat.disableLighting = true;
   mat.alpha = 0.12;
   mat.backFaceCulling = false; // we stand inside it and look out through it
+  return mat;
+}
 
+/* Four short slabs standing on the rim of an arena of half-size h. */
+function buildWall(scene, mat, h) {
   const slabs = [];
   for (let i = 0; i < 4; i++) {
     const slab = BABYLON.MeshBuilder.CreateBox(
       "wall" + i,
-      { width: EDGE_LENGTH, height: 1.4, depth: 0.12 },
+      { width: edgeLength(h), height: 1.4, depth: 0.12 },
       scene
     );
-    placeOnEdge(slab, i, 0.7); // half the height, so it stands on the floor
+    placeOnEdge(slab, i, 0.7, h); // half the height, so it stands on the floor
     slab.material = mat;
     slab.isPickable = false;
     slabs.push(slab);
@@ -536,13 +644,15 @@ function buildWall(scene) {
   return slabs;
 }
 
-/* Put a box on edge i of the square: 0 and 1 lie across the -z and +z edges,
- * 2 and 3 are the same box turned a quarter turn onto the -x and +x edges. */
-function placeOnEdge(mesh, i, y) {
+/* Put a box on edge i of the square of half-size h: 0 and 1 lie across the -z
+ * and +z edges, 2 and 3 are the same box turned a quarter turn onto the -x and
+ * +x edges. */
+function placeOnEdge(mesh, i, y, h) {
+  const off = edgeOffset(h);
   if (i < 2) {
-    mesh.position.set(0, y, i === 0 ? -EDGE_OFFSET : EDGE_OFFSET);
+    mesh.position.set(0, y, i === 0 ? -off : off);
   } else {
     mesh.rotation.y = Math.PI / 2;
-    mesh.position.set(i === 2 ? -EDGE_OFFSET : EDGE_OFFSET, y, 0);
+    mesh.position.set(i === 2 ? -off : off, y, 0);
   }
 }

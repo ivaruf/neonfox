@@ -1,9 +1,9 @@
 /*
  * config.js — every tuning number in one place.
  *
- * Units are arena units: the arena is a square, ARENA_HALF each way from the
- * centre, so 60 across. It was a circle at first; a square fills a phone
- * screen far better under a fixed whole-arena camera.
+ * Units are arena units: the arena is a square, `half` each way from the
+ * centre, 60 across at the classic size (see ARENA_SIZES). It was a circle
+ * at first; a square fills a phone screen far better under a fixed camera.
  * A head is 0.9 wide and a trail 0.6, which is about one hundredth of the
  * arena — the same proportion as the original Kurve's pixel-wide line on a
  * 640-wide field. Speed over turn rate is the turning radius: 9 / 3.8 is
@@ -11,7 +11,21 @@
  * It started at 2.6 (radius 3.5) and the first playtest wanted it tighter.
  */
 
-export const ARENA_HALF = 30;
+/*
+ * Arena sizes the menu offers. Riders, trails and speed stay the same
+ * absolute size, so a bigger arena is more room and smaller riders on
+ * screen — a zoom, in effect. "Classic" keeps the original proportions: a
+ * head one hundredth of the arena, like Kurve's pixel on a 640-wide field.
+ */
+export const ARENA_SIZES = [
+  { half: 18, name: "Tiny" },
+  { half: 24, name: "Snug" },
+  { half: 30, name: "Classic" },
+  { half: 38, name: "Roomy" },
+  { half: 48, name: "Vast" },
+];
+export const ARENA_DEFAULT = 2; // index into ARENA_SIZES
+export const ARENA_HALF = ARENA_SIZES[ARENA_DEFAULT].half;
 
 /*
  * Spawns are random, which is most of what made the original fun: nobody
