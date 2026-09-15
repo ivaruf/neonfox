@@ -281,13 +281,29 @@ const ROLLED = [
   "Vapor",
 ];
 
+/*
+ * A name the game picked. `avoid` is the one currently on screen, so a die
+ * pressed twice never lands on what is already there and reads as a button
+ * that did nothing — fishtank's rule, and the same trick: roll again once,
+ * which is enough because the pool is longer than two.
+ */
+export function rollName(avoid) {
+  const pick = () => ROLLED[Math.floor(Math.random() * ROLLED.length)];
+  let name = pick();
+  if (name === avoid) name = pick();
+  return name;
+}
+
 export function cleanName(name) {
   const stripped = String(name ?? "")
     .replace(NAME_ALLOWED, "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, MAX_NAME);
-  return stripped || ROLLED[Math.floor(Math.random() * ROLLED.length)];
+  // The fallback is a guard, not the usual path: the lobby rolls a name into
+  // the field before anyone can send an empty one. It stays because a guest's
+  // HELLO arrives over a wire and may say anything at all.
+  return stripped || rollName();
 }
 
 /*

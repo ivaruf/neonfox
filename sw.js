@@ -99,6 +99,12 @@
 //         for the number the paddock's Local players row had already been
 //         given. It reads that one instead, and says something only when a
 //         touch device has to clamp it.
+//         Multiplayer becomes two steps: a chooser (who you are, Host or
+//         Join) and one lobby that a host and a joined guest both land in,
+//         with the three pictures big and the roster shared — a guest used to
+//         watch a status line because the roster lived inside the host's own
+//         view. The name starts on one the game rolled and a die rolls
+//         another, fishtank's control and its reasoning.
 const VERSION = "v1.7.0";
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
