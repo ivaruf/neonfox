@@ -349,7 +349,7 @@ kbd {
 .chip.out .dot {
   box-shadow: none;
 }
-#target {
+#target-label {
   margin: 6px 0 0 8px;
   color: var(--ink-dim);
   font-size: 11px;

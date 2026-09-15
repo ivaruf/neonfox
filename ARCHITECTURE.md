@@ -91,7 +91,8 @@ world.alive(); world.byId(id); world.players; world.half; world.tickCount
 //   stroke closes, so a live trail should be drawn to (p.x, p.y) as well.
 
 // match.js
-const match = new Match(world, specs, { attract });
+const match = new Match(world, specs, { attract, target });  // target 0 = scale with the field
+export function defaultTarget(players)  // POINTS_PER_RIVAL x rivals
 match.start(events);
 match.update(TICK, humanTurns /* Map id -> -1..1 */, events);
 match.state    // 'countdown' | 'playing' | 'roundOver' | 'matchOver'
@@ -200,6 +201,9 @@ export class UI {
   get humans()   // 1 | 2 from the Riders row
   get ais()      // 1..5 from the Rivals row; humans + ais <= MAX_PLAYERS enforced by disabling
   get arena()    // index into ARENA_SIZES from the slider
+  get target()   // winning score from the "Win at" slider
+  // The target slider follows the roster (defaultTarget for the current field)
+  // until the host moves it, after which their number sticks for the session.
   setArena(i)    // move the slider and its label without firing onArena
   // onArena(index) fires on the slider's `change` (release); the name label follows `input` live
   showMenu(); hideMenu();
@@ -237,6 +241,10 @@ export class Sfx {
 
 ## Glue (main.js)
 
+- Winner wording: a lone human is addressed as "You" and needs the verb to
+  agree, so the banner asks the winner whether it is the player rather than
+  pasting a name in front of a fixed phrase. Two humans share a screen, so
+  neither is "you" and both get their label.
 - Volumes: `onMusicVolume`/`onSfxVolume` pass straight to the Sfx setters and
   are restored onto the sliders at boot with `ui.setVolumes(...)`.
 - Modes: `menu` runs an attract match (4 AI, `attract: true`) behind the

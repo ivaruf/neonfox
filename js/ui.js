@@ -21,6 +21,11 @@
  */
 
 import { MAX_PLAYERS, ARENA_SIZES } from "./config.js";
+// The one place the DOM lane reaches into the sim lane: defaultTarget is a
+// pure function of a headcount (no World, no DOM), used to keep the "Win
+// at" slider's suggested value in step with the roster. Keep this import to
+// that one function.
+import { defaultTarget } from "./sim/match.js";
 
 export class UI {
   constructor(
@@ -35,7 +40,9 @@ export class UI {
     this.menuEl = root.querySelector("#menu");
     this.hudEl = root.querySelector("#hud");
     this.scoresEl = root.querySelector("#scores");
-    this.targetEl = root.querySelector("#target");
+    this.targetEl = root.querySelector("#target-label");
+    this.targetSliderEl = root.querySelector("#target");
+    this.targetOutEl = root.querySelector("#target-out");
     this.bannerEl = root.querySelector("#banner");
     this.bannerSubEl = root.querySelector("#banner-sub");
     this.bannerTextEl = root.querySelector("#banner-text");
@@ -59,10 +66,21 @@ export class UI {
 
     // Selecting a button presses it and un-presses its row-mates; changing
     // the humans row can also invalidate the current rivals selection, so
-    // that row's wiring re-runs the cap afterwards.
-    this._wireSeg(this.humansSeg, () => this._enforceCap());
-    this._wireSeg(this.aiSeg, () => {});
+    // that row's wiring re-runs the cap afterwards. Either row changes the
+    // headcount the "Win at" slider's suggestion is based on.
+    this._wireSeg(this.humansSeg, () => {
+      this._enforceCap();
+      this._recomputeTarget();
+    });
+    this._wireSeg(this.aiSeg, () => this._recomputeTarget());
     this._enforceCap();
+
+    // The host has not touched the target slider yet, so it still follows
+    // the roster (see _recomputeTarget); seed it now to match the menu's
+    // initial 1 human + 3 rivals rather than whatever value the markup
+    // happens to hard-code.
+    this._targetTouched = false;
+    this._recomputeTarget();
 
     root.querySelector("#start").addEventListener("click", () => {
       if (onStart) onStart();
@@ -84,6 +102,14 @@ export class UI {
     });
     this.arenaSizeEl.addEventListener("change", () => {
       this.onArena(this.arena);
+    });
+
+    // The moment the host drags this even once, it is their number: stop
+    // following the roster for the rest of the session (see
+    // _recomputeTarget).
+    this.targetSliderEl.addEventListener("input", () => {
+      this._targetTouched = true;
+      this.targetOutEl.textContent = `${this.target} pts`;
     });
 
     // Volume, unlike the arena size, is only ever "input": a level you
@@ -175,6 +201,26 @@ export class UI {
     const name = ARENA_SIZES[i].name;
     this.arenaNameEl.textContent = name;
     this.arenaSizeEl.setAttribute("aria-valuetext", name);
+  }
+
+  get target() {
+    return Number(this.targetSliderEl.value);
+  }
+
+  /** Keep the "Win at" slider following the roster until the host sets it
+   *  themselves. Every crash pays every survivor, so a round of six hands
+   *  out fifteen points where a round of two hands out one — a fixed
+   *  default would mean a six-player match ends in a single round. Once
+   *  _targetTouched is set (the host dragged the slider), this is a no-op
+   *  for the rest of the session: their number is never overridden again. */
+  _recomputeTarget() {
+    if (this._targetTouched) return;
+    const suggested = defaultTarget(this.humans + this.ais);
+    const min = Number(this.targetSliderEl.min);
+    const max = Number(this.targetSliderEl.max);
+    const clamped = Math.max(min, Math.min(max, suggested));
+    this.targetSliderEl.value = String(clamped);
+    this.targetOutEl.textContent = `${clamped} pts`;
   }
 
   showMenu() {

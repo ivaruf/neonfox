@@ -43,8 +43,10 @@ short gap every few seconds; slip through one if you time it. Starts are
 random, as in the original, but never pointed straight at a nearby wall.
 
 Scoring is Kurve's: every time a rider crashes, every rider still alive
-scores a point. The match goes to the first rider alone past
-`POINTS_PER_RIVAL × rivals` points.
+scores a point. The match goes to the first rider alone past the target,
+which the menu's "Win at" slider sets. It follows the field size until you
+move it, because a round of six hands out fifteen points where a round of
+two hands out one.
 
 ## Architecture
 

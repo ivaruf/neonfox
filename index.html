@@ -64,6 +64,14 @@
           </div>
         </div>
 
+        <div class="row">
+          <label class="label" for="target">Win at</label>
+          <div class="slider">
+            <input type="range" id="target" min="5" max="60" step="5" value="15" />
+            <output id="target-out" for="target">15 pts</output>
+          </div>
+        </div>
+
         <button type="button" id="start" class="primary">Blaze!</button>
 
         <p class="hint">
@@ -91,7 +99,7 @@
       <!-- Live scoreboard during a match. -->
       <aside id="hud" hidden>
         <ol id="scores"></ol>
-        <p id="target"></p>
+        <p id="target-label"></p>
       </aside>
 
       <!-- Round and match messages. -->

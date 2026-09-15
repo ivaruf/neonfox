@@ -9,7 +9,8 @@
  * worker and forward the events to guests.
  *
  * Scoring is Kurve's: every time a rider crashes, every rider still alive
- * gets a point. First to POINTS_PER_RIVAL x rivals, alone in the lead, wins.
+ * gets a point. First past the target, alone in the lead, wins; the target is
+ * the host's to set, and defaults to POINTS_PER_RIVAL x rivals.
  * With `attract` set the match never ends — the title screen uses that to
  * keep a demo running behind the menu.
  */
@@ -22,11 +23,15 @@ import {
 import { aiThink } from "./ai.js";
 
 export class Match {
-  constructor(world, specs, { attract = false } = {}) {
+  constructor(world, specs, { attract = false, target = 0 } = {}) {
     this.world = world;
     this.specs = specs;
     this.attract = attract;
-    this.target = POINTS_PER_RIVAL * Math.max(1, specs.length - 1);
+    // The host may name the target outright; otherwise it scales with the
+    // field, because every crash pays every survivor, so a round of six hands
+    // out fifteen points where a round of two hands out one.
+    this.target =
+      target > 0 ? target : defaultTarget(specs.length);
     this.scores = {};
     this.state = "idle";
     this.timer = 0;
@@ -124,4 +129,9 @@ export class Match {
     }
     return bestScore >= this.target && !tied ? best : null;
   }
+}
+
+/* What the target would be for a field of this size if nobody chose one. */
+export function defaultTarget(players) {
+  return POINTS_PER_RIVAL * Math.max(1, players - 1);
 }

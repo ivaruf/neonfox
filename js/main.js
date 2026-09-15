@@ -186,7 +186,11 @@ function boot() {
     world.setArena(half);
     view.setArena(half);
 
-    match = new Match(world, specs, opts);
+    // opts.attract's own match never ends and must keep scaling its target
+    // to the field (target: 0); a real match instead uses whatever the host
+    // set on the "Win at" slider, read here rather than baked into opts by
+    // the caller so beginMatch() doesn't have to know Match's own contract.
+    match = new Match(world, specs, { ...opts, target: opts.attract ? 0 : ui.target });
     const events = [];
     match.start(events);
 
@@ -316,6 +320,25 @@ function boot() {
   /* Whether either seat's own rider is still standing. */
   function humansAlive() {
     return world.players.some((p) => p.kind === "human" && p.alive);
+  }
+
+  /*
+   * Winner wording (ARCHITECTURE.md "Glue"): a lone human is named "You",
+   * so a fixed "<name> takes the round" reads as "You takes the round" —
+   * wrong agreement, and a missed chance to make a win feel personal. Ask
+   * instead whether the winner *is* the solo player reading the screen:
+   * that is only true for a human rider in a field with exactly one human.
+   * Two humans share a screen (P1/P2), so neither of them is "you" even
+   * though both are human, and every AI winner is third person regardless.
+   */
+  function winnerPhrase(player, { match = false } = {}) {
+    const solo =
+      player.kind === "human" &&
+      world.players.filter((p) => p.kind === "human").length === 1;
+    if (solo) return match ? "You win the match!" : "You win!";
+    return match
+      ? `${player.name} wins the match!`
+      : `${player.name} takes the round`;
   }
 
   /*
@@ -565,7 +588,7 @@ function boot() {
             goTimer = 0; // a pending "Go!" hide must not wipe this banner
             const winner = e.winnerId ? world.byId(e.winnerId) : null;
             if (winner) {
-              ui.banner(winner.name + " takes the round", {
+              ui.banner(winnerPhrase(winner), {
                 hex: PALETTE[winner.colorIndex].hex,
               });
             } else {
@@ -581,7 +604,7 @@ function boot() {
           if (inMatch) {
             goTimer = 0;
             const winner = world.byId(e.winnerId);
-            ui.banner(winner.name + " wins the match!", {
+            ui.banner(winnerPhrase(winner, { match: true }), {
               hex: PALETTE[winner.colorIndex].hex,
               actions: true,
               sub: "first to " + match.target,
