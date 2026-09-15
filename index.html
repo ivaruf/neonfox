@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Trailblazers</title>
+    <meta
+      name="description"
+      content="Riders gliding on glowing orbs, leaving neon trails in a small arena. A Kurve-style arcade game."
+    />
+    <meta name="theme-color" content="#0a1030" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <!--
+      The whole game is one WebGL canvas with DOM floating over it. The DOM
+      carries everything a player reads or taps (menu, scores, banners, the
+      two touch buttons); the canvas carries everything that moves. See
+      README.md for the architecture.
+    -->
+    <canvas id="arena" aria-label="Trailblazers arena"></canvas>
+
+    <div id="ui">
+      <!-- Title / paddock. Sits over the live attract-mode arena. -->
+      <section id="menu" class="panel" aria-labelledby="title">
+        <p class="kicker">Neon Kurve for orb riders</p>
+        <h1 id="title">Trailblazers</h1>
+
+        <div class="row">
+          <span class="label">Riders</span>
+          <div class="seg" data-seg="humans" role="group" aria-label="Human riders">
+            <button type="button" data-v="1" aria-pressed="true">Solo</button>
+            <button type="button" data-v="2">Two, one keyboard</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <span class="label">Rivals</span>
+          <div class="seg" data-seg="ai" role="group" aria-label="AI rivals">
+            <button type="button" data-v="1">1</button>
+            <button type="button" data-v="2">2</button>
+            <button type="button" data-v="3" aria-pressed="true">3</button>
+            <button type="button" data-v="4">4</button>
+            <button type="button" data-v="5">5</button>
+          </div>
+        </div>
+
+        <button type="button" id="start" class="primary">Blaze!</button>
+
+        <p class="hint">
+          <kbd>←</kbd><kbd>→</kbd> steer · rider two on <kbd>A</kbd><kbd>D</kbd>
+          · <kbd>R</kbd> restarts the match · steer while the round loads to aim
+        </p>
+
+        <button type="button" id="sound" class="ghost" aria-pressed="true">
+          Sound on
+        </button>
+      </section>
+
+      <!-- Live scoreboard during a match. -->
+      <aside id="hud" hidden>
+        <ol id="scores"></ol>
+        <p id="target"></p>
+      </aside>
+
+      <!-- Round and match messages. -->
+      <div id="banner" hidden>
+        <p id="banner-sub"></p>
+        <p id="banner-text"></p>
+        <div id="banner-actions" hidden>
+          <button type="button" id="rematch" class="primary">Rematch</button>
+          <button type="button" id="to-menu" class="ghost">Back to the paddock</button>
+        </div>
+      </div>
+
+      <!-- Touch steering for rider one. Shown on coarse pointers only. -->
+      <div id="touch" hidden>
+        <button type="button" id="turn-left" aria-label="Turn left">◀</button>
+        <button type="button" id="turn-right" aria-label="Turn right">▶</button>
+      </div>
+    </div>
+
+    <!--
+      Crash bar. A module script reports its whole import graph through this
+      one tag, so a failure here names js/main.js even when the file that
+      actually failed to load was one of its imports.
+    -->
+    <div id="crash" role="alert" hidden></div>
+
+    <!--
+      Babylon comes from jsDelivr pinned to an exact version with an integrity
+      hash (the same tag fishtank uses), and vendor/babylon.js is the
+      byte-identical fallback for a blocked CDN or LAN play with no internet.
+      The guard runs before the module below, so load order never changes.
+    -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/babylonjs@8.56.2/babylon.js"
+      integrity="sha384-bJ7uvrJB0MXh1qhQouRHX/NbjOQywkt/ZxeFnrMiiFYG8InDFZlQdzVpAGaMhfwZ"
+      crossorigin="anonymous"
+      data-handled="vendor/babylon.js"
+    ></script>
+    <script>
+      window.BABYLON ||
+        document.write('<script src="vendor/babylon.js"><\/script>');
+    </script>
+    <script>
+      // Surface load-time failures instead of a silent dark canvas.
+      (function () {
+        var bar = document.getElementById("crash");
+        function show(msg) {
+          bar.textContent = msg;
+          bar.hidden = false;
+        }
+        window.addEventListener("error", function (e) {
+          var t = e.target;
+          if (t && t.tagName === "SCRIPT" && t.dataset && t.dataset.handled) return;
+          if (t && t.tagName === "SCRIPT") {
+            show(
+              "A script failed to load: " +
+                t.src +
+                " (if this is js/main.js, the real culprit may be one of its imports)"
+            );
+            return;
+          }
+          show("Something broke: " + (e.message || e.type));
+        }, true);
+        window.addEventListener("unhandledrejection", function (e) {
+          show("Something broke: " + (e.reason && e.reason.message ? e.reason.message : e.reason));
+        });
+      })();
+    </script>
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

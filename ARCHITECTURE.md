@@ -1,0 +1,211 @@
+# Trailblazers — architecture and lane contract
+
+A Kurve-style arena game: riders on glowing orbs leave solid trails, touch a
+trail or the wall and you are out, last rider standing takes the round. This
+file is the contract between the modules (and between the agents that build
+them): who owns which file, what each exports, and the conventions that let
+them meet without reading each other's code. Change a contract here first,
+then in the code.
+
+## The split
+
+```
+index.html           page shell: canvas + DOM overlay + pinned Babylon tags
+css/style.css        overlay styling; rider colour arrives as --c
+js/config.js         every tuning number and the six-colour PALETTE
+js/sim/              THE GAME. Plain numbers, no DOM, no Babylon.
+  rng.js             seedable mulberry32
+  grid.js            occupancy grid: owner + stamp tick per cell
+  world.js           riders, movement, trail painting, gaps, collisions
+  ai.js              lookahead rivals
+  match.js           round state machine and Kurve scoring, emits events
+js/render/           reads the sim, draws it with Babylon
+  scene.js           engine, camera fit, lights, arena, glow, shake
+  blue-cat.js        the codex concept rider, adapted to an ES module
+  rider.js           one rider per player: tint, merge, pose, fallback
+  trails.js          chunked neon ribbons built from world strokes
+  effects.js         elimination burst
+js/input.js          keyboard + touch buttons -> turn per seat, commands
+js/ui.js             menu, scoreboard, banners, touch button visibility
+js/audio.js          WebAudio blips, lazily created on first gesture
+js/main.js           glue: fixed-timestep loop, event routing, modes
+tools/sim-smoke.mjs  runs sim + match headless under node, no Babylon
+vendor/babylon.js    byte-identical local fallback for the pinned CDN file
+```
+
+The sim/render split is deliberate and load-bearing: the plan is fishtank's
+host-authoritative P2P, where one peer runs `World` + `Match` in a Web Worker
+and the others render snapshots. Nothing under `js/sim/` may import Babylon or
+touch `document`/`window`.
+
+## Coordinates and conventions
+
+- Sim space is 2D: `x` right, `y` up the screen, heading is the maths angle
+  (`cos`, `sin`), steering **left is a positive turn**. Arena is a circle of
+  `ARENA_RADIUS` centred on the origin.
+- Render maps sim `(x, y)` to Babylon `(x, 0, y)`: sim y becomes Babylon z.
+  The play camera sits on the `-z` side looking at the origin, so `+z` is up
+  the screen and `+x` is right, matching the sim.
+- A rider model faces `-z` in its own space (the codex concept's convention).
+  To face sim heading `h`: `root.rotation.y = Math.atan2(-Math.cos(h), -Math.sin(h))`.
+- Colours are hex strings from `PALETTE[colorIndex].hex`; convert with
+  `BABYLON.Color3.FromHexString` where needed.
+- Fixed timestep: `main.js` steps the sim at `TICK` with an accumulator,
+  clamps frame dt to 0.1 s and runs at most 4 steps per frame.
+- No per-frame allocation in draw code: preallocate typed arrays, reuse
+  vectors. Sim-side pushes onto stroke arrays are fine.
+- Comments are narrative: every file opens with a purpose block and every
+  non-obvious decision says why.
+- Never start a dev server; the owner runs `python3 -m http.server`.
+
+## Sim API (already written; read, do not edit)
+
+```js
+// world.js
+const world = new World(seed?);
+world.setup(specs);        // specs: [{ id, name, colorIndex, kind: 'human'|'ai', seat }]
+world.spawn();             // new round: clears grid, places riders on a ring
+world.steerOnly(dt);       // countdown: aim in place
+world.tick(dt, events);    // one step; pushes { type:'eliminated', id, by: id|'wall' }
+world.blockedAt(x, y, slot) // AI lookahead helper
+world.alive(); world.byId(id); world.players; world.radius; world.tickCount
+// each player: { id, slot, name, colorIndex, kind, seat, x, y, heading,
+//   turn, alive, drawing, strokes, ... }
+// strokes: array of flat arrays [x0, y0, h0, x1, y1, h1, ...], one per
+//   unbroken run of trail; a gap ends a stroke, the next begins after it.
+//   Points are ~TRAIL_POINT_SPACING apart; the head is NOT a point until the
+//   stroke closes, so a live trail should be drawn to (p.x, p.y) as well.
+
+// match.js
+const match = new Match(world, specs, { attract });
+match.start(events);
+match.update(TICK, humanTurns /* Map id -> -1..1 */, events);
+match.state    // 'countdown' | 'playing' | 'roundOver' | 'matchOver'
+match.scores   // { [id]: points }
+match.target   // points needed
+match.round
+// events: { type:'roundStart', round } { type:'go' }
+//         { type:'eliminated', id, by } { type:'roundOver', winnerId|null }
+//         { type:'matchOver', winnerId }
+```
+
+## Render lane contracts
+
+```js
+// scene.js
+export function createScene(canvas) => ({
+  engine, scene,
+  update(dt),            // once per frame before scene.render(): camera + shake decay
+  setMode(mode),         // 'play' fixed whole-arena view | 'orbit' slow menu orbit
+  kick(amount),          // camera shake impulse in arena units (0.4 small, 0.9 big)
+});
+// Owns: Engine (DPR capped at 2), Scene, TargetCamera with a fit that keeps
+// the whole arena in view in portrait AND landscape (fit to min(1, aspect)
+// with ~1.18 margin), hemispheric + directional light, floor disc with a
+// procedural DynamicTexture (faint rings/spokes), glowing rim torus, a low
+// translucent wall excluded from glow, a gradient background Layer, a
+// GlowLayer (mainTextureFixedSize 512), resize handling. Play tilt about
+// 0.45 rad from vertical; orbit mode tilts to ~1.0 rad, comes 30% closer
+// and rotates slowly; transitions between modes are smoothed.
+
+// rider.js
+export function createRider(scene, hex) => ({
+  root,                               // TransformNode
+  setPose(x, y, heading, turn, time), // sim coords; turn -1..1 for a lean; time for a glide bob
+  setAlive(alive),                    // hide when false
+  dispose(),
+});
+// Builds from blue-cat.js: tint fur/trim/orb materials to hex (suit stays
+// dark), merge into one mesh with MergeMeshes(..., multiMultiMaterials=true)
+// inside try/catch, scale root by RIDER_SCALE. If anything throws, fall back
+// to a primitive orb + capsule rider in the same colour and console.warn.
+
+// blue-cat.js
+export function createBlueCat(scene) => ({ root, materials })
+// codex-concepts/blue-cat.js verbatim as a module, plus uvs on the ear
+// meshes so merging works. Header credits Concept 01.
+
+// trails.js
+export class TrailRenderer {
+  constructor(scene)
+  bind(players, hexById)   // world.players and a Map id -> hex; call once per match
+  reset()                  // new round: dispose chunk meshes, rewind cursors
+  update(world)            // per frame: consume new stroke points, follow live heads
+  dispose()
+}
+// Ribbon with height TRAIL_HEIGHT and half-width TRAIL_HALF_WIDTH: 4 verts per
+// point (left-bottom, left-top, right-top, right-bottom), side+top+side quads
+// per segment, caps at the ends. Chunks of 256 points in preallocated
+// Float32Arrays, updatable mesh; unused slots collapse onto the latest point
+// so nothing stray draws. The live chunk's next slot follows (p.x, p.y)
+// every frame while p.alive && p.drawing. Emissive StandardMaterial,
+// disableLighting, backFaceCulling off, alwaysSelectAsActiveMesh.
+
+// effects.js
+export function createEffects(scene) => ({ burst(x, y, hex) })  // sim coords
+// Additive ParticleSystem, ~140 particles, manualEmitCount, disposeOnStop.
+```
+
+## DOM lane contracts
+
+```js
+// input.js
+export class Input {
+  constructor()                       // listens on window
+  turn(seat)                          // -1 | 0 | 1; seat 0: ArrowLeft/ArrowRight + touch; seat 1: A/D and Q/E
+  bindTouch(leftButton, rightButton)  // pointer events with capture; toggles .held
+  onCommand = null                    // (name) => void: 'start' Enter/Space, 'restart' R, 'menu' Escape
+}
+// Left is +1. Prevent default on arrows and space so the page never scrolls.
+
+// ui.js
+export class UI {
+  constructor(root, { onStart, onRematch, onMenu, onSound })
+  get humans()   // 1 | 2 from the Riders row
+  get ais()      // 1..5 from the Rivals row; humans + ais <= MAX_PLAYERS enforced by disabling
+  showMenu(); hideMenu();
+  showHud(players /* [{ id, name, hex }] */, target); hideHud();
+  setScores(scores /* id -> points */, aliveById /* id -> bool */)
+  banner(text, { sub = '', hex = '', actions = false } = {}); hideBanner();
+  setTouchVisible(visible)   // shows only when matchMedia('(pointer: coarse)') matches
+  setSound(enabled)          // toggle label + aria-pressed
+  touchButtons               // { left, right } HTMLButtonElements
+}
+// Uses the ids already in index.html. No new DOM structure without updating index.html.
+
+// audio.js
+export class Sfx {
+  constructor()               // pref from localStorage 'trailblazers.sound.v1', try/catch, default on
+  get enabled(); setEnabled(on)
+  unlock()                    // create/resume AudioContext on first gesture
+  click(); ready(); go(); crash(); roundWin(); matchWin()
+}
+```
+
+## Glue (main.js)
+
+- Modes: `menu` runs an attract match (4 AI, `attract: true`) behind the
+  panel with the camera in `orbit`; `match` runs the chosen field with the
+  camera in `play`. R restarts the match, Escape returns to the menu, Enter or
+  Space starts from the menu.
+- Humans take palette slots 0 and 1; AI fill the rest in order. Names: "You"
+  for a solo human, "P1"/"P2" for two, `PALETTE[i].name` for AI.
+- Routes events: roundStart -> trails.reset, riders alive, banner "Round N /
+  steer to aim"; go -> banner "Go!" briefly; eliminated -> rider hidden,
+  burst, kick, crash sound, scores; roundOver -> banner in the winner's colour;
+  matchOver -> banner with Rematch / menu actions.
+- Attract mode shows no HUD or banners.
+
+## Ownership
+
+| Lane   | Files                                   |
+| ------ | --------------------------------------- |
+| sim    | js/sim/*, js/config.js (done)           |
+| scene  | js/render/scene.js, js/render/effects.js|
+| rider  | js/render/blue-cat.js, js/render/rider.js|
+| trails | js/render/trails.js                     |
+| dom    | js/input.js, js/ui.js, js/audio.js      |
+| glue   | js/main.js, tools/sim-smoke.mjs         |
+
+One file, one owner. A lane that needs something from another lane asks for
+a contract change here rather than editing the other file.

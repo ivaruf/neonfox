@@ -1,0 +1,345 @@
+/*
+ * main.js — the glue.
+ *
+ * Everything else in this game is deliberately deaf to everything else: the
+ * sim knows nothing of Babylon, the renderer knows nothing of the round
+ * state machine, the UI knows nothing of either. This file is the only place
+ * that knows all of them, and it does three jobs and no more:
+ *
+ *   1. Build the world. One createScene, one World, one rider per player,
+ *      one TrailRenderer, and wire the UI's buttons to functions here.
+ *   2. Drive the clock. A fixed-timestep accumulator steps the sim at TICK
+ *      whatever the display is doing, so a 144 Hz laptop and a 30 Hz phone
+ *      play the same game (hub CLAUDE.md §10).
+ *   3. Route events. Match.update hands back plain objects — roundStart, go,
+ *      eliminated, roundOver, matchOver — and this file turns each of them
+ *      into the sound, the shake, the burst and the banner it deserves.
+ *
+ * Two modes share all of it. `menu` runs a four-AI match in attract mode
+ * behind the panel with the camera orbiting; `match` runs the chosen field
+ * with the camera parked. Attract mode is a real match, not a loop of
+ * recorded footage, which is why the menu screen is never the same twice —
+ * and why the event routing below keeps asking whether we are in a match
+ * before it plays a sound or writes a banner at somebody who is reading the
+ * title screen.
+ */
+
+import { TICK, GO_FLASH_SECONDS, MAX_PLAYERS, PALETTE } from "./config.js";
+import { World } from "./sim/world.js";
+import { Match } from "./sim/match.js";
+import { createScene } from "./render/scene.js";
+import { createRider } from "./render/rider.js";
+import { TrailRenderer } from "./render/trails.js";
+import { createEffects } from "./render/effects.js";
+import { Input } from "./input.js";
+import { UI } from "./ui.js";
+import { Sfx } from "./audio.js";
+
+/*
+ * index.html loads Babylon from a pinned CDN with vendor/babylon.js behind
+ * it, so getting here without the global means both were blocked. Say so in
+ * the crash bar rather than throwing a ReferenceError into a dark canvas —
+ * a player with a filter list that aggressive deserves a sentence they can
+ * act on. (Hub CLAUDE.md §2: read the blocker's log before theorising.)
+ */
+if (!window.BABYLON) {
+  const bar = document.getElementById("crash");
+  if (bar) {
+    bar.textContent =
+      "Babylon.js could not load — both the CDN copy and vendor/babylon.js were blocked. " +
+      "Check your content blocker's request log for babylon.js.";
+    bar.hidden = false;
+  }
+} else {
+  boot();
+}
+
+function boot() {
+  const view = createScene(document.getElementById("arena"));
+  const world = new World();
+  const input = new Input();
+  const sfx = new Sfx();
+  const ui = new UI(document.getElementById("ui"), {
+    onStart,
+    onRematch,
+    onMenu,
+    onSound,
+  });
+  const trails = new TrailRenderer(view.scene);
+  const fx = createEffects(view.scene);
+  const riders = new Map(); // player id -> rider from createRider
+
+  input.bindTouch(ui.touchButtons.left, ui.touchButtons.right);
+  ui.setSound(sfx.enabled);
+
+  let match = null;
+  let mode = "menu"; // 'menu' (attract) | 'match'
+  let acc = 0; // leftover frame time owed to the sim
+  let time = 0; // seconds since load, for the riders' idle bob
+  let goTimer = 0; // seconds of "Go!" banner left, counted in sim time
+
+  /* One Map, refilled every step: the sim reads it and never keeps it, so
+   * there is no reason to allocate a new one sixty times a second. */
+  const humanTurns = new Map();
+
+  /*
+   * Palette slots are the roster. Humans take 0 and 1 because those are the
+   * two colours the keyboard hints in index.html are written against; the AI
+   * fill in behind them and answer to the names in PALETTE. The clamp matters:
+   * the menu offers 2 riders and 5 rivals, which is one more than the six
+   * slots the grid's Uint8Array owner field has room for.
+   */
+  function buildSpecs(humans, ais) {
+    const total = Math.min(MAX_PLAYERS, humans + ais);
+    const specs = [];
+    for (let i = 0; i < total; i++) {
+      const human = i < humans;
+      specs.push({
+        id: "p" + i,
+        name: human ? (humans === 1 ? "You" : "P" + (i + 1)) : PALETTE[i].name,
+        colorIndex: i,
+        kind: human ? "human" : "ai",
+        seat: human ? i : -1,
+      });
+    }
+    return specs;
+  }
+
+  /*
+   * Tear down the previous field and stand up a new one. Riders are built
+   * after match.start() because that is what calls world.setup() and gives
+   * us the player list; the events start() produced are routed last, once
+   * there is something on screen for them to talk about.
+   */
+  function startMatch(specs, opts) {
+    for (const rider of riders.values()) rider.dispose();
+    riders.clear();
+
+    match = new Match(world, specs, opts);
+    const events = [];
+    match.start(events);
+
+    const hexById = new Map();
+    for (const p of world.players) {
+      const hex = PALETTE[p.colorIndex].hex;
+      riders.set(p.id, createRider(view.scene, hex));
+      hexById.set(p.id, hex);
+    }
+    trails.bind(world.players, hexById);
+
+    handleEvents(events);
+  }
+
+  function enterMenu() {
+    mode = "menu";
+    view.setMode("orbit");
+    goTimer = 0;
+    // Four rivals is enough to fill the arena with trails without the field
+    // wiping itself out while someone is still reading the title.
+    startMatch(buildSpecs(0, 4), { attract: true });
+    ui.showMenu();
+    ui.hideHud();
+    ui.hideBanner();
+    ui.setTouchVisible(false);
+  }
+
+  function beginMatch() {
+    mode = "match";
+    view.setMode("play");
+    goTimer = 0;
+    ui.hideMenu();
+    startMatch(buildSpecs(ui.humans, ui.ais), {});
+    ui.showHud(
+      world.players.map((p) => ({
+        id: p.id,
+        name: p.name,
+        hex: PALETTE[p.colorIndex].hex,
+      })),
+      match.target
+    );
+    // The first roundStart fired inside startMatch, before the scoreboard
+    // rows existed, so paint the zeroes onto the fresh HUD here.
+    ui.setScores(match.scores, aliveMap());
+    ui.setTouchVisible(true);
+  }
+
+  function onStart() {
+    sfx.unlock();
+    sfx.click();
+    beginMatch();
+  }
+
+  /* Rematch is the same field again — the menu still holds the choice. */
+  function onRematch() {
+    sfx.click();
+    beginMatch();
+  }
+
+  function onMenu() {
+    sfx.click();
+    enterMenu();
+  }
+
+  function onSound(enabled) {
+    sfx.setEnabled(enabled);
+    sfx.unlock(); // turning sound on is itself the gesture that permits it
+  }
+
+  input.onCommand = (name) => {
+    if (name === "start") {
+      if (mode === "menu") onStart();
+      else if (match && match.state === "matchOver") onRematch();
+    } else if (name === "restart") {
+      if (mode === "match") beginMatch(); // R throws the whole match away
+    } else if (name === "menu") {
+      onMenu();
+    }
+  };
+
+  /* Browsers will not make noise until the player has touched the page, and
+   * the menu's own buttons are not the only way in — the keyboard starts a
+   * match too. Both listeners are one-shot; unlock() is safe either way. */
+  window.addEventListener("pointerdown", () => sfx.unlock(), { once: true });
+  window.addEventListener("keydown", () => sfx.unlock(), { once: true });
+
+  /* id -> alive, the shape ui.setScores wants for dimming the dead. */
+  function aliveMap() {
+    const map = {};
+    for (const p of world.players) map[p.id] = p.alive;
+    return map;
+  }
+
+  function step() {
+    // The "Go!" flash is counted in sim time, not by setTimeout: a paused or
+    // backgrounded tab must not come back to a banner that expired while
+    // nothing was moving.
+    if (goTimer > 0) {
+      goTimer -= TICK;
+      if (goTimer <= 0) {
+        goTimer = 0;
+        ui.hideBanner();
+      }
+    }
+
+    humanTurns.clear();
+    for (const p of world.players) {
+      if (p.kind === "human") humanTurns.set(p.id, input.turn(p.seat));
+    }
+
+    const events = [];
+    match.update(TICK, humanTurns, events);
+    handleEvents(events);
+  }
+
+  function render() {
+    for (const p of world.players) {
+      riders.get(p.id).setPose(p.x, p.y, p.heading, p.turn, time);
+    }
+    trails.update(world);
+  }
+
+  /*
+   * The whole presentation layer, in one switch. Everything physical — the
+   * burst, the camera kick, hiding the crashed rider — happens in both modes,
+   * because the attract screen is a real match and should look like one.
+   * Everything the player is being *told* is gated on being in a match.
+   */
+  function handleEvents(events) {
+    const inMatch = mode === "match";
+    for (const e of events) {
+      switch (e.type) {
+        case "roundStart": {
+          trails.reset();
+          for (const rider of riders.values()) rider.setAlive(true);
+          if (inMatch) {
+            ui.setScores(match.scores, aliveMap());
+            ui.banner("Steer to aim", { sub: "Round " + e.round });
+            sfx.ready();
+          }
+          break;
+        }
+
+        case "go": {
+          // Attract mode plays silently behind the menu, like every other cue.
+          if (inMatch) {
+            ui.banner("Go!", { sub: "" });
+            goTimer = GO_FLASH_SECONDS;
+            sfx.go();
+          }
+          break;
+        }
+
+        case "eliminated": {
+          const p = world.byId(e.id);
+          riders.get(e.id).setAlive(false);
+          fx.burst(p.x, p.y, PALETTE[p.colorIndex].hex);
+          // Your own crash is worth more shake than a rival's.
+          view.kick(p.kind === "human" ? 0.9 : 0.4);
+          if (inMatch) {
+            sfx.crash();
+            ui.setScores(match.scores, aliveMap());
+          }
+          break;
+        }
+
+        case "roundOver": {
+          if (inMatch) {
+            goTimer = 0; // a pending "Go!" hide must not wipe this banner
+            const winner = e.winnerId ? world.byId(e.winnerId) : null;
+            if (winner) {
+              ui.banner(winner.name + " takes the round", {
+                hex: PALETTE[winner.colorIndex].hex,
+              });
+            } else {
+              ui.banner("Everyone crashed", { sub: "no winner this round" });
+            }
+            sfx.roundWin();
+            ui.setScores(match.scores, aliveMap());
+          }
+          break;
+        }
+
+        case "matchOver": {
+          if (inMatch) {
+            goTimer = 0;
+            const winner = world.byId(e.winnerId);
+            ui.banner(winner.name + " wins the match!", {
+              hex: PALETTE[winner.colorIndex].hex,
+              actions: true,
+              sub: "first to " + match.target,
+            });
+            sfx.matchWin();
+            // The steering buttons would sit on top of Rematch; the match is
+            // over, so there is nothing left to steer anyway.
+            ui.setTouchVisible(false);
+          }
+          break;
+        }
+
+        default:
+          break;
+      }
+    }
+  }
+
+  view.engine.runRenderLoop(() => {
+    // Clamp the frame: a tab that was hidden for a minute owes the sim a
+    // minute of ticks, and paying that debt would freeze the page. Better to
+    // drop the time than to spiral.
+    const dt = Math.min(0.1, view.engine.getDeltaTime() / 1000);
+    time += dt;
+    acc += dt;
+    let steps = 0;
+    while (acc >= TICK && steps < 4) {
+      step();
+      acc -= TICK;
+      steps++;
+    }
+    if (steps === 4) acc = 0; // hit the cap: stop owing time we will never repay
+    render();
+    view.update(dt);
+    view.scene.render();
+  });
+
+  enterMenu();
+}
