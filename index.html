@@ -197,6 +197,10 @@
           browser or a hosting context that cannot do the thing never shows a
           button that would do nothing. Sound is always available and so is
           always here.
+
+          The label below is only the resting one: js/screen.js repaints it
+          from the fullscreenchange event, so Escape and the browser's own
+          chrome flip it to "Exit fullscreen" without anyone clicking this.
         -->
         <div class="menu-tools">
           <button type="button" id="sound-open" class="ghost">Sound</button>
@@ -207,7 +211,7 @@
             aria-pressed="false"
             hidden
           >
-            Fill the arena
+            Fullscreen
           </button>
           <button type="button" id="quit" class="ghost" hidden>
             Back to the den

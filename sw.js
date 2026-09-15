@@ -75,8 +75,10 @@
 //         the paddock now, and the volume sliders moved out of it into a
 //         #sound panel of their own. ../arcade/exit.js is marked data-handled,
 //         so serving this game on its own no longer raises a crash bar over a
-//         file it was written not to need. No new files: index.html, the
-//         stylesheet and js/ui.js carry all of it.
+//         file it was written not to need. The fullscreen toggle says
+//         "Fullscreen" / "Exit fullscreen" rather than naming the arena. No
+//         new files: index.html, the stylesheet, js/ui.js and js/screen.js
+//         carry all of it.
 const VERSION = "v1.4.0";
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.

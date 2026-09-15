@@ -40,11 +40,21 @@ function isFullscreen() {
   return !!(document.fullscreenElement || document.webkitFullscreenElement);
 }
 
-/** Keep the label and aria-pressed matching reality, whoever changed it. */
+/*
+ * Keep the label and aria-pressed matching reality, whoever changed it.
+ *
+ * The words are plain on purpose, against this hub's usual habit of naming
+ * controls the way the game would ("Back to the den" two pills along). The
+ * pair it used to carry — "Fill the arena" / "Shrink the arena" — described
+ * the arena rather than the browser, and left a player guessing whether it
+ * changed the camera, the arena size slider three rows up, or the window.
+ * Fullscreen is not part of the fiction; it is a thing the browser does, it
+ * has one name everywhere, and the player already knows it.
+ */
 function paint() {
   const active = isFullscreen();
   button.setAttribute("aria-pressed", String(active));
-  button.textContent = active ? "Shrink the arena" : "Fill the arena";
+  button.textContent = active ? "Exit fullscreen" : "Fullscreen";
 }
 
 if (button && request && exit) {
