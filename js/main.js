@@ -631,7 +631,6 @@ function boot() {
             });
             sfx.matchWin();
             // The delay lets the fanfare open first; the fox answers it.
-            sfx.foxSay(winner.colorIndex, 0.45);
             // The steering buttons would sit on top of Rematch; the match is
             // over, so there is nothing left to steer anyway.
             ui.setTouchVisible(false);

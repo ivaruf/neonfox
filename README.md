@@ -123,9 +123,8 @@ playing it.
   and trails keep their size, so it is a zoom in effect.
 - **Sound is half migrated.** The hub rule changed on 2026-09-15: sound is
   composed in Sonic Pi and rendered, rather than synthesized at runtime. The
-  theme and the winner's "ring ding ding ding ding" are rendered
-  (`tools/audio/fox-say.rb` is the source of the latter); the small cues are
-  still WebAudio oscillators from before the rule changed and want moving.
-  Music and effects have separate volume sliders on the menu.
+  theme is a render; the small cues are still WebAudio oscillators from
+  before the rule changed and want moving. Music and effects have separate
+  volume sliders on the menu.
 - **No multiplayer networking.** The structure is ready for it; the code is
   not written.

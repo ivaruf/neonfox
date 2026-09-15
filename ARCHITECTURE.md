@@ -28,8 +28,7 @@ js/render/           reads the sim, draws it with Babylon
 js/input.js          keyboard + touch buttons -> turn per seat, commands
 js/ui.js             menu, scoreboard, banners, touch button visibility
 js/audio.js          WebAudio blips and the looping theme, lazily created on first gesture
-audio/               shipped sound: theme.m4a and fox-say.m4a
-tools/audio/         the Sonic Pi pieces those are rendered from (hub §9)
+audio/theme.m4a      the shipped theme, rendered from Sonic Pi (hub §9)
 js/main.js           glue: fixed-timestep loop, event routing, modes
 tools/sim-smoke.mjs  runs sim + match headless under node, no Babylon
 vendor/babylon.js    byte-identical local fallback for the pinned CDN file
@@ -235,10 +234,6 @@ export class Sfx {
   taunt(voice = 0, delay = 0)  // the yip a fox makes when it celebrates; `voice`
                                // is the rider's palette index, so each fox has
                                // its own pitch, and `delay` is seconds ahead
-  foxSay(voice = 0, delay = 0) // the "ring ding ding ding ding" the winner
-                               // says. A Sonic Pi render (audio/fox-say.m4a,
-                               // composed in tools/audio/fox-say.rb), pitched
-                               // per rider with playbackRate.
 }
 // Two gain nodes hang off the destination, one per slider, so a cue and the
 // theme are mixed independently and either can be taken to silence. Cues stay
@@ -272,9 +267,7 @@ export class Sfx {
   burst, kick, crash sound, scores, and `celebrate()` on the owner of the
   trail that did it when that is another rider still alive (never a wall,
   never your own trail), with `sfx.taunt(colorIndex)` to match; roundOver -> banner in the winner's colour;
-  matchOver -> banner with Rematch / menu actions, and `foxSay` from the
-  winner: it is the one moment in a match that earns it, so it stays rare by
-  happening exactly once, when somebody reaches the target. roundOver also gives the
+  matchOver -> banner with Rematch / menu actions. roundOver also gives the
   surviving winner `celebrate(2)`: the round is over, so there are a couple
   of seconds with nothing to do but watch them gloat, with a taunt under each
   of the two flips.
