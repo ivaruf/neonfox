@@ -27,7 +27,8 @@ js/render/           reads the sim, draws it with Babylon
   effects.js         elimination burst
 js/input.js          keyboard + touch buttons -> turn per seat, commands
 js/ui.js             menu, scoreboard, banners, touch button visibility
-js/audio.js          WebAudio blips, lazily created on first gesture
+js/audio.js          WebAudio blips and the looping theme, lazily created on first gesture
+audio/theme.m4a      the one shipped audio file; every cue is still synthesized
 js/main.js           glue: fixed-timestep loop, event routing, modes
 tools/sim-smoke.mjs  runs sim + match headless under node, no Babylon
 vendor/babylon.js    byte-identical local fallback for the pinned CDN file
@@ -195,7 +196,7 @@ export class Input {
 
 // ui.js
 export class UI {
-  constructor(root, { onStart, onRematch, onMenu, onSound, onArena })
+  constructor(root, { onStart, onRematch, onMenu, onArena, onMusicVolume, onSfxVolume })
   get humans()   // 1 | 2 from the Riders row
   get ais()      // 1..5 from the Rivals row; humans + ais <= MAX_PLAYERS enforced by disabling
   get arena()    // index into ARENA_SIZES from the slider
@@ -208,22 +209,36 @@ export class UI {
   setTouchVisible(visible)   // shows only when matchMedia('(pointer: coarse)') matches
   setSpectate(text, hex)     // caption above the touch buttons: whose ride the camera is on
   hideSpectate()
-  setSound(enabled)          // toggle label + aria-pressed
+  setVolumes(music, sfx)     // move both sliders and their readouts without firing the callbacks
+  // The volume sliders fire onMusicVolume(0..1) / onSfxVolume(0..1) on `input`,
+  // live while dragging, because a volume you cannot hear until you let go is
+  // not a volume control.
   touchButtons               // { left, right } HTMLButtonElements
 }
 // Uses the ids already in index.html. No new DOM structure without updating index.html.
 
 // audio.js
 export class Sfx {
-  constructor()               // pref from localStorage 'trailblazers.sound.v1', try/catch, default on
-  get enabled(); setEnabled(on)
-  unlock()                    // create/resume AudioContext on first gesture
+  constructor()               // volumes from localStorage, try/catch, defaults 0.6 music / 0.8 effects
+  get musicVolume(); setMusicVolume(v)   // 0..1, persisted 'trailblazers.vol.music.v1'
+  get sfxVolume();   setSfxVolume(v)     // 0..1, persisted 'trailblazers.vol.sfx.v1'
+  unlock()                    // create/resume AudioContext on first gesture; starts the theme
   click(); ready(); go(); crash(); roundWin(); matchWin()
 }
+// Two gain nodes hang off the destination, one per slider, so a cue and the
+// theme are mixed independently and either can be taken to silence. Cues stay
+// synthesized (house rule); the theme is the one shipped file, audio/theme.m4a,
+// fetched and decoded once on the first gesture and looped. Loop start is
+// found by scanning the decoded buffer for the first sample above a noise
+// floor, because AAC decoders reintroduce priming silence that would otherwise
+// put a gap in the seam (hub CLAUDE.md §9). A failed fetch or decode warns and
+// leaves the game silent but playable.
 ```
 
 ## Glue (main.js)
 
+- Volumes: `onMusicVolume`/`onSfxVolume` pass straight to the Sfx setters and
+  are restored onto the sliders at boot with `ui.setVolumes(...)`.
 - Modes: `menu` runs an attract match (4 AI, `attract: true`) behind the
   panel with the camera in `orbit`; `match` runs the chosen field with the
   camera in `play`. R restarts the match, Escape returns to the menu, Enter or

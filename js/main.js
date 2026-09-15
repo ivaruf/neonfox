@@ -90,7 +90,8 @@ function boot() {
     onStart,
     onRematch,
     onMenu,
-    onSound,
+    onMusicVolume,
+    onSfxVolume,
     onArena,
   });
 
@@ -115,7 +116,7 @@ function boot() {
 
   input.bindTouch(ui.touchButtons.left, ui.touchButtons.right);
   input.bindDrag(document.getElementById("arena"));
-  ui.setSound(sfx.enabled);
+  ui.setVolumes(sfx.musicVolume, sfx.sfxVolume);
 
   let match = null;
   let mode = "menu"; // 'menu' (attract) | 'match'
@@ -264,9 +265,15 @@ function boot() {
     enterMenu();
   }
 
-  function onSound(enabled) {
-    sfx.setEnabled(enabled);
-    sfx.unlock(); // turning sound on is itself the gesture that permits it
+  function onMusicVolume(v) {
+    sfx.setMusicVolume(v);
+  }
+
+  // Dragging the effects slider is itself a gesture, and unlocking here lets
+  // the player hear what they are setting straight away.
+  function onSfxVolume(v) {
+    sfx.setSfxVolume(v);
+    sfx.unlock();
   }
 
   /* The slider fires this on release (ui.js's "change", not "input"). Only

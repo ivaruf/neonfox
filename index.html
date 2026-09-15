@@ -71,9 +71,21 @@
           · <kbd>R</kbd> restarts the match · steer while the round loads to aim
         </p>
 
-        <button type="button" id="sound" class="ghost" aria-pressed="true">
-          Sound on
-        </button>
+        <div class="row">
+          <label class="label" for="music-vol">Music</label>
+          <div class="slider">
+            <input type="range" id="music-vol" min="0" max="100" step="1" value="60" />
+            <output id="music-vol-out" for="music-vol">60</output>
+          </div>
+        </div>
+
+        <div class="row">
+          <label class="label" for="sfx-vol">Effects</label>
+          <div class="slider">
+            <input type="range" id="sfx-vol" min="0" max="100" step="1" value="80" />
+            <output id="sfx-vol-out" for="sfx-vol">80</output>
+          </div>
+        </div>
       </section>
 
       <!-- Live scoreboard during a match. -->

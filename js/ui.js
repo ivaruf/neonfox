@@ -12,15 +12,25 @@
  * shape as the segmented rows in spirit (a menu choice main.js reads back),
  * but is its own control: setArena(i) moves it and repaints its label
  * silently, so main.js can restore a saved preference without that restore
- * itself firing onArena as if the player had just dragged it.
+ * itself firing onArena as if the player had just dragged it. The two
+ * volume sliders (music/effects, replacing the old single sound toggle)
+ * follow the same "silent restore" shape: setVolumes(music, sfx) moves both
+ * without firing onMusicVolume/onSfxVolume, so main.js can put a saved
+ * mix back on screen at boot without that itself counting as the player
+ * choosing a new one.
  */
 
 import { MAX_PLAYERS, ARENA_SIZES } from "./config.js";
 
 export class UI {
-  constructor(root, { onStart, onRematch, onMenu, onSound, onArena } = {}) {
+  constructor(
+    root,
+    { onStart, onRematch, onMenu, onArena, onMusicVolume, onSfxVolume } = {},
+  ) {
     this.root = root;
     this.onArena = onArena || (() => {});
+    this.onMusicVolume = onMusicVolume || (() => {});
+    this.onSfxVolume = onSfxVolume || (() => {});
 
     this.menuEl = root.querySelector("#menu");
     this.hudEl = root.querySelector("#hud");
@@ -33,9 +43,12 @@ export class UI {
     this.touchEl = root.querySelector("#touch");
     this.spectateEl = root.querySelector("#spectate");
     this.spectateTextEl = root.querySelector("#spectate-text");
-    this.soundEl = root.querySelector("#sound");
     this.arenaSizeEl = root.querySelector("#arena-size");
     this.arenaNameEl = root.querySelector("#arena-name");
+    this.musicVolEl = root.querySelector("#music-vol");
+    this.musicVolOutEl = root.querySelector("#music-vol-out");
+    this.sfxVolEl = root.querySelector("#sfx-vol");
+    this.sfxVolOutEl = root.querySelector("#sfx-vol-out");
 
     const left = root.querySelector("#turn-left");
     const right = root.querySelector("#turn-right");
@@ -61,12 +74,6 @@ export class UI {
       if (onMenu) onMenu();
     });
 
-    this.soundEl.addEventListener("click", () => {
-      const next = this.soundEl.getAttribute("aria-pressed") !== "true";
-      this.setSound(next);
-      if (onSound) onSound(next);
-    });
-
     // Two events on purpose: "input" fires on every tick of the drag, so the
     // label keeps up with the thumb; "change" fires once, when it is
     // released, which is when main.js actually rebuilds the arena and (in
@@ -77,6 +84,20 @@ export class UI {
     });
     this.arenaSizeEl.addEventListener("change", () => {
       this.onArena(this.arena);
+    });
+
+    // Volume, unlike the arena size, is only ever "input": a level you
+    // cannot hear until you let go of the thumb is not a volume control, so
+    // both the readout and the callback update on every tick of the drag.
+    this.musicVolEl.addEventListener("input", () => {
+      const pct = Number(this.musicVolEl.value);
+      this.musicVolOutEl.textContent = String(pct);
+      this.onMusicVolume(pct / 100);
+    });
+    this.sfxVolEl.addEventListener("input", () => {
+      const pct = Number(this.sfxVolEl.value);
+      this.sfxVolOutEl.textContent = String(pct);
+      this.onSfxVolume(pct / 100);
     });
 
     // Once a touch has ever landed on the page, treat the pointer as
@@ -231,9 +252,16 @@ export class UI {
     this.bannerEl.hidden = true;
   }
 
-  setSound(enabled) {
-    this.soundEl.setAttribute("aria-pressed", String(!!enabled));
-    this.soundEl.textContent = enabled ? "Sound on" : "Sound off";
+  /** Move both volume sliders and their readouts without firing the
+   *  onMusicVolume/onSfxVolume callbacks — used at boot to restore a saved
+   *  mix, so restoring it doesn't itself count as the player moving them. */
+  setVolumes(music, sfx) {
+    const musicPct = Math.round(Math.max(0, Math.min(1, music)) * 100);
+    const sfxPct = Math.round(Math.max(0, Math.min(1, sfx)) * 100);
+    this.musicVolEl.value = String(musicPct);
+    this.musicVolOutEl.textContent = String(musicPct);
+    this.sfxVolEl.value = String(sfxPct);
+    this.sfxVolOutEl.textContent = String(sfxPct);
   }
 
   /** Caption above the touch buttons: whose ride the spectator camera has
