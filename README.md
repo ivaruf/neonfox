@@ -121,9 +121,11 @@ playing it.
   both portrait and landscape. It was a circle first; a square fills a phone
   screen far better. Five sizes on the menu slider, from Tiny to Vast; riders
   and trails keep their size, so it is a zoom in effect.
-- **One audio file.** Every sound effect is synthesized with WebAudio
-  oscillators, per the hub rule. The theme, `audio/theme.m4a`, is the single
-  exception and the only asset that is not code. Music and effects have
-  separate volume sliders on the menu.
+- **Sound is half migrated.** The hub rule changed on 2026-09-15: sound is
+  composed in Sonic Pi and rendered, rather than synthesized at runtime. The
+  theme and the winner's "ring ding ding ding ding" are rendered
+  (`tools/audio/fox-say.rb` is the source of the latter); the small cues are
+  still WebAudio oscillators from before the rule changed and want moving.
+  Music and effects have separate volume sliders on the menu.
 - **No multiplayer networking.** The structure is ready for it; the code is
   not written.

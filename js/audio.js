@@ -48,6 +48,8 @@ export class Sfx {
     this._sfxGain = null;
     this._themeStarted = false;
     this._themeSource = null;
+    this._foxSayBuffer = null;
+    this._foxSayRequested = false;
 
     this._musicVolume = DEFAULT_MUSIC_VOLUME;
     this._sfxVolume = DEFAULT_SFX_VOLUME;
@@ -111,8 +113,8 @@ export class Sfx {
     node.gain.setTargetAtTime(value, this._ctx.currentTime, 0.01);
   }
 
-  /** Create (or resume) the AudioContext and start the theme. Call this
-   *  from a user gesture. */
+  /** Create (or resume) the AudioContext and start the theme and the
+   *  fox-say prefetch. Call this from a user gesture. */
   unlock() {
     try {
       if (!this._ctx) {
@@ -140,6 +142,14 @@ export class Sfx {
     if (!this._themeStarted) {
       this._themeStarted = true;
       this.#startTheme();
+    }
+
+    // Same guard for the fox-say clip: fetched here, long before anyone
+    // can win a match, so the buffer is already cached by the time
+    // foxSay() needs it instead of racing a fetch against the banner.
+    if (!this._foxSayRequested) {
+      this._foxSayRequested = true;
+      this.#loadFoxSay();
     }
   }
 
@@ -194,6 +204,25 @@ export class Sfx {
       this._themeSource = source;
     } catch (err) {
       console.warn("Trailblazers: could not load audio/theme.m4a", err);
+    }
+  }
+
+  /**
+   * Fetch and decode audio/fox-say.m4a once, caching the AudioBuffer so
+   * foxSay() can start it with no delay at the moment someone wins a
+   * match. Same try/catch shape as #startTheme: a failed fetch or decode
+   * only ever warns, never rejects into the page's unhandledrejection
+   * handler, and simply leaves the buffer null — foxSay() checks for that
+   * and does nothing rather than fall back to something that would sound
+   * like a different animal.
+   */
+  async #loadFoxSay() {
+    try {
+      const response = await fetch("audio/fox-say.m4a");
+      const data = await response.arrayBuffer();
+      this._foxSayBuffer = await this._ctx.decodeAudioData(data);
+    } catch (err) {
+      console.warn("Trailblazers: could not load audio/fox-say.m4a", err);
     }
   }
 
@@ -327,47 +356,35 @@ export class Sfx {
   }
 
   /**
-   * "What does the fox say" — the winning fox's five-note staccato figure on
-   * a match win. Only the *rhythm* is a nod to the joke ("ring-ding-ding-
-   * ding-ding": four quick ticks, the last one held so the phrase lands);
-   * the actual notes below are an original invention picked from scratch
-   * for this game, not a transcription or approximation of Ylvis's melody,
-   * which this file deliberately does not reproduce.
+   * "What does the fox say" — the winning fox's "ring ding ding ding ding"
+   * on a match win. This one is composed, not coded: five clean synthesized
+   * tones read as a music box rather than a voice, so the phrase is written
+   * in Sonic Pi (tools/audio/fox-say.rb), rendered offline and shipped as
+   * audio/fox-say.m4a — the hub's default way to make sound now, runtime
+   * WebAudio synthesis being the exception (hub CLAUDE.md §9). The melody
+   * is an original composition; only the "ring-ding-ding-ding-ding" rhythm
+   * nods at the joke, never Ylvis's actual tune.
    */
   foxSay(voice = 0, delay = 0) {
     if (!this.#gate()) return;
-    const ratio = Math.pow(2, (voice * 2) / 12); // same per-voice pitch as taunt()
+    // Loaded lazily by unlock(); a match can in principle end before the
+    // fetch resolves on a slow connection. A silent miss here is better
+    // than a fallback that would sound like a different animal, and this
+    // cue is rare enough (once per match, at most) that missing it once
+    // is not a loss worth building a retry for.
+    if (!this._foxSayBuffer) return;
 
-    // Original five-note figure: a small rising run (D5-E5-F#5) that dips
-    // back to E5 and resolves up onto a bright fifth, A5, held longer so
-    // the last "ding" reads as the "ring" the phrase lands on.
-    const notes = [
-      { freq: 587, dur: 0.08 }, // D5
-      { freq: 659, dur: 0.08 }, // E5
-      { freq: 740, dur: 0.08 }, // F#5
-      { freq: 659, dur: 0.08 }, // E5
-      { freq: 880, dur: 0.28 }, // A5, held to land
-    ];
-    const spacing = 0.13;
-    notes.forEach((note, i) => {
-      this.#tone({
-        freq: note.freq * ratio,
-        dur: note.dur,
-        type: "triangle",
-        gain: 0.11,
-        delay: delay + i * spacing,
-      });
-    });
-
-    // A quiet fifth layered on the final note only, for a bell-like ring.
-    const last = notes[notes.length - 1];
-    this.#tone({
-      freq: last.freq * 1.5 * ratio,
-      dur: last.dur,
-      type: "triangle",
-      gain: 0.06,
-      delay: delay + (notes.length - 1) * spacing,
-    });
+    const source = this._ctx.createBufferSource();
+    source.buffer = this._foxSayBuffer;
+    // Per-rider pitch, reusing taunt()'s ratio so a fox's yip and its
+    // sentence agree. playbackRate shifts tempo along with pitch, which is
+    // right for a voice: a higher-voiced (smaller) fox also talks a little
+    // faster, the way a chipmunk-effect always does.
+    source.playbackRate.value = Math.pow(2, (voice * 2) / 12);
+    // The file is already levelled by the hub's Sonic Pi encoder, so it
+    // goes straight to sfxGain with no extra gain node re-normalising it.
+    source.connect(this._sfxGain);
+    source.start(this._ctx.currentTime + delay);
   }
 
   /** Round over: a short rising triangle arpeggio. */
