@@ -108,6 +108,32 @@ export class UI {
     if (together && onTogether)
       together.addEventListener("click", () => onTogether());
 
+    // Leaving the whole arcade, not just this game's own menu (#to-menu
+    // does that, from a match banner, back to #menu). arcade/exit.js is
+    // another repository's file and may simply not be there, so this
+    // button only appears — and only ever gets a click handler — when
+    // window.ArcadeExit says it is. Its own verb() picks the label, so the
+    // button can never promise something quit() will not actually do.
+    const quitEl = root.querySelector("#quit");
+    const exit = window.ArcadeExit;
+    if (quitEl && exit) {
+      quitEl.hidden = false;
+      quitEl.textContent = exit.verb({
+        arcade: "Back to the den",
+        app: "Close NeonFox",
+      });
+      quitEl.addEventListener("click", () => {
+        exit.quit().then((how) => {
+          // 'refused': the browser declined to close a window it did not
+          // open (an installed app on iOS, mostly). The game is still
+          // running, so say so here rather than leave a dead button.
+          if (how !== "refused") return;
+          quitEl.textContent = "Close this tab yourself";
+          quitEl.disabled = true;
+        });
+      });
+    }
+
     // Two events on purpose: "input" fires on every tick of the drag, so the
     // label keeps up with the thumb; "change" fires once, when it is
     // released, which is when main.js actually rebuilds the arena and (in

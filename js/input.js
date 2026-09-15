@@ -35,6 +35,20 @@ const SCROLL_KEYS = new Set([
   "Space",
 ]);
 
+// Elements the 'start' command must not fire from. The paddock is full of
+// buttons and sliders, and Enter/Space on a focused one of these should do
+// what that control does (a click, a value nudge) rather than ALSO launch
+// a match out from under it. Arrows are deliberately not filtered the same
+// way: a focused slider adjusting on an arrow key is correct browser
+// behaviour, and during a match #menu (the only place these controls live)
+// is hidden anyway, so turn()'s callers never need to know about focus.
+const INTERACTIVE_TAGS = new Set(["BUTTON", "INPUT", "SELECT", "TEXTAREA"]);
+function isInteractive(target) {
+  if (!target) return false;
+  if (target.isContentEditable) return true;
+  return INTERACTIVE_TAGS.has(target.tagName);
+}
+
 export class Input {
   constructor() {
     /** @type {Set<string>} currently held KeyboardEvent.code values */
@@ -69,7 +83,7 @@ export class Input {
 
       if (!this.onCommand) return;
       if (event.code === "Enter" || event.code === "Space") {
-        this.onCommand("start");
+        if (!isInteractive(event.target)) this.onCommand("start");
       } else if (event.code === "KeyR") {
         this.onCommand("restart");
       } else if (event.code === "Escape") {

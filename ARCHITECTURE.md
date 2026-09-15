@@ -223,6 +223,12 @@ export class UI {
   touchButtons               // { left, right } HTMLButtonElements
 }
 // Uses the ids already in index.html. No new DOM structure without updating index.html.
+// #quit is shown and wired automatically, with no constructor option, when
+// window.ArcadeExit exists (arcade/exit.js, another repo's file, may simply
+// not be there); its own verb() supplies the label so the button can never
+// promise something quit() will not actually do. The fullscreen toggle,
+// #screen-toggle, is NOT this file's: js/screen.js owns it end to end,
+// self-contained and loaded independently by index.html.
 
 // audio.js
 export class Sfx {
@@ -302,7 +308,7 @@ export class Sfx {
 | scene  | js/render/scene.js, js/render/effects.js|
 | rider  | js/render/blue-cat.js, js/render/rider.js|
 | trails | js/render/trails.js                     |
-| dom    | js/input.js, js/ui.js, js/audio.js      |
+| dom    | js/input.js, js/ui.js, js/audio.js, js/screen.js |
 | glue   | js/main.js, tools/sim-smoke.mjs         |
 
 One file, one owner. A lane that needs something from another lane asks for

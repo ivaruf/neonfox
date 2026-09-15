@@ -380,6 +380,31 @@ h1 img {
   opacity: 0.7;
 }
 
+/*
+ * Session-level controls: whether the OS chrome is showing, and how to
+ * leave. Neither is gameplay, so both sit as their own .ghost pills rather
+ * than joining a .row's label + slider/seg shape, in a small flex row that
+ * wraps if the panel gets narrow enough to need it.
+ */
+.menu-tools {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 14px 0 0;
+}
+/*
+ * The fullscreen toggle borrows .ghost's pill and focus-ring look, but not
+ * the strikethrough .ghost[aria-pressed="false"] above: that rule was
+ * written for the old on/off sound switch, where "false" meant "disabled".
+ * Here aria-pressed only tracks whether we are CURRENTLY fullscreen, and
+ * the resting "not yet fullscreen" state is not a lesser state to cross out.
+ */
+#screen-toggle[aria-pressed] {
+  text-decoration: none;
+  opacity: 1;
+}
+
 .hint {
   margin: 4px 0 14px;
   color: var(--ink-dim);

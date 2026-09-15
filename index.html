@@ -49,6 +49,15 @@
     />
 
     <link rel="stylesheet" href="css/style.css" />
+    <!--
+      What quitting means here: back to the arcade when the arcade is what
+      framed us, closing the window when we are installed, and an honest
+      note when we are a tab no script may close (arcade/exit.js's own
+      header explains why). It draws nothing — the quit button below, in
+      the menu, is NeonFox's own. Classic and deferred on purpose, so
+      /arcade/ being unreachable costs only that button, never the page.
+    -->
+    <script src="../arcade/exit.js" defer></script>
   </head>
   <body>
     <!--
@@ -187,6 +196,30 @@
         </div>
 
         <!--
+          Session-level controls: whether the OS chrome is showing, and how
+          to leave. Neither is gameplay, so neither is a .row with a
+          slider — both are plain .ghost pills, and both start hidden. Only
+          js/screen.js (fullscreen support) and js/ui.js (window.ArcadeExit
+          present) ever remove that hidden attribute, so a browser or a
+          hosting context that cannot do the thing never shows a button
+          that would do nothing.
+        -->
+        <div class="menu-tools">
+          <button
+            type="button"
+            id="screen-toggle"
+            class="ghost"
+            aria-pressed="false"
+            hidden
+          >
+            Fill the arena
+          </button>
+          <button type="button" id="quit" class="ghost" hidden>
+            Back to the den
+          </button>
+        </div>
+
+        <!--
           Which build is actually serving this session, asked of the service
           worker rather than baked into the page — a string compiled into the
           HTML tells you where the HTML came from, which during a bad release is
@@ -303,6 +336,14 @@
       anybody. It touches no other module and no other module knows it is here.
     -->
     <script type="module" src="js/update.js"></script>
+    <!--
+      The fullscreen toggle. Same reasoning as js/update.js just above: its
+      own module graph, self-contained, loaded before main.js so a game that
+      fails to boot for some unrelated reason does not take this button
+      down with it. Not named fullscreen.js — see the header comment in the
+      file itself.
+    -->
+    <script type="module" src="js/screen.js"></script>
     <script type="module" src="js/main.js"></script>
   </body>
 </html>

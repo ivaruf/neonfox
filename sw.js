@@ -68,12 +68,15 @@
 // v1.2.0  CODEX'S ARTWORK. The generated icons replace the procedural ones and
 //         the menu wears the logo, so the icon PNGs, the two favicons and
 //         art/logo.webp all change together.
-const VERSION = 'v1.2.0';
+// v1.3.0  A WAY IN AND A WAY OUT. js/screen.js joins the precache: a
+//         fullscreen toggle, a quit button when the arcade's exit.js answers,
+//         and Space no longer starts a match from a focused control.
+const VERSION = "v1.3.0";
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting
 // the caches, and moving this in step with VERSION would undo it.
-const MEDIA_VERSION = 'm1';
+const MEDIA_VERSION = "m1";
 
 const CACHE = `neonfox-${VERSION}`;
 const MEDIA = `neonfox-media-${MEDIA_VERSION}`;
@@ -82,69 +85,70 @@ const MEDIA = `neonfox-media-${MEDIA_VERSION}`;
 const HEAVY = /\/(models|audio|vendor)\//;
 
 const ASSETS = [
-  './',
-  './index.html',
-  './manifest.webmanifest',
-  './css/style.css',
+  "./",
+  "./index.html",
+  "./manifest.webmanifest",
+  "./css/style.css",
   // Keep this list in step with js/ — cache.addAll() is all-or-nothing, so one
   // stale entry for a renamed or deleted module makes install THROW, the old
   // worker keeps serving, and no update ever reaches a player again. It fails
   // silently, which is the worst way for a release to fail.
   //
-  './js/audio.js',
-  './js/config.js',
-  './js/input.js',
-  './js/main.js',
-  './js/ui.js',
-  './js/update.js',
+  "./js/audio.js",
+  "./js/config.js",
+  "./js/input.js",
+  "./js/main.js",
+  "./js/ui.js",
+  "./js/screen.js",
+  "./js/update.js",
   // Multiplayer. main.js imports these now, so they belong in the precache
   // like everything else it reaches. vendor/peerjs.js is absent on purpose:
   // it matches HEAVY and lives in the media cache.
-  './js/net/codes.js',
-  './js/net/guest.js',
-  './js/net/host.js',
-  './js/net/host-worker.js',
-  './js/net/lobby.js',
-  './js/net/protocol.js',
-  './js/net/rendezvous.js',
-  './js/net/shadow.js',
-  './js/net/webrtc.js',
-  './js/render/blue-cat.js',
-  './js/render/effects.js',
-  './js/render/rider.js',
-  './js/render/scene.js',
-  './js/render/trails.js',
-  './js/sim/ai.js',
-  './js/sim/grid.js',
-  './js/sim/match.js',
-  './js/sim/rng.js',
-  './js/sim/world.js',
-  './art/logo.webp',
-  './icons/favicon-16.png',
-  './icons/favicon-32.png',
-  './icons/icon-180.png',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/icon-maskable-192.png',
-  './icons/icon-maskable-512.png',
+  "./js/net/codes.js",
+  "./js/net/guest.js",
+  "./js/net/host.js",
+  "./js/net/host-worker.js",
+  "./js/net/lobby.js",
+  "./js/net/protocol.js",
+  "./js/net/rendezvous.js",
+  "./js/net/shadow.js",
+  "./js/net/webrtc.js",
+  "./js/render/blue-cat.js",
+  "./js/render/effects.js",
+  "./js/render/rider.js",
+  "./js/render/scene.js",
+  "./js/render/trails.js",
+  "./js/sim/ai.js",
+  "./js/sim/grid.js",
+  "./js/sim/match.js",
+  "./js/sim/rng.js",
+  "./js/sim/world.js",
+  "./art/logo.webp",
+  "./icons/favicon-16.png",
+  "./icons/favicon-32.png",
+  "./icons/icon-180.png",
+  "./icons/icon-192.png",
+  "./icons/icon-512.png",
+  "./icons/icon-maskable-192.png",
+  "./icons/icon-maskable-512.png",
 ];
 
-self.addEventListener('install', (event) => {
+self.addEventListener("install", (event) => {
   // No skipWaiting() here. After precaching, the new worker stays WAITING until
   // the player accepts it from the menu. This is the whole "respect the
   // session" rule: nothing a deploy does may interrupt a round in progress.
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
 });
 
-self.addEventListener('message', (event) => {
+self.addEventListener("message", (event) => {
   const msg = event.data || {};
-  if (msg.type === 'SKIP_WAITING') self.skipWaiting();
-  if (msg.type === 'GET_VERSION' && event.ports[0]) {
+  if (msg.type === "SKIP_WAITING") self.skipWaiting();
+  if (msg.type === "GET_VERSION" && event.ports[0]) {
     event.ports[0].postMessage({ version: VERSION, media: MEDIA_VERSION });
   }
 });
 
-self.addEventListener('activate', (event) => {
+self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
@@ -153,7 +157,9 @@ self.addEventListener('activate', (event) => {
           keys
             // Ours, and only ours. Widening this prefix would delete a sibling
             // game's offline install on the shared origin.
-            .filter((k) => k.startsWith('neonfox-') && k !== CACHE && k !== MEDIA)
+            .filter(
+              (k) => k.startsWith("neonfox-") && k !== CACHE && k !== MEDIA,
+            )
             .map((k) => caches.delete(k)),
         ),
       )
@@ -161,9 +167,9 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-self.addEventListener('fetch', (event) => {
+self.addEventListener("fetch", (event) => {
   const { request } = event;
-  if (request.method !== 'GET') return;
+  if (request.method !== "GET") return;
 
   // Cross-origin is left entirely alone: Babylon and its glTF loader come from
   // jsDelivr pinned with integrity hashes, and the browser's own HTTP cache is
@@ -174,7 +180,7 @@ self.addEventListener('fetch', (event) => {
   // A Range request wants a slice. Answering one with a whole cached body is
   // how media playback breaks in ways nobody connects back to the worker, so
   // these go straight to the network.
-  if (request.headers.has('range')) return;
+  if (request.headers.has("range")) return;
 
   const store = HEAVY.test(url.pathname) ? MEDIA : CACHE;
 
@@ -191,7 +197,7 @@ self.addEventListener('fetch', (event) => {
         if (hit) return hit;
         return fetch(request)
           .then((res) => {
-            if (res.ok && res.type === 'basic') {
+            if (res.ok && res.type === "basic") {
               const copy = res.clone();
               caches.open(store).then((c) => c.put(request, copy));
             }
@@ -201,8 +207,8 @@ self.addEventListener('fetch', (event) => {
             // Offline and uncached. A navigation still gets the shell, which is
             // the difference between the game booting and the browser's
             // dinosaur. The shell only ever lives in the release cache.
-            request.mode === 'navigate'
-              ? caches.open(CACHE).then((c) => c.match('./index.html'))
+            request.mode === "navigate"
+              ? caches.open(CACHE).then((c) => c.match("./index.html"))
               : undefined,
           );
       }),
