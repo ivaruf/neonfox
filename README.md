@@ -32,7 +32,8 @@ the byte-identical fallback when the CDN is blocked or you are offline.
 | Back to the menu                | `Esc`                        | Back to the paddock         |
 
 Every rider moves at constant speed and can only turn. Trails break for a
-short gap every few seconds; slip through one if you time it.
+short gap every few seconds; slip through one if you time it. Starts are
+random, as in the original, but never pointed straight at a nearby wall.
 
 Scoring is Kurve's: every time a rider crashes, every rider still alive
 scores a point. The match goes to the first rider alone past
@@ -95,7 +96,8 @@ playing it.
   supported.
 - **Rider models are one merged rigid mesh**: no rig, no animation beyond a
   lean into turns and a glide bob.
-- **One arena shape**, a circle, chosen because it frames identically in
-  portrait and landscape on a fixed whole-arena camera.
+- **One arena shape**, a square, fitted edge to edge by the fixed camera in
+  both portrait and landscape. It was a circle first; a square fills a phone
+  screen far better.
 - **No multiplayer networking.** The structure is ready for it; the code is
   not written.

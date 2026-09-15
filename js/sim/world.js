@@ -18,7 +18,10 @@
  */
 
 import {
-  ARENA_RADIUS,
+  ARENA_HALF,
+  SPAWN_INSET,
+  SPAWN_SEPARATION,
+  SPAWN_RUNWAY,
   SPEED,
   TURN_RATE,
   HEAD_RADIUS,
@@ -47,8 +50,8 @@ export class World {
   constructor(seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0) {
     this.seed = seed;
     this.rng = mulberry32(seed);
-    this.radius = ARENA_RADIUS;
-    this.grid = new Grid(ARENA_RADIUS, GRID_CELL);
+    this.half = ARENA_HALF; // the square runs -half..half on both axes
+    this.grid = new Grid(ARENA_HALF, GRID_CELL);
     this.players = [];
     this.tickCount = 0;
   }
@@ -80,18 +83,47 @@ export class World {
     }));
   }
 
-  /* Place everyone on a ring facing roughly inward, wipe the arena. */
+  /*
+   * Wipe the arena and scatter the riders. Positions are random inside the
+   * inner part of the square and kept apart from each other; headings are
+   * random too, but rerolled until the straight run to the nearest wall is
+   * at least SPAWN_RUNWAY, so nobody opens a round already doomed. If the
+   * dice refuse fifty times, the rider simply faces the centre.
+   */
   spawn() {
     this.grid.clear();
     this.tickCount = 0;
-    const n = this.players.length;
-    const base = this.rng() * TAU;
-    const ring = this.radius * 0.55;
-    this.players.forEach((p, i) => {
-      const a = base + (i / n) * TAU;
-      p.x = Math.cos(a) * ring;
-      p.y = Math.sin(a) * ring;
-      p.heading = a + Math.PI + range(this.rng, -0.6, 0.6);
+    const inset = this.half * SPAWN_INSET;
+    const placed = [];
+    for (const p of this.players) {
+      let x = 0;
+      let y = 0;
+      for (let attempt = 0; attempt < 50; attempt++) {
+        x = range(this.rng, -inset, inset);
+        y = range(this.rng, -inset, inset);
+        let clear = true;
+        for (const q of placed) {
+          if (Math.hypot(x - q[0], y - q[1]) < SPAWN_SEPARATION) {
+            clear = false;
+            break;
+          }
+        }
+        if (clear) break;
+      }
+      placed.push([x, y]);
+
+      let heading = range(this.rng, -Math.PI, Math.PI);
+      for (let attempt = 0; attempt < 50; attempt++) {
+        if (runway(x, y, heading, this.half) >= SPAWN_RUNWAY) break;
+        heading = range(this.rng, -Math.PI, Math.PI);
+      }
+      if (runway(x, y, heading, this.half) < SPAWN_RUNWAY) {
+        heading = Math.atan2(-y, -x);
+      }
+
+      p.x = x;
+      p.y = y;
+      p.heading = heading;
       p.turn = 0;
       p.alive = true;
       p.drawing = true;
@@ -104,7 +136,7 @@ export class World {
         p.ai.timer = 0;
         p.ai.wanderLeft = 0;
       }
-    });
+    }
   }
 
   /* Countdown: riders may aim but not move. Same as Kurve's pre-round. */
@@ -155,8 +187,11 @@ export class World {
         this._point(p);
       }
 
-      // Wall first, then paint. The wall is the rim of the circle.
-      if (Math.hypot(p.x, p.y) + HEAD_RADIUS > this.radius) {
+      // Wall first, then paint. The wall is the edge of the square.
+      if (
+        Math.abs(p.x) + HEAD_RADIUS > this.half ||
+        Math.abs(p.y) + HEAD_RADIUS > this.half
+      ) {
         this._kill(p, "wall", events);
         continue;
       }
@@ -167,7 +202,8 @@ export class World {
 
   /* Is a point solid for rider slot `self`? Used by the AI's lookahead. */
   blockedAt(x, y, self) {
-    if (Math.hypot(x, y) > this.radius - HEAD_RADIUS) return true;
+    const edge = this.half - HEAD_RADIUS;
+    if (Math.abs(x) > edge || Math.abs(y) > edge) return true;
     return (
       this.grid.blocked(x, y, self, this.tickCount, SELF_IGNORE_TICKS) !== 0
     );
@@ -223,4 +259,19 @@ export class World {
     p.lastX = p.x;
     p.lastY = p.y;
   }
+}
+
+/*
+ * Straight-line distance from (x, y) along heading h to the square's edge.
+ * Each axis contributes the distance to whichever side the ray is moving
+ * toward; the nearer of the two is where the ray leaves the arena.
+ */
+function runway(x, y, h, half) {
+  const cx = Math.cos(h);
+  const cy = Math.sin(h);
+  const tx =
+    cx > 1e-9 ? (half - x) / cx : cx < -1e-9 ? (-half - x) / cx : Infinity;
+  const ty =
+    cy > 1e-9 ? (half - y) / cy : cy < -1e-9 ? (-half - y) / cy : Infinity;
+  return Math.min(tx, ty);
 }

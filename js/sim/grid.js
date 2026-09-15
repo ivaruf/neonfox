@@ -17,12 +17,13 @@
  */
 
 export class Grid {
-  constructor(radius, cell) {
-    this.radius = radius;
+  /* `half` is half the arena's side: the grid spans -half..half both ways. */
+  constructor(half, cell) {
+    this.radius = half;
     this.cell = cell;
     // One cell of padding on each side so a stamp at the very edge never
     // needs a bounds check per cell.
-    this.size = Math.ceil((radius * 2) / cell) + 2;
+    this.size = Math.ceil((half * 2) / cell) + 2;
     this.owner = new Uint8Array(this.size * this.size);
     this.stamp = new Uint32Array(this.size * this.size);
   }

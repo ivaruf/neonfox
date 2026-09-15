@@ -1,7 +1,9 @@
 /*
  * config.js — every tuning number in one place.
  *
- * Units are arena units: the arena is a circle of ARENA_RADIUS, so 60 across.
+ * Units are arena units: the arena is a square, ARENA_HALF each way from the
+ * centre, so 60 across. It was a circle at first; a square fills a phone
+ * screen far better under a fixed whole-arena camera.
  * A head is 0.9 wide and a trail 0.6, which is about one hundredth of the
  * arena — the same proportion as the original Kurve's pixel-wide line on a
  * 640-wide field. Speed over turn rate is the turning radius: 9 / 3.8 is
@@ -9,7 +11,17 @@
  * It started at 2.6 (radius 3.5) and the first playtest wanted it tighter.
  */
 
-export const ARENA_RADIUS = 30;
+export const ARENA_HALF = 30;
+
+/*
+ * Spawns are random, which is most of what made the original fun: nobody
+ * gets the same opening twice. Riders start inside the inner SPAWN_INSET of
+ * the arena, at least SPAWN_SEPARATION apart, and never pointed at a wall
+ * closer than SPAWN_RUNWAY along their heading (about 1.5 s of travel).
+ */
+export const SPAWN_INSET = 0.8;
+export const SPAWN_SEPARATION = 10;
+export const SPAWN_RUNWAY = 14;
 
 /* Simulation runs on a fixed 60 Hz tick regardless of frame rate. */
 export const TICK = 1 / 60;

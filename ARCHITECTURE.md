@@ -41,8 +41,8 @@ touch `document`/`window`.
 ## Coordinates and conventions
 
 - Sim space is 2D: `x` right, `y` up the screen, heading is the maths angle
-  (`cos`, `sin`), steering **left is a positive turn**. Arena is a circle of
-  `ARENA_RADIUS` centred on the origin.
+  (`cos`, `sin`), steering **left is a positive turn**. Arena is a square,
+  `-ARENA_HALF..ARENA_HALF` on both axes, centred on the origin.
 - Render maps sim `(x, y)` to Babylon `(x, 0, y)`: sim y becomes Babylon z.
   The play camera sits on the `-z` side looking at the origin, so `+z` is up
   the screen and `+x` is right, matching the sim.
@@ -64,11 +64,11 @@ touch `document`/`window`.
 // world.js
 const world = new World(seed?);
 world.setup(specs);        // specs: [{ id, name, colorIndex, kind: 'human'|'ai', seat }]
-world.spawn();             // new round: clears grid, places riders on a ring
+world.spawn();             // new round: clears grid, scatters riders with a safe runway
 world.steerOnly(dt);       // countdown: aim in place
 world.tick(dt, events);    // one step; pushes { type:'eliminated', id, by: id|'wall' }
 world.blockedAt(x, y, slot) // AI lookahead helper
-world.alive(); world.byId(id); world.players; world.radius; world.tickCount
+world.alive(); world.byId(id); world.players; world.half; world.tickCount
 // each player: { id, slot, name, colorIndex, kind, seat, x, y, heading,
 //   turn, alive, drawing, strokes, ... }
 // strokes: array of flat arrays [x0, y0, h0, x1, y1, h1, ...], one per
@@ -99,11 +99,12 @@ export function createScene(canvas) => ({
   setMode(mode),         // 'play' fixed whole-arena view | 'orbit' slow menu orbit
   kick(amount),          // camera shake impulse in arena units (0.4 small, 0.9 big)
 });
-// Owns: Engine (DPR capped at 2), Scene, TargetCamera with a fit that keeps
-// the whole arena in view in portrait AND landscape (fit to min(1, aspect)
-// with ~1.18 margin), hemispheric + directional light, floor disc with a
-// procedural DynamicTexture (faint rings/spokes), glowing rim torus, a low
-// translucent wall excluded from glow, a gradient background Layer, a
+// Owns: Engine (DPR capped at 2), Scene, TargetCamera with an exact corner
+// fit that runs the square arena edge to edge in portrait AND landscape
+// (bisection on distance, then vertical centring by shifting the target),
+// hemispheric + directional light, square floor with a procedural
+// DynamicTexture (faint grid), four glowing rim beams, four low translucent
+// wall slabs excluded from glow, a gradient background Layer, a
 // GlowLayer (mainTextureFixedSize 512), resize handling. Play tilt about
 // 0.45 rad from vertical; orbit mode tilts to ~1.0 rad, comes 30% closer
 // and rotates slowly; transitions between modes are smoothed.
