@@ -97,7 +97,8 @@ match.round
 export function createScene(canvas) => ({
   engine, scene,
   update(dt),            // once per frame before scene.render(): camera + shake decay
-  setMode(mode),         // 'play' fixed whole-arena view | 'orbit' slow menu orbit
+  setMode(mode),         // 'play' whole-arena view | 'orbit' slow menu orbit | 'follow' chase cam
+  setFollow(x, y, heading), // sim pose of the rider to chase; call every frame while in 'follow'
   kick(amount),          // camera shake impulse in arena units (0.4 small, 0.9 big)
   setArena(half),        // rebuild floor, beams and slabs for a new half-size; refit camera
 });
@@ -174,6 +175,8 @@ export class UI {
   setScores(scores /* id -> points */, aliveById /* id -> bool */)
   banner(text, { sub = '', hex = '', actions = false } = {}); hideBanner();
   setTouchVisible(visible)   // shows only when matchMedia('(pointer: coarse)') matches
+  setSpectate(text, hex)     // caption above the touch buttons: whose ride the camera is on
+  hideSpectate()
   setSound(enabled)          // toggle label + aria-pressed
   touchButtons               // { left, right } HTMLButtonElements
 }
@@ -204,6 +207,15 @@ export class Sfx {
   burst, kick, crash sound, scores; roundOver -> banner in the winner's colour;
   matchOver -> banner with Rematch / menu actions.
 - Attract mode shows no HUD or banners.
+- **Spectating.** Once no human rider is alive in a match (solo: you died;
+  two on one keyboard: both did) and the round is still running, the camera
+  drops into 'follow' on the first living rider and the steering controls
+  change meaning: a fresh press of right (or the right touch button) moves to
+  the next stop, left to the previous, through the cycle
+  `[overview, alive rider 1, alive rider 2, ...]`. Presses are edges, not
+  holds. If the followed rider dies the view moves on to the next living one.
+  The caption names who you are riding with; roundStart returns to 'play' and
+  hides it.
 
 ## Ownership
 

@@ -3,9 +3,19 @@
  *
  * Everything here is scenery. It never reads the sim and the sim never hears
  * about it; main.js calls update(dt) once a frame before scene.render(),
- * setMode() when the game moves between the paddock and a match, kick() when
- * something explodes, and setArena() when the size changes. That is the whole
- * surface (see ARCHITECTURE.md).
+ * setMode() when the game moves between the paddock, a match and spectating,
+ * setFollow() with the pose to chase, kick() when something explodes, and
+ * setArena() when the size changes. That is the whole surface (see
+ * ARCHITECTURE.md).
+ *
+ * There are three modes. 'play' is the fitted overview, 'orbit' is the slow
+ * menu drift, and 'follow' is a chase camera for spectating: once every human
+ * rider is out but the round is still running, there is nothing left to steer,
+ * so main.js hands the steering controls to the camera instead and they cycle
+ * through the survivors — being out should mean watching the ending, not
+ * waiting for it. A chase view is what makes that worth watching, because a
+ * trail read from behind a rider is a wall you are about to hit rather than a
+ * line on a map.
  *
  * The arena is a SQUARE spanning -half..half on both x and z, and the half-
  * size is now chosen in the menu rather than fixed: 18 to 48 units, applied
@@ -51,6 +61,30 @@ const ORBIT_CLOSE = 0.7; // menu sits 30% nearer than the fitted distance
 const ORBIT_SPEED = 0.12; // radians per second of slow drift
 const SMOOTH = 3; // exponential lerp rate for mode transitions
 const SHAKE_DECAY = 6; // per second; a kick is gone in well under a second
+
+/* The chase, in arena units behind and above the rider it is following. Nine
+ * back and 5.5 up is a shallow enough angle to see the trail the rider is
+ * about to meet, and the aim point is 5 units *ahead* of them so the rider
+ * sits low in the frame with the danger above it rather than dead centre. */
+const FOLLOW_BACK = 9;
+const FOLLOW_HEIGHT = 5.5;
+const FOLLOW_AHEAD = 5;
+const FOLLOW_AIM_HEIGHT = 0.8; // just above the trails, not down at the floor
+
+/* Two lenses. The overview wants a long one so the square does not bow at the
+ * corners; the chase wants a wide one so the speed reads as speed. */
+const PLAY_FOV = 0.62;
+const FOLLOW_FOV = 0.95;
+
+/* How fast the camera itself moves toward where it wants to be — a separate,
+ * faster smoothing than SMOOTH, which shapes the rig the overview is built
+ * from. FOLLOW_SMOOTH is a real chase lag: the camera swings wide when the
+ * rider turns, which is most of what makes the chase feel like a camera and
+ * not a rigid boom. VIEW_SMOOTH is high enough that the overview is where the
+ * fit put it as far as the eye is concerned, and low enough that handing the
+ * picture back from the chase is a sweep rather than a cut. */
+const FOLLOW_SMOOTH = 5;
+const VIEW_SMOOTH = 12;
 
 /* Fit tuning. FIT_LIMIT is the fraction of the half-viewport a corner may
  * reach: 0.97 is a 3% margin, enough that the rim beams never touch the edge
@@ -102,13 +136,20 @@ export function createScene(canvas) {
     new BABYLON.Vector3(0, 60, -30),
     scene
   );
-  camera.fov = 0.62;
+  camera.fov = PLAY_FOV;
   camera.minZ = 1;
   camera.maxZ = 800;
-  // Built once and reused every frame: setTarget takes a Vector3, and the
-  // point we look at only ever slides along z, so allocating one per frame
-  // would be pure garbage.
-  const focus = new BABYLON.Vector3(0, 0, 0);
+
+  /* The camera's whole state, and the reason the modes can be swapped mid-
+   * round without a cut: wherever the picture comes from, it arrives as a
+   * position and a point to look at, and those two vectors chase their
+   * desired values every frame. A mode change only changes what is desired.
+   * All four are built once and written through with copyFromFloats — the
+   * draw loop allocates nothing (house rule). */
+  const camPos = new BABYLON.Vector3(0, 0, 0);
+  const camAim = new BABYLON.Vector3(0, 0, 0);
+  const desiredPos = new BABYLON.Vector3(0, 0, 0);
+  const desiredAim = new BABYLON.Vector3(0, 0, 0);
 
   const glow = new BABYLON.GlowLayer("glow", scene, {
     mainTextureFixedSize: 512,
@@ -148,8 +189,10 @@ export function createScene(canvas) {
   let scanSyMax = 0;
   const fit = { dist: 0, tz: 0 };
 
-  /* Camera state. alpha/beta/dist/tz are the live values; their targets live
-   * in update() because half of them depend on the current viewport. */
+  /* The overview rig. alpha/beta/dist/tz are the live values; their targets
+   * live in update() because half of them depend on the current viewport.
+   * These describe the 'play' and 'orbit' framings only — 'follow' bypasses
+   * them entirely and answers with the rider's pose instead. */
   let mode = "play";
   let alpha = 0;
   let beta = PLAY_BETA;
@@ -157,6 +200,17 @@ export function createScene(canvas) {
   let dist = fit.dist;
   let tz = fit.tz;
   let shake = 0;
+
+  /* The pose being chased, in sim coordinates, last set by setFollow(). Only
+   * read while the mode is 'follow'; main.js keeps it current every frame. */
+  let followX = 0;
+  let followY = 0;
+  let followHeading = 0;
+
+  // Start where the fit says rather than gliding in from the origin on the
+  // first frame: there is nothing to transition from when the game opens.
+  sphericalInto(camPos);
+  camAim.copyFromFloats(0, 0, tz);
 
   window.addEventListener("resize", onResize);
 
@@ -326,7 +380,11 @@ export function createScene(canvas) {
    * is +z), hence the sign; d·tanV/cosB converts screen units back to world z.
    */
   function fitPlay(b, aspect) {
-    const tanV = Math.tan(camera.fov / 2);
+    // PLAY_FOV, not camera.fov: the chase widens the live lens, and fitting
+    // the overview against it would quietly pull the fitted distance in while
+    // nobody is looking at the overview — then push it back out over a second
+    // once the picture returned. The overview is always fitted for its own lens.
+    const tanV = Math.tan(PLAY_FOV / 2);
     const tanH = tanV * aspect;
 
     let tzc = 0;
@@ -373,39 +431,98 @@ export function createScene(canvas) {
     dist += (distTarget - dist) * k;
     tz += (tzTarget - tz) * k;
 
-    // Spherical -> cartesian about the target. alpha 0 puts the camera on the
-    // -z side, so screen-up is +z and screen-right is +x: exactly the sim's
-    // axes, which is what lets render code map sim (x, y) to Babylon (x, 0, y).
-    const sb = Math.sin(beta);
-    let x = dist * sb * Math.sin(alpha);
-    const y = dist * Math.cos(beta);
-    let z = tz - dist * sb * Math.cos(alpha);
+    /* Where the camera wants to be this frame, and what it wants to look at.
+     * The overview answers from the rig above, the chase from the pose it was
+     * given; both write the same two vectors, so everything below is one
+     * piece of code that never asks which mode it is in. */
+    if (mode === "follow") {
+      // Sim heading is the maths angle and sim (x, y) maps to Babylon
+      // (x, 0, y), so the rider's forward along the floor is (cos h, 0, sin h).
+      const fx = Math.cos(followHeading);
+      const fz = Math.sin(followHeading);
+      desiredPos.copyFromFloats(
+        followX - fx * FOLLOW_BACK,
+        FOLLOW_HEIGHT,
+        followY - fz * FOLLOW_BACK
+      );
+      desiredAim.copyFromFloats(
+        followX + fx * FOLLOW_AHEAD,
+        FOLLOW_AIM_HEIGHT,
+        followY + fz * FOLLOW_AHEAD
+      );
+    } else {
+      sphericalInto(desiredPos);
+      desiredAim.copyFromFloats(0, 0, tz);
+    }
+
+    // The one place the camera actually moves, and the reason 'follow' needs
+    // no handover of its own: the vectors are wherever the last mode left
+    // them, so they glide to the new desire from there. The chase lags on
+    // purpose (it swings wide through a turn); the overview does not.
+    const ck =
+      1 - Math.exp(-dt * (mode === "follow" ? FOLLOW_SMOOTH : VIEW_SMOOTH));
+    lerpInto(camPos, desiredPos, ck);
+    lerpInto(camAim, desiredAim, ck);
+    // fov is a plain number on the camera, so the lens changes the same way
+    // everything else does: eased, never cut.
+    const fovTarget = mode === "follow" ? FOLLOW_FOV : PLAY_FOV;
+    camera.fov += (fovTarget - camera.fov) * ck;
+
+    let x = camPos.x;
+    const y = camPos.y;
+    let z = camPos.z;
 
     if (shake > 0) {
       // Shake the camera, not the world: one jitter here is cheaper than
       // moving anything, and it reads the same. Only x/z, because bouncing
-      // the height would change the framing.
+      // the height would change the framing. Added after the smoothing and
+      // never written back into camPos — a shake the lerp could chase would
+      // linger for a second instead of a fifth of one.
       x += (Math.random() * 2 - 1) * shake;
       z += (Math.random() * 2 - 1) * shake;
       shake *= Math.exp(-dt * SHAKE_DECAY);
       if (shake < 0.005) shake = 0; // stop chasing a decimal nobody can see
     }
 
-    // camera.position and focus are the two preallocated vectors; writing
-    // through them keeps the draw loop free of `new` (house rule).
+    // camera.position and camAim are preallocated; writing through them keeps
+    // the draw loop free of `new` (house rule).
     camera.position.copyFromFloats(x, y, z);
-    focus.copyFromFloats(0, 0, tz);
-    camera.setTarget(focus);
+    camera.setTarget(camAim);
+  }
+
+  /* Spherical -> cartesian about the target, written into `out`. alpha 0 puts
+   * the camera on the -z side, so screen-up is +z and screen-right is +x:
+   * exactly the sim's axes, which is what lets render code map sim (x, y) to
+   * Babylon (x, 0, y). */
+  function sphericalInto(out) {
+    const sb = Math.sin(beta);
+    out.copyFromFloats(
+      dist * sb * Math.sin(alpha),
+      dist * Math.cos(beta),
+      tz - dist * sb * Math.cos(alpha)
+    );
+  }
+
+  /* The pose to chase, in sim coordinates; sim y is Babylon z. main.js calls
+   * this every frame while spectating and it is ignored in any other mode, so
+   * a stale pose left behind by a dead rider can never drag the overview. */
+  function setFollow(x, y, heading) {
+    followX = x;
+    followY = y;
+    followHeading = heading;
   }
 
   function setMode(next) {
     if (next === mode) return;
-    if (next === "play") {
+    if (mode === "orbit") {
       // The paddock has been winding alpha up for however long the menu was
       // open. Wrapped into (-PI, PI] the lerp takes the short way home
       // instead of spinning back through every turn it made.
       alpha = wrapAngle(alpha);
     }
+    // Nothing else to hand over: whatever the camera was doing, its position
+    // and aim are live vectors that will simply glide to whatever this mode
+    // asks for next — including back out to the fit when the round restarts.
     mode = next;
   }
 
@@ -415,7 +532,16 @@ export function createScene(canvas) {
     shake = Math.max(shake, amount);
   }
 
-  return { engine, scene, update, setMode, kick, setArena };
+  return { engine, scene, update, setMode, setFollow, kick, setArena };
+}
+
+/* Exponential lerp of one vector toward another, in place: the whole camera
+ * moves through this, so it takes no Vector3 arguments it would have to
+ * allocate and returns nothing. */
+function lerpInto(v, to, k) {
+  v.x += (to.x - v.x) * k;
+  v.y += (to.y - v.y) * k;
+  v.z += (to.z - v.z) * k;
 }
 
 /* Into (-PI, PI]. */

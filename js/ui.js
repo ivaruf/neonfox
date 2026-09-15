@@ -31,6 +31,8 @@ export class UI {
     this.bannerTextEl = root.querySelector("#banner-text");
     this.bannerActionsEl = root.querySelector("#banner-actions");
     this.touchEl = root.querySelector("#touch");
+    this.spectateEl = root.querySelector("#spectate");
+    this.spectateTextEl = root.querySelector("#spectate-text");
     this.soundEl = root.querySelector("#sound");
     this.arenaSizeEl = root.querySelector("#arena-size");
     this.arenaNameEl = root.querySelector("#arena-name");
@@ -159,6 +161,7 @@ export class UI {
     // The menu and the in-match overlays are mutually exclusive states.
     this.hideBanner();
     this.hideHud();
+    this.hideSpectate();
   }
 
   hideMenu() {
@@ -231,6 +234,21 @@ export class UI {
   setSound(enabled) {
     this.soundEl.setAttribute("aria-pressed", String(!!enabled));
     this.soundEl.textContent = enabled ? "Sound on" : "Sound off";
+  }
+
+  /** Caption above the touch buttons: whose ride the spectator camera has
+   *  landed on once every human is out but the round plays on. hex tints the
+   *  caption to the followed rider's colour via --c; an empty hex (the
+   *  overview stop) clears the property instead of leaving a stale colour. */
+  setSpectate(text, hex) {
+    this.spectateTextEl.textContent = text;
+    if (hex) this.spectateEl.style.setProperty("--c", hex);
+    else this.spectateEl.style.removeProperty("--c");
+    this.spectateEl.hidden = false;
+  }
+
+  hideSpectate() {
+    this.spectateEl.hidden = true;
   }
 
   /** Shown only on a coarse (touch) pointer, and only when the caller wants it. */

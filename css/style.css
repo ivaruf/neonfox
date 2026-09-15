@@ -407,6 +407,40 @@ kbd {
   }
 }
 
+/* ---------- Spectator caption ---------- */
+
+#spectate {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(8, 12, 36, 0.6);
+  border: 1px solid rgba(130, 170, 255, 0.2);
+  color: var(--ink);
+  font-size: 14px;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 0 10px var(--c);
+}
+#spectate-text {
+  font-weight: 800;
+  color: var(--c);
+}
+#spectate .how {
+  margin-left: 10px;
+  color: var(--ink-dim);
+  font-size: 12px;
+}
+@media (max-width: 600px) {
+  #spectate {
+    bottom: 124px; /* above the touch buttons */
+    font-size: 13px;
+  }
+}
+
 /* ---------- Touch steering ---------- */
 
 #touch {

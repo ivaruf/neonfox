@@ -30,6 +30,11 @@ the byte-identical fallback when the CDN is blocked or you are offline.
 | Start / rematch                 | `Enter` or `Space`           | Blaze! / Rematch            |
 | Restart the match               | `R`                          | —                           |
 | Back to the menu                | `Esc`                        | Back to the paddock         |
+| Out of the round: switch view   | `←` `→` cycle survivors and overview | the same two buttons |
+
+Once every human rider is out, the camera drops in behind one of the
+survivors and the steering controls cycle the view through them and back to
+the overview.
 
 Every rider moves at constant speed and can only turn. Trails break for a
 short gap every few seconds; slip through one if you time it. Starts are

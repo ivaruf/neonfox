@@ -102,6 +102,21 @@ function boot() {
   let time = 0; // seconds since load, for the riders' idle bob
   let goTimer = 0; // seconds of "Go!" banner left, counted in sim time
 
+  /*
+   * Spectating (ARCHITECTURE.md "Spectating"): once every human rider is out
+   * but the round is still being fought over by the AI, steering stops
+   * steering a corpse and instead cycles the camera through a chase view of
+   * whoever is still alive, with an overview stop at one end of the cycle.
+   * spectateStop indexes into stops() below: 0 is the overview, 1.. are
+   * living riders in roster order. prevTurn holds each seat's turn from the
+   * previous step so a press can be told from a held key (an edge, not a
+   * level) the same way input.js already treats start/restart/menu.
+   */
+  let spectating = false;
+  let spectateStop = 0;
+  let lastSpectateCaption = null; // last text handed to ui.setSpectate, so a step where nothing changed writes to the DOM zero times instead of sixty a second
+  const prevTurn = [0, 0];
+
   /* One Map, refilled every step: the sim reads it and never keeps it, so
    * there is no reason to allocate a new one sixty times a second. */
   const humanTurns = new Map();
@@ -165,6 +180,10 @@ function boot() {
     mode = "menu";
     view.setMode("orbit");
     goTimer = 0;
+    spectating = false;
+    spectateStop = 0;
+    lastSpectateCaption = null;
+    ui.hideSpectate();
     // Four rivals is enough to fill the arena with trails without the field
     // wiping itself out while someone is still reading the title.
     startMatch(buildSpecs(0, 4), { attract: true });
@@ -178,6 +197,10 @@ function boot() {
     mode = "match";
     view.setMode("play");
     goTimer = 0;
+    spectating = false;
+    spectateStop = 0;
+    lastSpectateCaption = null;
+    ui.hideSpectate();
     ui.hideMenu();
     startMatch(buildSpecs(ui.humans, ui.ais), {});
     ui.showHud(
@@ -253,6 +276,23 @@ function boot() {
     return map;
   }
 
+  /* Whether either seat's own rider is still standing. */
+  function humansAlive() {
+    return world.players.some((p) => p.kind === "human" && p.alive);
+  }
+
+  /*
+   * The spectator cycle: an overview stop (null) followed by every living
+   * rider's id, in roster order. Called at most once a step and only while
+   * spectating, so the small allocation here never touches the hot path a
+   * live match runs the rest of the time.
+   */
+  function stops() {
+    const list = [null];
+    for (const p of world.players) if (p.alive) list.push(p.id);
+    return list;
+  }
+
   function step() {
     // The "Go!" flash is counted in sim time, not by setTimeout: a paused or
     // backgrounded tab must not come back to a banner that expired while
@@ -265,6 +305,18 @@ function boot() {
       }
     }
 
+    // Press-edge detection for the spectator switch, ahead of reading the
+    // same seats for the sim's own steering: a held direction must move the
+    // view exactly once, on the frame it is first pressed, not once per tick
+    // for as long as the button stays down.
+    let pressedDir = 0; // +1 left / -1 right, the sim's own turn convention
+    for (let seat = 0; seat < 2; seat++) {
+      const t = input.turn(seat);
+      const pressed = t !== 0 && prevTurn[seat] === 0;
+      prevTurn[seat] = t;
+      if (pressed) pressedDir = t;
+    }
+
     humanTurns.clear();
     for (const p of world.players) {
       if (p.kind === "human") humanTurns.set(p.id, input.turn(p.seat));
@@ -273,6 +325,54 @@ function boot() {
     const events = [];
     match.update(TICK, humanTurns, events);
     handleEvents(events);
+
+    // Human turns above still reach the sim exactly as before; a dead
+    // rider's seat is simply ignored there. Spectating only decides what the
+    // camera does with the same presses once nobody is left to steer.
+    if (
+      mode === "match" &&
+      match.state === "playing" &&
+      !humansAlive() &&
+      !spectating
+    ) {
+      spectating = true;
+      spectateStop = 1; // the first living rider; stops()[0] is the overview
+      view.setMode("follow");
+    }
+
+    if (spectating && mode === "match") {
+      const list = stops();
+      if (pressedDir !== 0) {
+        // Left (+1) steps back toward the overview, right (-1) steps forward
+        // through the riders — the opposite sign from the sim's own steering
+        // because this is a menu of stops, not a heading.
+        const delta = pressedDir > 0 ? -1 : 1;
+        spectateStop = (spectateStop + delta + list.length) % list.length;
+        sfx.click();
+      }
+      // A rider dying between switches shrinks the list; clamp rather than
+      // index past the end, which walks the view on to whoever is left.
+      if (spectateStop >= list.length) {
+        spectateStop = list.length ? list.length - 1 : 0;
+      }
+      const stop = list[spectateStop];
+      if (stop === null) {
+        view.setMode("play");
+        if (lastSpectateCaption !== "Overview") {
+          lastSpectateCaption = "Overview";
+          ui.setSpectate("Overview", "");
+        }
+      } else {
+        const p = world.byId(stop);
+        view.setMode("follow");
+        view.setFollow(p.x, p.y, p.heading);
+        const caption = "Riding with " + p.name;
+        if (lastSpectateCaption !== caption) {
+          lastSpectateCaption = caption;
+          ui.setSpectate(caption, PALETTE[p.colorIndex].hex);
+        }
+      }
+    }
   }
 
   function render() {
@@ -295,6 +395,12 @@ function boot() {
         case "roundStart": {
           trails.reset();
           for (const rider of riders.values()) rider.setAlive(true);
+          // A fresh round means everyone is alive again, so any spectator
+          // camera from the round before belongs to a race that is over.
+          spectating = false;
+          spectateStop = 0;
+          lastSpectateCaption = null;
+          ui.hideSpectate();
           if (inMatch) {
             ui.setScores(match.scores, aliveMap());
             ui.banner("Steer to aim", { sub: "Round " + e.round });
@@ -356,6 +462,7 @@ function boot() {
             // The steering buttons would sit on top of Rematch; the match is
             // over, so there is nothing left to steer anyway.
             ui.setTouchVisible(false);
+            ui.hideSpectate();
           }
           break;
         }
