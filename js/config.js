@@ -4,9 +4,9 @@
  * Units are arena units: the arena is a circle of ARENA_RADIUS, so 60 across.
  * A head is 0.9 wide and a trail 0.6, which is about one hundredth of the
  * arena — the same proportion as the original Kurve's pixel-wide line on a
- * 640-wide field. Speeds and turn rates were chosen so a full U-turn takes
- * about seven trail-widths of room: tight enough to escape, wide enough that
- * you have to plan it.
+ * 640-wide field. Speed over turn rate is the turning radius: 9 / 3.8 is
+ * about 2.4 units, so a full U-turn needs some eight trail-widths of room.
+ * It started at 2.6 (radius 3.5) and the first playtest wanted it tighter.
  */
 
 export const ARENA_RADIUS = 30;
@@ -15,7 +15,7 @@ export const ARENA_RADIUS = 30;
 export const TICK = 1 / 60;
 
 export const SPEED = 9; // units per second
-export const TURN_RATE = 2.6; // radians per second at full steer
+export const TURN_RATE = 3.8; // radians per second at full steer
 export const HEAD_RADIUS = 0.45; // collision radius of the orb
 export const TRAIL_HALF_WIDTH = 0.3; // trail is 0.6 wide, solid all the way through
 
