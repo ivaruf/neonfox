@@ -1,0 +1,10 @@
+{
+  "name": "Neon Fox",
+  "short_name": "Neon Fox",
+  "icons": [
+    { "src": "/icons/neon-fox-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/neon-fox-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/neon-fox-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/neon-fox-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

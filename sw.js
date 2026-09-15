@@ -65,7 +65,10 @@
 // v1.1.0  PEER TO PEER. js/net/ joins the precache now that main.js loads it:
 //         host-authoritative snapshots over WebRTC, signalling in three tiers.
 //         vendor/peerjs.js needs no entry here — it matches HEAVY.
-const VERSION = 'v1.1.0';
+// v1.2.0  CODEX'S ARTWORK. The generated icons replace the procedural ones and
+//         the menu wears the logo, so the icon PNGs, the two favicons and
+//         art/logo.webp all change together.
+const VERSION = 'v1.2.0';
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting
@@ -116,9 +119,13 @@ const ASSETS = [
   './js/sim/match.js',
   './js/sim/rng.js',
   './js/sim/world.js',
+  './art/logo.webp',
+  './icons/favicon-16.png',
+  './icons/favicon-32.png',
   './icons/icon-180.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/icon-maskable-192.png',
   './icons/icon-maskable-512.png',
 ];
 

@@ -56,6 +56,13 @@ which the menu's "Win at" slider sets. It follows the field size until you
 move it, because a round of six hands out fifteen points where a round of
 two hands out one.
 
+## Art and sound
+
+The fox, the logo and the icons are codex's. `codex-concepts/` holds the
+Blender sources, the generated branding and the prompts behind them;
+`icons/README.md` says which file each shipped PNG came from. The models the
+game actually loads live in `models/`, and the title logo in `art/`.
+
 ## Architecture
 
 `ARCHITECTURE.md` is the module contract and the map. The short version:

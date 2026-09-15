@@ -17,7 +17,8 @@
   --rim: #46e6ff;
   --accent: #6c8cff;
   --c: var(--rim);
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font:
+    system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 * {
@@ -96,25 +97,33 @@ button:focus-visible {
 }
 
 .kicker {
-  margin: 0;
+  margin: 0 0 4px;
   color: var(--rim);
   font-size: 12px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
 }
 
+/*
+ * The title is codex's logo, which already carries its own glow, so the
+ * heading adds none: the old text-shadow stack was doing the job this
+ * artwork does better. The text stays in the markup for screen readers and
+ * for the case where the image does not load, and is pushed out of sight
+ * rather than hidden, because display:none takes it from the accessibility
+ * tree too.
+ */
 h1 {
-  margin: 4px 0 18px;
-  font-size: clamp(38px, 9vw, 54px);
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  line-height: 1;
-  text-transform: uppercase;
-  color: #fff;
-  text-shadow:
-    0 0 12px rgba(120, 220, 255, 0.9),
-    0 0 36px rgba(60, 140, 255, 0.7),
-    0 0 80px rgba(255, 95, 180, 0.35);
+  margin: 2px 0 10px;
+  font-size: 0;
+  line-height: 0;
+}
+h1 img {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* The art is trimmed to its own glow, which reaches well past the fox, so
+   * a little negative margin stops the panel looking over-padded. */
+  margin: -4% -2% -6%;
 }
 
 .row {
@@ -198,13 +207,21 @@ h1 {
 .slider input[type="range"]::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(70, 230, 255, 0.35), rgba(176, 124, 255, 0.55));
+  background: linear-gradient(
+    90deg,
+    rgba(70, 230, 255, 0.35),
+    rgba(176, 124, 255, 0.55)
+  );
   box-shadow: 0 0 8px rgba(70, 230, 255, 0.35);
 }
 .slider input[type="range"]::-moz-range-track {
   height: 4px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(70, 230, 255, 0.35), rgba(176, 124, 255, 0.55));
+  background: linear-gradient(
+    90deg,
+    rgba(70, 230, 255, 0.35),
+    rgba(176, 124, 255, 0.55)
+  );
   box-shadow: 0 0 8px rgba(70, 230, 255, 0.35);
 }
 .slider input[type="range"]::-webkit-slider-thumb {
@@ -294,14 +311,22 @@ h1 {
   padding: 8px 18px;
   border-radius: 18px;
   border: 1px solid rgba(255, 95, 180, 0.5);
-  background: linear-gradient(180deg, rgba(88, 20, 62, 0.5), rgba(22, 14, 48, 0.6));
+  background: linear-gradient(
+    180deg,
+    rgba(88, 20, 62, 0.5),
+    rgba(22, 14, 48, 0.6)
+  );
   color: var(--ink);
   text-align: center;
   animation: breathe 3s ease-in-out infinite;
 }
 #update:hover {
   border-color: #ff5fb4;
-  background: linear-gradient(180deg, rgba(118, 26, 82, 0.6), rgba(30, 18, 60, 0.7));
+  background: linear-gradient(
+    180deg,
+    rgba(118, 26, 82, 0.6),
+    rgba(30, 18, 60, 0.7)
+  );
 }
 #update:disabled {
   /* The tap has been accepted and the page is about to reload itself. */

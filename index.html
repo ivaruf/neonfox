@@ -14,7 +14,10 @@
     <meta name="theme-color" content="#0a1030" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
 
     <!--
       The PWA layer. Every path here is RELATIVE, so the game works from
@@ -26,15 +29,23 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="icons/icon-180.png" />
     <!--
-      A real 180 for iOS, not the 192 pointed at sideways — see icons/ and
-      tools/make-icons.py, which is the source of truth for all four PNGs.
-      The tab favicon is an inline SVG of the same mark reduced to its two
-      essentials, an orb and the curve behind it: no file, so no request and
-      nothing for a filename filter to object to.
+      The mark is codex's, not procedural: the artwork and the prompt that
+      made it live in codex-concepts/branding/pwa-icons/, which is the source
+      these PNGs were exported from. A real 180 for iOS, not the 192 pointed
+      at sideways. Two small favicons rather than an inline SVG, because the
+      fox does not survive being reduced to two shapes.
     -->
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230a1030'/><path d='M3 27c6 2 13-1 15-7 1-4-2-7-5-6' fill='none' stroke='%2346e6ff' stroke-width='3' stroke-linecap='round'/><circle cx='21' cy='11' r='6' fill='%2346e6ff'/><circle cx='20' cy='10' r='2.6' fill='%23eaf8ff'/></svg>"
+      type="image/png"
+      sizes="32x32"
+      href="icons/favicon-32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="icons/favicon-16.png"
     />
 
     <link rel="stylesheet" href="css/style.css" />
@@ -51,8 +62,22 @@
     <div id="ui">
       <!-- Title / paddock. Sits over the live attract-mode arena. -->
       <section id="menu" class="panel" aria-labelledby="title">
+        <!--
+          The logo carries the name, so the heading keeps the text for a
+          screen reader and anyone the image fails for, and hides it behind
+          the artwork otherwise. Width and height are on the tag so the panel
+          does not jump when it loads.
+        -->
+        <h1 id="title">
+          <img
+            src="art/logo.webp"
+            alt="NeonFox"
+            width="880"
+            height="576"
+            decoding="async"
+          />
+        </h1>
         <p class="kicker">Neon Kurve for orb riders</p>
-        <h1 id="title">NeonFox</h1>
 
         <!--
           UPDATE READY. Hidden until a new service worker has installed and is
@@ -69,7 +94,12 @@
 
         <div class="row">
           <span class="label">Riders</span>
-          <div class="seg" data-seg="humans" role="group" aria-label="Human riders">
+          <div
+            class="seg"
+            data-seg="humans"
+            role="group"
+            aria-label="Human riders"
+          >
             <button type="button" data-v="1" aria-pressed="true">Solo</button>
             <button type="button" data-v="2">Two, one keyboard</button>
           </div>
@@ -105,7 +135,14 @@
         <div class="row">
           <label class="label" for="target">Win at</label>
           <div class="slider">
-            <input type="range" id="target" min="5" max="60" step="5" value="15" />
+            <input
+              type="range"
+              id="target"
+              min="5"
+              max="60"
+              step="5"
+              value="15"
+            />
             <output id="target-out" for="target">15 pts</output>
           </div>
         </div>
@@ -114,14 +151,22 @@
         <button type="button" id="together" class="ghost">Play together</button>
 
         <p class="hint">
-          <kbd>←</kbd><kbd>→</kbd> steer · rider two on <kbd>A</kbd><kbd>D</kbd>
-          · <kbd>R</kbd> restarts the match · steer while the round loads to aim
+          <kbd>←</kbd><kbd>→</kbd> steer · rider two on <kbd>A</kbd
+          ><kbd>D</kbd> · <kbd>R</kbd> restarts the match · steer while the
+          round loads to aim
         </p>
 
         <div class="row">
           <label class="label" for="music-vol">Music</label>
           <div class="slider">
-            <input type="range" id="music-vol" min="0" max="100" step="1" value="60" />
+            <input
+              type="range"
+              id="music-vol"
+              min="0"
+              max="100"
+              step="1"
+              value="60"
+            />
             <output id="music-vol-out" for="music-vol">60</output>
           </div>
         </div>
@@ -129,7 +174,14 @@
         <div class="row">
           <label class="label" for="sfx-vol">Effects</label>
           <div class="slider">
-            <input type="range" id="sfx-vol" min="0" max="100" step="1" value="80" />
+            <input
+              type="range"
+              id="sfx-vol"
+              min="0"
+              max="100"
+              step="1"
+              value="80"
+            />
             <output id="sfx-vol-out" for="sfx-vol">80</output>
           </div>
         </div>
@@ -155,7 +207,9 @@
         <p id="banner-text"></p>
         <div id="banner-actions" hidden>
           <button type="button" id="rematch" class="primary">Rematch</button>
-          <button type="button" id="to-menu" class="ghost">Back to the paddock</button>
+          <button type="button" id="to-menu" class="ghost">
+            Back to the paddock
+          </button>
         </div>
       </div>
 
@@ -215,21 +269,29 @@
           bar.textContent = msg;
           bar.hidden = false;
         }
-        window.addEventListener("error", function (e) {
-          var t = e.target;
-          if (t && t.tagName === "SCRIPT" && t.dataset && t.dataset.handled) return;
-          if (t && t.tagName === "SCRIPT") {
-            show(
-              "A script failed to load: " +
-                t.src +
-                " (if this is js/main.js, the real culprit may be one of its imports)"
-            );
-            return;
-          }
-          show("Something broke: " + (e.message || e.type));
-        }, true);
+        window.addEventListener(
+          "error",
+          function (e) {
+            var t = e.target;
+            if (t && t.tagName === "SCRIPT" && t.dataset && t.dataset.handled)
+              return;
+            if (t && t.tagName === "SCRIPT") {
+              show(
+                "A script failed to load: " +
+                  t.src +
+                  " (if this is js/main.js, the real culprit may be one of its imports)",
+              );
+              return;
+            }
+            show("Something broke: " + (e.message || e.type));
+          },
+          true,
+        );
         window.addEventListener("unhandledrejection", function (e) {
-          show("Something broke: " + (e.reason && e.reason.message ? e.reason.message : e.reason));
+          show(
+            "Something broke: " +
+              (e.reason && e.reason.message ? e.reason.message : e.reason),
+          );
         });
       })();
     </script>
