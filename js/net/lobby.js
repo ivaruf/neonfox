@@ -91,6 +91,82 @@ const CSS = `
 #lobby .note { color: var(--ink-dim); font-size: 12px; margin: 6px 0 0; line-height: 1.5; }
 #lobby .live { color: var(--rim); }
 #lobby .warn { color: #ffa03c; }
+
+/* ---------------- Landscape phones: every step sideways ------------------
+   The same cut maxgear and the paddock use (hub CLAUDE.md §2), and the same
+   trick: a grid laid over the existing markup BY AREA, so portrait is
+   untouched and nothing moves in the DOM. This screen needed it most — the
+   room step stacked an 88px code, its words, a status line, six roster chips
+   and a Blaze! into one column, which is about 440px of content on a phone
+   that has 340. Sideways there is width instead, so the code sits BESIDE the
+   roster and the column disappears.
+
+   The h1 goes in all three steps: it costs 44px and the kicker above it
+   already says which step this is. */
+@media (orientation: landscape) and (max-height: 500px) {
+  #lobby h1 { display: none; }
+  #lobby .kicker { margin: 0 0 4px; }
+  #lobby .note { margin: 3px 0 0; }
+  #lobby .chip { font-size: 12px; padding: 2px 8px 2px 5px; }
+
+  /* Step 1. Two doors of equal standing, so they go side by side rather than
+     one above the other the moment there is room for it. */
+  #lobby .choices { grid-template-columns: 1fr 1fr; margin: 10px 0 4px; }
+
+  /* Step 2a, the keypad. The pictures and the six keys keep the full width —
+     a row of six is a wide shape already — and the two buttons beneath them
+     share a line instead of stacking. */
+  #lobby .code-row { margin: 6px 0 2px; }
+  #lobby .code-slot {
+    width: 44px; height: 44px; line-height: 44px; font-size: 24px; border-radius: 12px;
+  }
+  #lobby .pad { gap: 5px; margin: 5px 0; }
+  #lobby .pad button { font-size: 22px; padding: 4px 0; }
+  #lobby-pad {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "note   note"
+      "slots  slots"
+      "keys   keys"
+      "clear  go"
+      "status status";
+    gap: 6px 12px;
+    align-items: center;
+  }
+  #pad-note { grid-area: note; }
+  #pad-slots { grid-area: slots; }
+  #pad-keys { grid-area: keys; }
+  #pad-clear { grid-area: clear; margin: 0; }
+  #pad-go { grid-area: go; margin: 0; width: 100%; }
+  #pad-status { grid-area: status; }
+
+  /* Step 2b, the room. The code stays the hero — it is still the largest
+     thing on the screen — but at 64px beside the roster rather than 88px
+     above it, which is the single change that takes this step off the
+     scroll. The roster spans the three rows the code, its words and the
+     status line occupy, so the block is as tall as whichever side is
+     taller and no taller. */
+  #lobby-room {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "code   roster"
+      "words  roster"
+      "status roster"
+      "blaze  blaze";
+    gap: 2px 16px;
+    align-content: center;
+  }
+  #lobby-code { grid-area: code; margin: 0; }
+  #lobby-words { grid-area: words; }
+  #lobby-status { grid-area: status; }
+  #lobby-roster { grid-area: roster; margin: 0; align-self: center; }
+  #lobby-blaze { grid-area: blaze; margin: 8px 0 0; }
+  #lobby .code-row.hero .code-slot {
+    width: 64px; height: 64px; line-height: 64px; font-size: 34px; border-radius: 16px;
+  }
+}
 `;
 
 const el = (tag, className, text) => {
@@ -224,13 +300,20 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   /* ------------------------------------------- step 2a: their code (join) -- */
 
   const padView = el("div");
+  padView.id = "lobby-pad";
   padView.hidden = true;
-  padView.append(
-    el("p", "note", "Tap the three pictures your friend reads out:"),
+  const padNote = el(
+    "p",
+    "note",
+    "Tap the three pictures your friend reads out:",
   );
+  padNote.id = "pad-note";
+  padView.append(padNote);
   const slotRow = el("div", "code-row");
+  slotRow.id = "pad-slots";
   padView.append(slotRow);
   const pad = el("div", "pad");
+  pad.id = "pad-keys";
   for (const symbol of SYMBOLS) {
     const b = el("button", null, symbol.icon);
     b.type = "button";
@@ -244,6 +327,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   }
   padView.append(pad);
   const clear = el("button", "ghost", "Start the code again");
+  clear.id = "pad-clear";
   clear.type = "button";
   clear.addEventListener("click", () => {
     entered = [];
@@ -251,28 +335,36 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   });
   padView.append(clear);
   const joinGo = el("button", "primary", "Join the game");
+  joinGo.id = "pad-go";
   joinGo.type = "button";
   joinGo.disabled = true;
   padView.append(joinGo);
   const padStatus = el("p", "note");
+  padStatus.id = "pad-status";
   padView.append(padStatus);
   panel.append(padView);
 
   /* --------------------------------------- step 2b: the lobby, for both -- */
 
   const lobbyView = el("div");
+  lobbyView.id = "lobby-room";
   lobbyView.hidden = true;
   const codeRow = el("div", "code-row hero");
+  codeRow.id = "lobby-code";
   lobbyView.append(codeRow);
   const codeWords = el("p", "note");
+  codeWords.id = "lobby-words";
   lobbyView.append(codeWords);
   const lobbyStatus = el("p", "note live");
+  lobbyStatus.id = "lobby-status";
   lobbyView.append(lobbyStatus);
   const rosterList = el("ul", "roster");
+  rosterList.id = "lobby-roster";
   lobbyView.append(rosterList);
   // Only the host's. Starting is the host's call and nobody else's, so a
   // guest gets no button rather than one that does nothing.
   const blaze = el("button", "primary", "Blaze!");
+  blaze.id = "lobby-blaze";
   blaze.type = "button";
   blaze.disabled = true;
   lobbyView.append(blaze);

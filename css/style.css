@@ -878,8 +878,17 @@ kbd {
  * for a viewport shorter than anything measured here, not the plan.
  */
 @media (orientation: landscape) and (max-height: 500px) {
+  /*
+   * Narrower than the screen on purpose. 760 was "as wide as a landscape
+   * phone will allow", which is not the same as "as wide as this wants to
+   * be": a panel running to both edges reads as a page rather than as a
+   * thing sitting over the arena, and it drags every row of controls out to
+   * a length no one needs. 640 is enough for the two-column layouts below —
+   * two 292px columns after padding — and leaves the game visible down both
+   * sides, which is most of what makes this a game and not a form.
+   */
   .panel {
-    width: min(760px, calc(100% - 20px));
+    width: min(640px, calc(100% - 24px));
     max-height: calc(100% - 12px);
     padding: 14px 18px 12px;
     border-radius: 18px;

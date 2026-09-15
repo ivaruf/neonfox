@@ -104,7 +104,10 @@
 //         with the three pictures big and the roster shared — a guest used to
 //         watch a status line because the roster lived inside the host's own
 //         view. The name starts on one the game rolled and a die rolls
-//         another, fishtank's control and its reasoning.
+//         another, fishtank's control and its reasoning. All three of its
+//         steps get a landscape layout of their own, and every panel in the
+//         game stops stretching to the edges of a sideways phone: 640px, not
+//         760, so the arena still shows down both sides.
 const VERSION = "v1.7.0";
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
