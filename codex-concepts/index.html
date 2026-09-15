@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trailblazers · Cat concept 01</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #091322; color: #e6f4ff; font: 14px/1.5 system-ui, sans-serif; }
+  canvas { width: 100vw; height: 100vh; display: block; touch-action: none; }
+  header { position: absolute; top: 32px; left: 36px; pointer-events: none; }
+  small { color: #60deef; letter-spacing: .16em; text-transform: uppercase; }
+  h1 { font-size: 28px; font-weight: 600; margin: 8px 0; }
+  p { color: #a1b3c9; margin: 0; }
+  nav { position: absolute; bottom: 28px; left: 36px; display: flex; gap: 8px; }
+  button { background: #14283d; color: #e6f4ff; border: 1px solid #37526d; border-radius: 20px; padding: 10px 17px; cursor: pointer; }
+  button:hover { background: #24425c; }
+  #error { position: absolute; bottom: 90px; left: 36px; color: #ffbece; }
+</style>
+<canvas id="view" aria-label="Rotatable 3D concept of a blue cat riding a cyan orb"></canvas>
+<header><small>Trailblazers / Concept 01</small><h1>Blue cat · Orb rider</h1><p>Drag to orbit · Scroll to zoom</p></header>
+<nav><button id="portrait">Portrait</button><button id="above">From above</button></nav>
+<p id="error" role="alert"></p>
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="blue-cat.js"></script>
+<script>
+  if (!window.BABYLON) {
+    document.getElementById('error').textContent = 'The viewer needs an internet connection to load Babylon.js.';
+  } else {
+    const B = BABYLON;
+    const canvas = document.getElementById('view');
+    const engine = new B.Engine(canvas, true);
+    const scene = new B.Scene(engine);
+    scene.clearColor = new B.Color4(.035,.065,.11,1);
+    const camera = new B.ArcRotateCamera('camera', -Math.PI/2-.48, 1.18, 5.8,
+      new B.Vector3(0,1.35,0), scene);
+    camera.attachControl(canvas, true);
+    camera.lowerRadiusLimit = 3.3; camera.upperRadiusLimit = 9;
+    camera.lowerBetaLimit = .08; camera.upperBetaLimit = Math.PI/2;
+    camera.wheelPrecision = 45;
+    const fill = new B.HemisphericLight('fill', new B.Vector3(0,1,-.5), scene);
+    fill.intensity = 1.05;
+    fill.groundColor = new B.Color3(.12,.18,.3);
+    const rim = new B.PointLight('rim', new B.Vector3(2,3,2), scene);
+    rim.diffuse = new B.Color3(.3,.65,1); rim.intensity = 1.1;
+    createBlueCat(scene);
+    const glow = new B.GlowLayer('glow', scene);
+    glow.intensity = .35;
+    const plinth = B.MeshBuilder.CreateCylinder('display-plinth',
+      { diameter: 3.25, height: .10, tessellation: 64 }, scene);
+    plinth.position.y = -.10;
+    const m = new B.StandardMaterial('plinth', scene);
+    m.diffuseColor = new B.Color3(.065,.10,.16); plinth.material = m;
+    document.getElementById('portrait').onclick = () => {
+      camera.alpha = -Math.PI/2-.48; camera.beta = 1.18; camera.radius = 5.8;
+    };
+    document.getElementById('above').onclick = () => {
+      camera.alpha = -Math.PI/2; camera.beta = .30; camera.radius = 6;
+    };
+    engine.runRenderLoop(() => scene.render());
+    window.addEventListener('resize', () => engine.resize());
+  }
+</script>
+</html>
