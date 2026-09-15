@@ -231,6 +231,9 @@ export class Sfx {
   get sfxVolume();   setSfxVolume(v)     // 0..1, persisted 'trailblazers.vol.sfx.v1'
   unlock()                    // create/resume AudioContext on first gesture; starts the theme
   click(); ready(); go(); crash(); roundWin(); matchWin()
+  taunt(voice = 0, delay = 0)  // the yip a fox makes when it celebrates; `voice`
+                               // is the rider's palette index, so each fox has
+                               // its own pitch, and `delay` is seconds ahead
 }
 // Two gain nodes hang off the destination, one per slider, so a cue and the
 // theme are mixed independently and either can be taken to silence. Cues stay
@@ -263,10 +266,11 @@ export class Sfx {
   steer to aim"; go -> banner "Go!" briefly; eliminated -> rider hidden,
   burst, kick, crash sound, scores, and `celebrate()` on the owner of the
   trail that did it when that is another rider still alive (never a wall,
-  never your own trail); roundOver -> banner in the winner's colour;
+  never your own trail), with `sfx.taunt(colorIndex)` to match; roundOver -> banner in the winner's colour;
   matchOver -> banner with Rematch / menu actions. roundOver also gives the
   surviving winner `celebrate(2)`: the round is over, so there are a couple
-  of seconds with nothing to do but watch them gloat.
+  of seconds with nothing to do but watch them gloat, with a taunt under each
+  of the two flips.
 - Attract mode shows no HUD or banners.
 - **Spectating.** Once no human rider is alive in a match (solo: you died;
   two on one keyboard: both did) and the round is still running, the camera

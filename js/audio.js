@@ -233,10 +233,13 @@ export class Sfx {
     osc.stop(t0 + dur + 0.02);
   }
 
-  /** A short burst of band-passed white noise, same envelope shape as tone(). */
-  #noise(dur, gain) {
+  /** A short burst of band-passed white noise, same envelope shape as tone().
+   *  `delay` (seconds ahead of now) exists for taunt()'s noise-blip breath,
+   *  which has to land under a caller-chosen offset the same way its tones
+   *  do; every other caller leaves it at 0. */
+  #noise(dur, gain, delay = 0) {
     const ctx = this._ctx;
-    const t0 = ctx.currentTime;
+    const t0 = ctx.currentTime + delay;
 
     const length = Math.max(1, Math.ceil(ctx.sampleRate * dur));
     const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
@@ -283,6 +286,44 @@ export class Sfx {
     if (!this.#gate()) return;
     this.#tone({ freq: 420, to: 60, dur: 0.35, type: "sawtooth", gain: 0.18 });
     this.#noise(0.25, 0.12);
+  }
+
+  /**
+   * The yip a fox gives on its backflip: a rival crashing into its trail
+   * gets one, a round win gets two (one per flip). Meant to read as a small
+   * animal's cheeky triumph, not an instrument, so it stays short — a
+   * breath of noise, then two fast upward pitch-slides, the second higher
+   * and shorter — and quiet enough (gain 0.10) to sit under crash() or the
+   * roundWin() arpeggio without burying either.
+   *
+   * `voice` is the rider's palette index (0-5): six riders, six voices, so
+   * every fox has its own pitch and a listener can tell who is gloating
+   * without looking at the screen. Scaling every frequency by the same
+   * per-voice ratio (a whole tone per rider) keeps the two-note shape
+   * intact while shifting who it belongs to.
+   */
+  taunt(voice = 0, delay = 0) {
+    if (!this.#gate()) return;
+    const ratio = Math.pow(2, (voice * 2) / 12);
+    // The "breath" before the yip: a hair of noise, quieter than the tones
+    // so it reads as texture, not a second cue.
+    this.#noise(0.02, 0.07, delay);
+    this.#tone({
+      freq: 620 * ratio,
+      to: 950 * ratio,
+      dur: 0.09,
+      type: "triangle",
+      gain: 0.1,
+      delay,
+    });
+    this.#tone({
+      freq: 900 * ratio,
+      to: 1300 * ratio,
+      dur: 0.11,
+      type: "square",
+      gain: 0.1,
+      delay: delay + 0.09,
+    });
   }
 
   /** Round over: a short rising triangle arpeggio. */

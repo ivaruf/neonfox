@@ -581,11 +581,14 @@ function boot() {
           // never a corpse: two riders can cut each other's trails on the
           // same tick, and the one who "won" that exchange may already be
           // dead too.
-          if (e.by !== "wall" && e.by !== e.id && world.byId(e.by)?.alive) {
-            riders.get(e.by)?.celebrate();
-          }
+          const killer =
+            e.by !== "wall" && e.by !== e.id ? world.byId(e.by) : null;
+          if (killer?.alive) riders.get(e.by)?.celebrate();
           if (inMatch) {
             sfx.crash();
+            // The crash lands first, then the gloat — attract mode stays
+            // silent even though its foxes still flip.
+            if (killer?.alive) sfx.taunt(killer.colorIndex);
             ui.setScores(match.scores, aliveMap());
           }
           break;
@@ -604,6 +607,10 @@ function boot() {
               ui.banner(winnerPhrase(winner), {
                 hex: PALETTE[winner.colorIndex].hex,
               });
+              // Two taunts under the two flips: the clip is 1.133 s, so the
+              // second lands as the second flip starts.
+              sfx.taunt(winner.colorIndex);
+              sfx.taunt(winner.colorIndex, 1.13);
             } else {
               ui.banner("Everyone crashed", { sub: "no winner this round" });
             }
