@@ -38,7 +38,7 @@ import {
 import { World } from "./sim/world.js";
 import { Match } from "./sim/match.js";
 import { createScene } from "./render/scene.js";
-import { createRider } from "./render/rider.js";
+import { createRider, preloadRiders } from "./render/rider.js";
 import { TrailRenderer } from "./render/trails.js";
 import { createEffects } from "./render/effects.js";
 import { Input } from "./input.js";
@@ -66,6 +66,23 @@ if (!window.BABYLON) {
 
 function boot() {
   const view = createScene(document.getElementById("arena"));
+
+  /*
+   * The rider is a glTF model loaded asynchronously (10 MB); createRider
+   * picks whatever is available the instant it is called, falling back to
+   * the procedural rider until the real one lands. The title screen must
+   * appear immediately regardless, so the load happens behind it rather
+   * than gating boot — once it resolves, restarting the attract match (the
+   * same trick the arena slider uses to preview a new size) is enough to
+   * pick up the real model, and only if we are still sat on the menu; a
+   * match already running keeps its fallback riders until the next one
+   * starts. A rejection means rider.js has already console.warned and every
+   * rider quietly stays on the fallback, so there is nothing to do here.
+   */
+  preloadRiders(view.scene).then(() => {
+    if (mode === "menu") enterMenu();
+  }, () => {});
+
   const world = new World();
   const input = new Input();
   const sfx = new Sfx();

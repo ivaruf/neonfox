@@ -16,9 +16,10 @@ python3 -m http.server
 # then http://localhost:8000/
 ```
 
-`file://` does not work: the game is ES modules. Babylon.js loads from
-jsDelivr pinned to 8.56.2 with an integrity hash, and `vendor/babylon.js` is
-the byte-identical fallback when the CDN is blocked or you are offline.
+`file://` does not work: the game is ES modules. Babylon.js and its glTF
+loader load from jsDelivr pinned to 8.56.2 with integrity hashes, and the
+`vendor/` copies are the byte-identical fallbacks when the CDN is blocked or
+you are offline.
 
 ## Controls
 
@@ -74,10 +75,16 @@ Web Worker and the others render snapshots. Nothing under `js/sim/` touches
 Babylon or the DOM, and every random number comes from a seeded generator so
 a round can be replayed from its seed.
 
-The rider model is `codex-concepts/blue-cat.js` (Concept 01), adapted into
-`js/render/blue-cat.js` as a module, tinted per player and merged into one
-mesh. If it fails to build, a primitive orb-and-capsule placeholder takes its
-place with a console warning.
+The rider is codex's detailed fox, `models/fox-detailed.glb` (copied from
+`codex-concepts/`), loaded once through Babylon's glTF loader and
+instantiated per player with its fur, accents and orb tinted to the player's
+colour and its two-second cruise clip looping from a random phase. It is a
+10 MB, 276k-vertex model: the top quality tier. The lower-detail
+`orange-fox` is earmarked for the lowest quality setting once quality tiers
+exist. Until the GLB has arrived, and if it ever fails, riders fall back to
+the procedural cat from `js/render/blue-cat.js` (Concept 01), and below that
+to a primitive orb and capsule, each with a console warning naming what was
+missing. The title screen's attract match restarts once the fox arrives.
 
 ### Checks
 

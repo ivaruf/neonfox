@@ -1,15 +1,35 @@
 /*
- * rider.js — one player's rider: the concept cat tinted to their colour,
- * merged into a single mesh, and posed from sim coordinates every frame.
+ * rider.js — one player's rider: the codex fox if it has arrived, the
+ * procedural cat if it has not, a capsule if even that fails.
  *
- * Everything expensive happens once, at construction: build, tint, merge. What
- * the frame loop calls is setPose(), which only writes numbers into an existing
- * TransformNode — no vectors, no quaternions, no Color3s allocated per frame.
+ * Three tiers, and the best one available is chosen per rider at the moment
+ * createRider() is called, not once per session:
+ *
+ *   1. models/fox-detailed.glb — the detailed codex fox, instantiated from an
+ *      asset container that preloadRiders() fetched once, with its materials
+ *      cloned per rider so six foxes are six colours, and its Cruise_Wind clip
+ *      looping from a random phase.
+ *   2. blue-cat.js — the procedural concept cat, tinted and merged into one
+ *      mesh. This was the rider until the fox arrived and is now the safety net.
+ *   3. a primitive orb and capsule, for when Babylon itself is not what we
+ *      pinned.
+ *
+ * Per rider rather than per session is deliberate: the fox is a 10 MB file, so
+ * the attract match behind the title screen is usually ridden by cats for its
+ * first seconds and quietly switches to foxes as riders are rebuilt after the
+ * asset lands. Nothing blocks on the download, and a player who never gets it
+ * gets a game rather than a spinner. (The codex also has a lower-detail orange
+ * fox, earmarked for a low quality tier; it is not wired up yet.)
+ *
+ * Everything expensive happens once, at construction: load, clone, tint, merge.
+ * What the frame loop calls is setPose(), which only writes numbers into an
+ * existing TransformNode — no vectors, quaternions or Color3s per frame.
  *
  * The rider is a model with opinions and the sim has none, so this file is
  * where the two conventions meet (both are spelled out in ARCHITECTURE.md):
- * sim (x, y) becomes Babylon (x, 0, y), and the model faces -Z in its own
- * space, which is why heading needs the atan2 below rather than a plain negate.
+ * sim (x, y) becomes Babylon (x, 0, y), and a rider faces -Z in its own space,
+ * which is why heading needs the atan2 below rather than a plain negate. The
+ * fox is the exception and is turned to match; see buildFox().
  */
 
 import { RIDER_SCALE } from '../config.js';
@@ -19,8 +39,71 @@ import { createBlueCat } from './blue-cat.js';
  * lean is pure showmanship — the sim's hitbox is a circle and never tilts. */
 const LEAN_MAX = 0.28; // radians at turn = +-1
 const LEAN_RATE = 9; // e-folds per second toward the target lean
-const BOB_HEIGHT = 0.04; // arena units of hover wobble
+const BOB_HEIGHT = 0.04; // arena units of hover wobble, tiers 2 and 3 only
 const BOB_RATE = 5; // radians per second of bob
+
+const MODEL_URL = 'models/fox-detailed.glb';
+
+/*
+ * One container for the whole game: instantiateModelsToScene() clones out of it
+ * per rider, so 276k vertices are parsed once no matter how many riders or
+ * rounds follow. `loading` doubles as the guard against a second fetch — every
+ * caller after the first gets the same promise, settled or not.
+ */
+let container = null;
+let loading = null;
+let riderCount = 0; // only to keep cloned node and material names unique
+
+/*
+ * Fetch the fox once. Resolves when riders can be built from it; rejects, after
+ * saying so once, when they cannot. It never throws synchronously — a caller
+ * must be able to write preloadRiders(scene).catch(...) and get on with the
+ * menu, because every rejection here is survivable: the cat covers it.
+ */
+export function preloadRiders(scene) {
+  if (loading) return loading;
+  const B = BABYLON;
+
+  // The loader is a second script tag in index.html and a separate file to
+  // block or fail. Without it Babylon has no idea what a .glb is, and there is
+  // nothing to retry, so fail loudly and let the caller fall through to cats.
+  if (!B || !B.GLTFFileLoader) {
+    console.warn(
+      'rider: the glTF loader (babylonjs.loaders) is missing, riders use the procedural cat'
+    );
+    loading = Promise.reject(new Error('rider: babylonjs.loaders did not load'));
+    return loading;
+  }
+
+  // Babylon 8 moved this to a bare function; the SceneLoader method is the
+  // older spelling of the same call and still there in 8.56.2. Prefer the new
+  // one, take the old one if a future build drops it the other way round.
+  const load =
+    typeof B.LoadAssetContainerAsync === 'function'
+      ? () => B.LoadAssetContainerAsync(MODEL_URL, scene)
+      : () => B.SceneLoader.LoadAssetContainerAsync('models/', 'fox-detailed.glb', scene);
+
+  // Promise.resolve().then(load) rather than load(): it turns a synchronous
+  // throw inside the loader into a rejection, which is what the contract
+  // promises callers.
+  loading = Promise.resolve()
+    .then(load)
+    .then((loaded) => {
+      // The glTF loader starts the first animation group as it loads. Template
+      // groups animate nodes that are never rendered, so stop them: the clones
+      // each rider gets are started by buildFox() instead.
+      if (loaded.animationGroups) {
+        for (const group of loaded.animationGroups) group.stop();
+      }
+      container = loaded;
+    })
+    .catch((err) => {
+      console.warn(`rider: ${MODEL_URL} failed to load, riders use the procedural cat`, err);
+      throw err;
+    });
+
+  return loading;
+}
 
 export function createRider(scene, hex) {
   const B = BABYLON;
@@ -29,33 +112,58 @@ export function createRider(scene, hex) {
   /*
    * Two nodes, and the split is load-bearing. `root` is pose only: it lives in
    * arena units and takes the sim's position, heading and lean. `model` carries
-   * RIDER_SCALE alone — and it is set *after* the merge, because MergeMeshes
-   * bakes each source mesh's world matrix into the vertices it keeps. Scale the
-   * node first and the merged geometry comes out pre-scaled, then gets scaled a
-   * second time by its new parent: a rider at 0.64 instead of 0.8, with no
-   * error anywhere to explain it.
+   * RIDER_SCALE alone — and for the cat it is set *after* the merge, because
+   * MergeMeshes bakes each source mesh's world matrix into the vertices it
+   * keeps. Scale the node first and the merged geometry comes out pre-scaled,
+   * then gets scaled a second time by its new parent: a rider at 0.64 instead
+   * of 0.8, with no error anywhere to explain it.
    */
   const root = new B.TransformNode('rider', scene);
   const model = new B.TransformNode('rider-model', scene);
   model.parent = root;
 
-  try {
-    const cat = createBlueCat(scene);
-    cat.root.parent = model;
-    tint(cat.materials, colour);
-    mergeUnder(model);
-    // 1.44 model units of orb become ~1.15 arena units across, and the orb's
-    // centre at model Y 0.78 lands just above the floor — a rider that hovers.
-    model.scaling.set(RIDER_SCALE, RIDER_SCALE, RIDER_SCALE);
-  } catch (err) {
-    // A missing MeshBuilder call or a Babylon that isn't what we pinned. The
-    // game is playable with a crude rider and unplayable with none, so say what
-    // happened once and carry on. (If createBlueCat died part-built it may have
-    // orphaned meshes at the origin; in practice it fails on its first call or
-    // not at all.) The placeholder is authored in arena units already, so
-    // `model` keeps scale 1 here.
-    console.warn('rider: concept model failed, using placeholder', err);
-    buildPlaceholder(scene, model, colour);
+  let bobHeight = BOB_HEIGHT; // the fox clip bobs the body itself; see below
+  let clip = null; // this rider's own clone of Cruise_Wind
+  let skeletons = null; // ditto for the tail bones; root.dispose() reaches neither
+  let tier = 0;
+
+  // Tier 1: the fox, if preloadRiders() has landed. All three models share the
+  // orb at y 0.78 with diameter 1.44, so RIDER_SCALE is the same everywhere.
+  if (container) {
+    try {
+      const fox = buildFox(scene, model, colour);
+      clip = fox.clip;
+      skeletons = fox.skeletons;
+      bobHeight = 0; // Cruise_Wind already rocks the body; two bobs fight
+      model.scaling.set(RIDER_SCALE, RIDER_SCALE, RIDER_SCALE);
+      tier = 1;
+    } catch (err) {
+      console.warn('rider: the fox instance failed, using the procedural cat', err);
+      clearChildren(model);
+    }
+  }
+
+  // Tier 2: the cat that was here first.
+  if (!tier) {
+    try {
+      const cat = createBlueCat(scene);
+      cat.root.parent = model;
+      tintCat(cat.materials, colour);
+      mergeUnder(model);
+      // 1.44 model units of orb become ~1.15 arena units across, and the orb's
+      // centre at model Y 0.78 lands just above the floor — a rider that hovers.
+      model.scaling.set(RIDER_SCALE, RIDER_SCALE, RIDER_SCALE);
+      tier = 2;
+    } catch (err) {
+      // A missing MeshBuilder call or a Babylon that isn't what we pinned. The
+      // game is playable with a crude rider and unplayable with none, so say
+      // what happened once and carry on. The placeholder is authored in arena
+      // units already, so `model` keeps scale 1 here.
+      console.warn('rider: concept model failed, using placeholder', err);
+      clearChildren(model);
+      buildPlaceholder(scene, model, colour);
+      tier = 3;
+    }
   }
 
   /* Lean state lives here rather than on the node so the easing can read its
@@ -69,11 +177,12 @@ export function createRider(scene, hex) {
     setPose(x, y, heading, turn, time) {
       root.position.x = x;
       root.position.z = y; // sim y is up the screen, which is Babylon +z
-      root.position.y = BOB_HEIGHT * Math.sin(time * BOB_RATE);
+      root.position.y = bobHeight * Math.sin(time * BOB_RATE); // 0 for the fox
 
-      // The model faces -Z, so heading 0 (sim +x) must end up pointing at +x:
+      // A rider faces -Z, so heading 0 (sim +x) must end up pointing at +x:
       // atan2(-cos h, -sin h) is that rotation, not the -h you'd write for a
-      // +Z-facing model.
+      // +Z-facing model. All three tiers share this line — the fox is turned to
+      // agree with it inside buildFox(), not here.
       root.rotation.y = Math.atan2(-Math.cos(heading), -Math.sin(heading));
 
       /*
@@ -94,26 +203,140 @@ export function createRider(scene, hex) {
     },
 
     setAlive(alive) {
-      // Eliminated riders vanish; the round's own trail stays as evidence.
+      // Eliminated riders vanish; the round's own trail stays as evidence. A
+      // hidden fox still costs its skinning every frame, so stop the clip too.
       root.setEnabled(alive);
+      if (clip) {
+        // play(), not start(): Babylon's start() returns early on a group that
+        // has already started, so it would never come back from a pause().
+        if (alive) clip.play(true);
+        else clip.pause();
+      }
     },
 
     dispose() {
+      // The clip and the skeletons are scene-level objects that root.dispose()
+      // does not reach, and a clip left running would drive freed nodes.
+      if (clip) clip.dispose();
+      if (skeletons) {
+        for (const skeleton of skeletons) skeleton.dispose();
+      }
       // Recurse into children and take the materials with it: every rider mints
-      // its own set of StandardMaterials in createBlueCat, so nothing is shared
-      // and nothing else can be left holding a reference.
+      // or clones its own materials, so nothing is shared between riders and
+      // nothing else can be left holding a reference.
       root.dispose(false, true);
     },
   };
 }
 
 /*
- * Repaint the concept's palette in the player's colour. Only the parts that
- * read as "this rider's colour" move: fur, trim, rings, orb. The muzzle, inner
- * ear and pupils stay as authored — a cream muzzle is what makes it a cat, and
- * six identically tinted cats would be six silhouettes rather than six riders.
+ * Tier 1. Clone the fox out of the preloaded container and paint it.
  */
-function tint(materials, colour) {
+function buildFox(scene, model, colour) {
+  const B = BABYLON;
+  // Clones need names of their own: instantiateModelsToScene renames as it
+  // goes, and six riders sharing one set of names makes the scene inspector
+  // useless exactly when someone is trying to work out which fox is wrong.
+  const uid = ++riderCount;
+
+  /*
+   * doNotInstantiate asks for real clones rather than GPU instances. Instances
+   * would share their materials and their skeleton, and the two things this
+   * game needs per rider are precisely a colour of its own and a tail whipping
+   * on its own phase. Six copies of 276k vertices is the price of that.
+   */
+  const inst = container.instantiateModelsToScene((name) => `${name}_${uid}`, true, {
+    doNotInstantiate: true,
+  });
+
+  const fox = inst.rootNodes[0];
+  if (!fox) throw new Error(`${MODEL_URL} instantiated with no root node`);
+
+  /*
+   * The fox's face points at +Z (glTF's convention, which Babylon's loader
+   * keeps) while the cat, the placeholder and every line of setPose are written
+   * for -Z. One half-turn reconciles them, and THIS is the single place to flip
+   * if the fox turns out to ride backwards — not the atan2 in setPose, which
+   * all three tiers share.
+   */
+  const facing = new B.TransformNode(`rider-facing-${uid}`, scene);
+  facing.rotation.y = Math.PI;
+  facing.parent = model;
+  fox.parent = facing;
+
+  /*
+   * One pass over the meshes does both jobs. Nothing in this game picks, so
+   * every mesh opts out of the ray tests; and a material reached from several
+   * of the ~178 meshes must be tinted once, hence the Set — the clone's
+   * materials are this rider's alone, but they are shared within it.
+   */
+  const painted = new Set();
+  for (const mesh of fox.getChildMeshes()) {
+    mesh.isPickable = false;
+    const mat = mesh.material;
+    if (!mat || painted.has(mat)) continue;
+    painted.add(mat);
+    tintFox(mat, colour);
+  }
+
+  const clip = inst.animationGroups[0] || null; // "Cruise_Wind", 2.04 s, looping
+  if (clip) {
+    clip.start(true);
+    // Every rider loops the same 2.04 s of ear, fur and tail, and six foxes
+    // breathing in lockstep reads as a rendering bug rather than a pack. The
+    // offset is cosmetic jitter, so plain Math.random is the right call here
+    // (nothing about it needs to replay identically).
+    clip.goToFrame(clip.from + Math.random() * (clip.to - clip.from));
+  }
+
+  return { clip, skeletons: inst.skeletons };
+}
+
+/*
+ * Repaint the fox in the player's colour. Only the parts that read as "this
+ * rider's colour" move: the fur, its accents, the orb and its rings. Muzzle,
+ * cream, eyes, suit, harness, brass and stitching are left as authored — those
+ * are what make it a fox rather than a coloured blob, and six identically
+ * tinted riders would be six silhouettes.
+ *
+ * These are PBRMaterials from the glTF loader, so the properties are
+ * albedoColor and emissiveColor, not diffuse. Names are matched with
+ * startsWith because instantiateModelsToScene appends a suffix to every clone,
+ * and they are the cat build's names carried over: the words are wrong for a
+ * fox but they are stable, which is what matching needs.
+ */
+function tintFox(mat, colour) {
+  const B = BABYLON;
+  const white = B.Color3.White();
+  const name = mat.name || '';
+
+  if (name.startsWith('Slate blue short fur')) {
+    mat.albedoColor = colour.clone();
+  } else if (name.startsWith('Russet fur shadows')) {
+    mat.albedoColor = colour.scale(0.45); // the same colour in shadow, not a second colour
+  } else if (name.startsWith('Golden fur tips')) {
+    mat.albedoColor = B.Color3.Lerp(colour, white, 0.35);
+  } else if (name.startsWith('Cyan accents')) {
+    mat.albedoColor = B.Color3.Lerp(colour, white, 0.3);
+    mat.emissiveColor = colour.scale(0.8); // trim is what the GlowLayer is for
+  } else if (name.startsWith('Azure orb')) {
+    mat.albedoColor = colour.scale(0.6);
+    mat.emissiveColor = colour.scale(0.6); // the orb glows in the colour its trail will be
+  } else if (name.startsWith('Energy rings')) {
+    mat.albedoColor = B.Color3.Lerp(colour, white, 0.4);
+    // Left alone on purpose: the rings carry a KHR_materials_emissive_strength
+    // from the asset, which the loader turned into an emissiveIntensity. Only
+    // the hue is ours; the brightness is the artist's.
+    mat.emissiveColor = B.Color3.Lerp(colour, white, 0.4);
+  }
+}
+
+/*
+ * Tier 2's tint. Repaint the concept cat's palette in the player's colour: fur,
+ * trim, rings, orb. The muzzle, inner ear and pupils stay as authored, for the
+ * same reason the fox keeps its cream.
+ */
+function tintCat(materials, colour) {
   const B = BABYLON;
   const white = B.Color3.White();
 
@@ -155,12 +378,12 @@ function tint(materials, colour) {
 /*
  * Fold the whole cat into one mesh. Forty-odd little spheres and tubes per
  * rider times six riders is a draw call count worth avoiding, and none of the
- * parts ever move independently — there is no rig, and the hop and flip the
- * concept's later versions describe are not in this model.
+ * parts ever move independently — the cat has no rig at all.
  *
  * multiMultiMaterials keeps each material as its own submesh, which is the only
  * reason a merge is possible at all here: the model is eight materials and a
- * single-material merge would flatten it to one.
+ * single-material merge would flatten it to one. The fox is never merged: it is
+ * skinned, and merging would throw its skeleton away.
  */
 function mergeUnder(model) {
   const B = BABYLON;
@@ -196,7 +419,7 @@ function buildPlaceholder(scene, under, colour) {
   body.diffuseColor = colour.scale(0.85);
   body.emissiveColor = colour.scale(0.2);
 
-  // Same 1.15 across and same hover height the scaled concept model has, so the
+  // Same 1.15 across and same hover height the scaled models have, so the
   // camera, the trail and the collision radius all still agree with the picture.
   const orb = B.MeshBuilder.CreateSphere('rider-orb', { diameter: 1.15, segments: 16 }, scene);
   orb.position.y = 0.6;
@@ -218,4 +441,10 @@ function buildPlaceholder(scene, under, colour) {
     ear.parent = under;
     ear.isPickable = false;
   }
+}
+
+/* Clear out whatever a tier left behind when it threw halfway: half a fox
+ * inside a cat is worse than either one alone. */
+function clearChildren(node) {
+  for (const child of node.getChildren()) child.dispose(false, true);
 }

@@ -113,10 +113,11 @@
     <div id="crash" role="alert" hidden></div>
 
     <!--
-      Babylon comes from jsDelivr pinned to an exact version with an integrity
-      hash (the same tag fishtank uses), and vendor/babylon.js is the
-      byte-identical fallback for a blocked CDN or LAN play with no internet.
-      The guard runs before the module below, so load order never changes.
+      Babylon and its glTF loader come from jsDelivr pinned to an exact
+      version with integrity hashes (the same tags fishtank uses), and the
+      vendor/ copies are byte-identical fallbacks for a blocked CDN or LAN
+      play with no internet. Each guard runs before the next tag, so load
+      order never changes.
     -->
     <script
       src="https://cdn.jsdelivr.net/npm/babylonjs@8.56.2/babylon.js"
@@ -127,6 +128,17 @@
     <script>
       window.BABYLON ||
         document.write('<script src="vendor/babylon.js"><\/script>');
+    </script>
+    <!-- The glTF loader for the rider models, pinned and guarded the same way. -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/babylonjs-loaders@8.56.2/babylonjs.loaders.min.js"
+      integrity="sha384-u+jmBF3Ig/827G8UT4kF+dDbuY0uXakBSGip6BUjiZ7IHqxA44vGxcpx76wGLI3f"
+      crossorigin="anonymous"
+      data-handled="vendor/loaders.js"
+    ></script>
+    <script>
+      window.BABYLON?.GLTFFileLoader ||
+        document.write('<script src="vendor/loaders.js"><\/script>');
     </script>
     <script>
       // Surface load-time failures instead of a silent dark canvas.

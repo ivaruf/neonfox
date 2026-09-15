@@ -22,7 +22,7 @@ js/sim/              THE GAME. Plain numbers, no DOM, no Babylon.
 js/render/           reads the sim, draws it with Babylon
   scene.js           engine, camera fit, lights, arena, glow, shake
   blue-cat.js        the codex concept rider, adapted to an ES module
-  rider.js           one rider per player: tint, merge, pose, fallback
+  rider.js           one rider per player: GLB fox, or procedural cat, or primitives
   trails.js          chunked neon ribbons built from world strokes
   effects.js         elimination burst
 js/input.js          keyboard + touch buttons -> turn per seat, commands
@@ -31,6 +31,8 @@ js/audio.js          WebAudio blips, lazily created on first gesture
 js/main.js           glue: fixed-timestep loop, event routing, modes
 tools/sim-smoke.mjs  runs sim + match headless under node, no Babylon
 vendor/babylon.js    byte-identical local fallback for the pinned CDN file
+vendor/loaders.js    same, for the glTF loader
+models/              rider GLBs from codex-concepts (fox-detailed.glb today)
 ```
 
 The sim/render split is deliberate and load-bearing: the plan is fishtank's
@@ -123,16 +125,24 @@ export function createScene(canvas) => ({
 // and rotates slowly; transitions between modes are smoothed.
 
 // rider.js
+export function preloadRiders(scene) => Promise<void>
+// Loads models/fox-detailed.glb into an AssetContainer once. Resolves when
+// riders can be built from it; rejects (after a console.warn naming the
+// asset) if the loader or the file is missing. Never throws synchronously.
 export function createRider(scene, hex) => ({
   root,                               // TransformNode
   setPose(x, y, heading, turn, time), // sim coords; turn -1..1 for a lean; time for a glide bob
-  setAlive(alive),                    // hide when false
+  setAlive(alive),                    // hide when false (and pause its animation)
   dispose(),
 });
-// Builds from blue-cat.js: tint fur/trim/orb materials to hex (suit stays
-// dark), merge into one mesh with MergeMeshes(..., multiMultiMaterials=true)
-// inside try/catch, scale root by RIDER_SCALE. If anything throws, fall back
-// to a primitive orb + capsule rider in the same colour and console.warn.
+// Three tiers, best available at call time, each with the same contract:
+//   1. the codex detailed fox GLB, instantiated from the preloaded container
+//      with cloned materials tinted to hex, its Cruise_Wind clip looping
+//      from a random phase;
+//   2. blue-cat.js procedural cat, tinted and merged (the old path);
+//   3. a primitive orb + capsule.
+// A failure at any tier console.warns and drops to the next. Scale root by
+// RIDER_SCALE in every tier (all models share the orb at y 0.78, d 1.44).
 
 // blue-cat.js
 export function createBlueCat(scene) => ({ root, materials })
