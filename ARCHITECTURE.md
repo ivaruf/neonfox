@@ -234,6 +234,9 @@ export class Sfx {
   taunt(voice = 0, delay = 0)  // the yip a fox makes when it celebrates; `voice`
                                // is the rider's palette index, so each fox has
                                // its own pitch, and `delay` is seconds ahead
+  foxSay(voice = 0, delay = 0) // the five-note "ring ding ding" figure: the
+                               // same voice, the full sentence. An original
+                               // motif, deliberately not the song's melody.
 }
 // Two gain nodes hang off the destination, one per slider, so a cue and the
 // theme are mixed independently and either can be taken to silence. Cues stay
@@ -267,7 +270,9 @@ export class Sfx {
   burst, kick, crash sound, scores, and `celebrate()` on the owner of the
   trail that did it when that is another rider still alive (never a wall,
   never your own trail), with `sfx.taunt(colorIndex)` to match; roundOver -> banner in the winner's colour;
-  matchOver -> banner with Rematch / menu actions. roundOver also gives the
+  matchOver -> banner with Rematch / menu actions, and `foxSay` from the
+  winner: it is the one moment in a match that earns it, so it stays rare by
+  happening exactly once, when somebody reaches the target. roundOver also gives the
   surviving winner `celebrate(2)`: the round is over, so there are a couple
   of seconds with nothing to do but watch them gloat, with a taunt under each
   of the two flips.

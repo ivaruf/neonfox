@@ -326,6 +326,50 @@ export class Sfx {
     });
   }
 
+  /**
+   * "What does the fox say" — the winning fox's five-note staccato figure on
+   * a match win. Only the *rhythm* is a nod to the joke ("ring-ding-ding-
+   * ding-ding": four quick ticks, the last one held so the phrase lands);
+   * the actual notes below are an original invention picked from scratch
+   * for this game, not a transcription or approximation of Ylvis's melody,
+   * which this file deliberately does not reproduce.
+   */
+  foxSay(voice = 0, delay = 0) {
+    if (!this.#gate()) return;
+    const ratio = Math.pow(2, (voice * 2) / 12); // same per-voice pitch as taunt()
+
+    // Original five-note figure: a small rising run (D5-E5-F#5) that dips
+    // back to E5 and resolves up onto a bright fifth, A5, held longer so
+    // the last "ding" reads as the "ring" the phrase lands on.
+    const notes = [
+      { freq: 587, dur: 0.08 }, // D5
+      { freq: 659, dur: 0.08 }, // E5
+      { freq: 740, dur: 0.08 }, // F#5
+      { freq: 659, dur: 0.08 }, // E5
+      { freq: 880, dur: 0.28 }, // A5, held to land
+    ];
+    const spacing = 0.13;
+    notes.forEach((note, i) => {
+      this.#tone({
+        freq: note.freq * ratio,
+        dur: note.dur,
+        type: "triangle",
+        gain: 0.11,
+        delay: delay + i * spacing,
+      });
+    });
+
+    // A quiet fifth layered on the final note only, for a bell-like ring.
+    const last = notes[notes.length - 1];
+    this.#tone({
+      freq: last.freq * 1.5 * ratio,
+      dur: last.dur,
+      type: "triangle",
+      gain: 0.06,
+      delay: delay + (notes.length - 1) * spacing,
+    });
+  }
+
   /** Round over: a short rising triangle arpeggio. */
   roundWin() {
     if (!this.#gate()) return;
