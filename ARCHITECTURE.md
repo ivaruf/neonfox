@@ -307,3 +307,99 @@ export class Sfx {
 
 One file, one owner. A lane that needs something from another lane asks for
 a contract change here rather than editing the other file.
+
+## The net lane (js/net/)
+
+Appended, not woven in: multiplayer arrived after the sections above and they
+are still true. Nothing under `js/sim/` or `js/render/` changed to allow it,
+which is the sim/render split above paying for itself.
+
+`docs/P2P.md` is the design and carries the measurements. The short version:
+**host-authoritative snapshots, not lockstep** — the sim is deterministic
+within one engine but `Math.cos`, `Math.sin`, `Math.atan2` and `Math.hypot`
+are implementation-defined and V8 and JavaScriptCore disagree on all four, so
+a desktop and an iPad drift apart. The host runs the only `World` and `Match`,
+in a Web Worker, and everyone else renders frames.
+
+| Lane | Files                                                  |
+| ---- | ------------------------------------------------------ |
+| net  | js/net/\*, docs/P2P.md, vendor/peerjs.js                |
+
+`js/main.js` and `js/ui.js` gained the hooks below and are otherwise unchanged;
+`js/input.js`, the sim and the renderer were not touched at all.
+
+```js
+// net/shadow.js
+export class ShadowWorld {
+  setRoster(roster)   // [{ id, slot, name, colorIndex, mine, seat }] in slot order
+  setArena(half); resetRound()
+  applyState(frame)   // one decoded state frame = one tick; shifts x -> px
+  hold()              // no frame this tick: stand still rather than extrapolate
+  applyTrail(entries)
+  players; half; tickCount; byId(id); bySlot(slot); alive()
+}
+// Quacks like World for everything the render lane reads, so rider.js,
+// trails.js and main.js's render() are identical on both sides of the wire.
+// `kind` is "human" for riders THIS device steers and "ai" for every other,
+// because every reader of it in main.js is really asking "is this one of mine?".
+export function createFeed(world) => ({ pushEvent, pushTrail, pushState, rewind, pump(out) })
+
+// net/host.js  /  net/guest.js — one surface, so main.js cannot tell them apart
+await hostSession({ arenaIndex, target, ais, name, seats, coarse })
+await joinSession({ code, name, seats, coarse })
+// => {
+//   kind: 'host' | 'guest', code, mode: 'relay'|'broker'|'tabs', detail,
+//   world,            // ShadowWorld: what main.js renders
+//   match,            // { state, round, scores, target }, kept from the host
+//   roster, seats, started, spectator,
+//   onRoster, onStatus, onBegin, onClosed,   // callbacks the caller sets
+//   setLocalTurn(seat, turn),   // -1 | 0 | +1, clamped on the way out
+//   pump(events),               // once a tick: applies frames, fills `events`
+//                               // with the SAME roundStart/go/eliminated/
+//                               // roundOver/matchOver objects Match emits
+//   startMatch(), rematch(),    // null on a guest: only a host may
+//   leave(),
+// }
+
+// net/lobby.js
+export function createLobby({ root, ui, onPlay, onBack, onEnded, settings })
+  => { open(), close(), coarse }
+export function mountEntry(onClick)   // adopts #together, or inserts one after #start
+export function isCoarsePointer()     // the same question ui.js asks for the touch buttons
+
+// net/protocol.js — the wire, and every validator. See docs/P2P.md.
+// net/codes.js, net/webrtc.js, net/rendezvous.js, net/host-worker.js
+```
+
+Conventions this lane adds:
+
+- **The lane is an argument, never a guess.** `channel.send(value, fast)`.
+  Trail points are binary and reliable; a codec that inferred "binary means
+  lossy" would drop the one thing in this game you can die on.
+- **The frame number is not `world.tickCount`.** `spawn()` resets that every
+  round, and the receive queue drops anything not newer, so a round boundary
+  stalled every guest. The worker keeps a monotonic counter instead.
+- **One rider per touch device**, the owner's rule: said out loud in the join
+  screen and enforced by the host regardless of what the guest claims.
+- The host renders through a `ShadowWorld` too, because its `World` is in the
+  worker. So there is one path from a packed frame to a rider on screen.
+
+### Glue changes (main.js)
+
+- `mode` gains `'net'`; `inPlay()` is `'match' || 'net'` and everything the
+  player is told, plus the spectator camera, keys off that rather than off
+  which of the two it is.
+- `world` is now a `let`: a local match points it at `soloWorld`, a net match
+  at `net.world`. Every reader below is untouched. `match` likewise points at
+  `net.match` (a plain scoreboard, not a `Match`) and `step()` calls
+  `net.pump(events)` instead of `match.update(...)`.
+- `clearSpectate()` replaces four copies of the same five lines.
+- A guest gets no Rematch button (`ui.banner(..., { rematch: false })`) because
+  only the host may start another match.
+
+### ui.js
+
+- `onTogether` in the constructor options, wired to `#together` **if
+  index.html has one**; `lobby.mountEntry` inserts the button otherwise, so
+  exactly one of the two attaches a listener.
+- `banner(text, { ..., rematch = true })` hides the Rematch button when false.

@@ -30,7 +30,15 @@ import { defaultTarget } from "./sim/match.js";
 export class UI {
   constructor(
     root,
-    { onStart, onRematch, onMenu, onArena, onMusicVolume, onSfxVolume } = {},
+    {
+      onStart,
+      onRematch,
+      onMenu,
+      onArena,
+      onMusicVolume,
+      onSfxVolume,
+      onTogether,
+    } = {},
   ) {
     this.root = root;
     this.onArena = onArena || (() => {});
@@ -91,6 +99,14 @@ export class UI {
     root.querySelector("#to-menu").addEventListener("click", () => {
       if (onMenu) onMenu();
     });
+
+    // The way into multiplayer. index.html may not carry this button yet —
+    // js/net/lobby.js inserts one after #start when it is missing — so this
+    // wires it only if it is there, and the lobby wires its own otherwise.
+    // Exactly one of the two ever attaches a listener.
+    const together = root.querySelector("#together");
+    if (together && onTogether)
+      together.addEventListener("click", () => onTogether());
 
     // Two events on purpose: "input" fires on every tick of the drag, so the
     // label keeps up with the thumb; "change" fires once, when it is
@@ -279,12 +295,20 @@ export class UI {
     }
   }
 
-  banner(text, { sub = "", hex = "", actions = false } = {}) {
+  /*
+   * `rematch: false` leaves only the way back to the paddock. A net match is
+   * the case: only the host may start another one, so a Rematch button on a
+   * guest's screen would be a button that does nothing, which is worse than
+   * no button at all.
+   */
+  banner(text, { sub = "", hex = "", actions = false, rematch = true } = {}) {
     this.bannerTextEl.textContent = text;
     this.bannerSubEl.textContent = sub;
     if (hex) this.bannerEl.style.setProperty("--c", hex);
     else this.bannerEl.style.removeProperty("--c");
     this.bannerActionsEl.hidden = !actions;
+    const rematchEl = this.bannerActionsEl.querySelector("#rematch");
+    if (rematchEl) rematchEl.hidden = !rematch;
     this.bannerEl.hidden = false;
 
     // Force a reflow between clearing and restoring the animation so the

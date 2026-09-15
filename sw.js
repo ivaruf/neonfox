@@ -62,7 +62,10 @@
 // v1.0.0  THE PWA LAYER. First installable build: manifest, the four generated
 //         icons, this worker and js/update.js. No gameplay, no rendering and no
 //         module contract was touched — everything here is packaging.
-const VERSION = 'v1.0.0';
+// v1.1.0  PEER TO PEER. js/net/ joins the precache now that main.js loads it:
+//         host-authoritative snapshots over WebRTC, signalling in three tiers.
+//         vendor/peerjs.js needs no entry here — it matches HEAVY.
+const VERSION = 'v1.1.0';
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting
@@ -85,18 +88,24 @@ const ASSETS = [
   // worker keeps serving, and no update ever reaches a player again. It fails
   // silently, which is the worst way for a release to fail.
   //
-  // js/net/ IS DELIBERATELY ABSENT. It was being written as this file was, and
-  // nothing imports it yet: listing modules that might still be renamed would
-  // risk exactly the silent install failure described above, for files the game
-  // does not currently load. ADD THEM HERE THE MOMENT MULTIPLAYER IS WIRED INTO
-  // main.js. Until then the fetch handler caches them on first use, so they
-  // work offline after one online session — degraded, not broken.
   './js/audio.js',
   './js/config.js',
   './js/input.js',
   './js/main.js',
   './js/ui.js',
   './js/update.js',
+  // Multiplayer. main.js imports these now, so they belong in the precache
+  // like everything else it reaches. vendor/peerjs.js is absent on purpose:
+  // it matches HEAVY and lives in the media cache.
+  './js/net/codes.js',
+  './js/net/guest.js',
+  './js/net/host.js',
+  './js/net/host-worker.js',
+  './js/net/lobby.js',
+  './js/net/protocol.js',
+  './js/net/rendezvous.js',
+  './js/net/shadow.js',
+  './js/net/webrtc.js',
   './js/render/blue-cat.js',
   './js/render/effects.js',
   './js/render/rider.js',

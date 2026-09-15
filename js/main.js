@@ -44,6 +44,7 @@ import { createEffects } from "./render/effects.js";
 import { Input } from "./input.js";
 import { UI } from "./ui.js";
 import { Sfx } from "./audio.js";
+import { createLobby, mountEntry } from "./net/lobby.js";
 
 /*
  * index.html loads Babylon from a pinned CDN with vendor/babylon.js behind
@@ -83,7 +84,16 @@ function boot() {
     if (mode === "menu") enterMenu();
   }, () => {});
 
-  const world = new World();
+  /*
+   * The real simulation, which solo and attract play step here in the page.
+   * In a net match `world` is repointed at the session's ShadowWorld — the
+   * same shape, fed from the wire instead of from physics (js/net/shadow.js)
+   * — so every reader below this line is untouched by multiplayer existing.
+   * The host's own World is not here at all: it lives in a Web Worker, so
+   * the host renders the frames it broadcasts, exactly as its guests do.
+   */
+  const soloWorld = new World();
+  let world = soloWorld;
   const input = new Input();
   const sfx = new Sfx();
   const ui = new UI(document.getElementById("ui"), {
@@ -93,6 +103,7 @@ function boot() {
     onMusicVolume,
     onSfxVolume,
     onArena,
+    onTogether,
   });
 
   // Restore the saved arena size before the very first match (the attract
@@ -119,7 +130,12 @@ function boot() {
   ui.setVolumes(sfx.musicVolume, sfx.sfxVolume);
 
   let match = null;
-  let mode = "menu"; // 'menu' (attract) | 'match'
+  let net = null; // the peer-to-peer session, when there is one (js/net/)
+  let mode = "menu"; // 'menu' (attract) | 'match' | 'net'
+  /* A round is being fought over, wherever the simulation happens to run.
+   * Everything the player is told, and the spectator camera, key off this
+   * rather than off which of the two it is. */
+  const inPlay = () => mode === "match" || mode === "net";
   let acc = 0; // leftover frame time owed to the sim
   let time = 0; // seconds since load, for the riders' idle bob
   let goTimer = 0; // seconds of "Go!" banner left, counted in sim time
@@ -176,6 +192,7 @@ function boot() {
    * there is something on screen for them to talk about.
    */
   function startMatch(specs, opts) {
+    world = soloWorld; // a local match always steps the World in this page
     for (const rider of riders.values()) rider.dispose();
     riders.clear();
 
@@ -205,16 +222,27 @@ function boot() {
     handleEvents(events);
   }
 
-  function enterMenu() {
-    mode = "menu";
-    view.setMode("orbit");
-    goTimer = 0;
+  /* Four places need the spectator camera forgotten, and they kept drifting
+   * apart by a line each. */
+  function clearSpectate() {
     spectating = false;
     spectateStop = 0;
     lastSpectateCaption = null;
     lastResolvedStop = undefined;
     followId = null;
     ui.hideSpectate();
+  }
+
+  function enterMenu() {
+    // Leaving for the paddock ends a net game for this device, whichever end
+    // of it we were, and closes the lobby if that is where we still are. The
+    // host's guests are told; a guest simply goes.
+    lobby.close();
+    net = null;
+    mode = "menu";
+    view.setMode("orbit");
+    goTimer = 0;
+    clearSpectate();
     view.resetOrbit();
     // Four rivals is enough to fill the arena with trails without the field
     // wiping itself out while someone is still reading the title.
@@ -229,12 +257,7 @@ function boot() {
     mode = "match";
     view.setMode("play");
     goTimer = 0;
-    spectating = false;
-    spectateStop = 0;
-    lastSpectateCaption = null;
-    lastResolvedStop = undefined;
-    followId = null;
-    ui.hideSpectate();
+    clearSpectate();
     view.resetOrbit();
     ui.hideMenu();
     startMatch(buildSpecs(ui.humans, ui.ais), {});
@@ -258,10 +281,111 @@ function boot() {
     beginMatch();
   }
 
-  /* Rematch is the same field again — the menu still holds the choice. */
+  /*
+   * Multiplayer lives behind one door in the paddock, and everything on the
+   * other side of it is js/net/. The lobby reads three of the paddock's own
+   * settings when it opens a game — those stay the host's to set and travel
+   * to guests on join (js/net/host.js) — and hands back a session once a
+   * match actually begins.
+   */
+  const lobby = createLobby({
+    root: document.getElementById("ui"),
+    ui,
+    settings: {
+      arenaIndex: () => ui.arena,
+      target: () => ui.target,
+      ais: () => ui.ais,
+    },
+    onPlay: (session) => {
+      sfx.unlock();
+      net = session;
+      beginNetMatch();
+    },
+    onBack: () => {
+      net = null;
+      enterMenu();
+    },
+    /*
+     * The host closed their tab, or the connection died. There is no host
+     * migration — a guest only ever holds a connection to the host, so there
+     * is nobody left to promote — so the honest thing is to stop the arena
+     * where it is and say why, with the way back to the paddock under it.
+     * Freezing beats snapping to a menu: the player can see what happened.
+     */
+    onEnded: (why) => {
+      net = null;
+      if (mode !== "net") return;
+      ui.setTouchVisible(false);
+      ui.hideSpectate();
+      ui.banner(why || "The game ended.", {
+        sub: "no host, no game",
+        actions: true,
+        rematch: false,
+      });
+    },
+  });
+  // index.html may not carry the button yet; this inserts one after Blaze!
+  // when it does not, and adopts the real one the moment it lands.
+  mountEntry(onTogether);
+
+  function onTogether() {
+    sfx.unlock();
+    sfx.click();
+    lobby.open();
+  }
+
+  /*
+   * A net match, from this device's side. The only differences from
+   * beginMatch() are where the riders come from (the session's roster, which
+   * the host decided) and that nothing here steps a simulation: `world` is
+   * the session's ShadowWorld and `match` is the scoreboard the host keeps
+   * sending. Everything downstream — riders, trails, banners, the spectator
+   * camera — is the same code the solo game runs.
+   */
+  function beginNetMatch() {
+    mode = "net";
+    view.setMode("play");
+    goTimer = 0;
+    clearSpectate();
+    view.resetOrbit();
+    ui.hideMenu();
+    ui.hideBanner();
+
+    world = net.world;
+    match = net.match;
+    view.setArena(world.half);
+
+    for (const rider of riders.values()) rider.dispose();
+    riders.clear();
+    const hexById = new Map();
+    for (const p of world.players) {
+      const hex = PALETTE[p.colorIndex].hex;
+      riders.set(p.id, createRider(view.scene, hex));
+      hexById.set(p.id, hex);
+    }
+    trails.bind(world.players, hexById);
+    trails.reset();
+
+    ui.showHud(
+      world.players.map((p) => ({
+        id: p.id,
+        name: p.name,
+        hex: PALETTE[p.colorIndex].hex,
+      })),
+      match.target
+    );
+    ui.setScores(match.scores, aliveMap());
+    ui.setTouchVisible(true);
+  }
+
+  /* Rematch is the same field again — the menu still holds the choice. In a
+   * net match the field is the host's roster rather than this menu's, and
+   * only the host may call for another one (js/net/host.js `rematch`); a
+   * guest never sees the button, so this cannot be reached from one. */
   function onRematch() {
     sfx.click();
-    beginMatch();
+    if (mode === "net") net?.rematch?.();
+    else beginMatch();
   }
 
   function onMenu() {
@@ -296,9 +420,16 @@ function boot() {
   input.onCommand = (name) => {
     if (name === "start") {
       if (mode === "menu") onStart();
-      else if (match && match.state === "matchOver") onRematch();
+      else if (match && match.state === "matchOver") {
+        // Enter on a finished net match is the host's rematch, and nothing
+        // at all for a guest — same rule as the button.
+        if (mode !== "net" || net?.rematch) onRematch();
+      }
     } else if (name === "restart") {
-      if (mode === "match") beginMatch(); // R throws the whole match away
+      // R throws the whole match away. In a net match that is the host's
+      // call and nobody else's, so a guest's R does nothing.
+      if (mode === "match") beginMatch();
+      else if (mode === "net") net?.rematch?.();
     } else if (name === "menu") {
       onMenu();
     }
@@ -378,30 +509,39 @@ function boot() {
       }
     }
 
-    humanTurns.clear();
-    for (const p of world.players) {
-      if (p.kind === "human") humanTurns.set(p.id, input.turn(p.seat));
-    }
-
     const events = [];
-    match.update(TICK, humanTurns, events);
+    if (mode === "net") {
+      /*
+       * A net match steps nothing here. This device's steering goes out —
+       * clamped to -1/0/+1 on the way, and again by the host, because a guest
+       * must not be able to claim its own state — and the world comes back as
+       * frames somebody else's simulation produced. net.pump() applies them
+       * and hands up the same round events Match would have.
+       */
+      if (net) {
+        for (let seat = 0; seat < net.seats; seat++)
+          net.setLocalTurn(seat, input.turn(seat));
+        net.pump(events);
+      }
+    } else {
+      humanTurns.clear();
+      for (const p of world.players) {
+        if (p.kind === "human") humanTurns.set(p.id, input.turn(p.seat));
+      }
+      match.update(TICK, humanTurns, events);
+    }
     handleEvents(events);
 
     // Human turns above still reach the sim exactly as before; a dead
     // rider's seat is simply ignored there. Spectating only decides what the
     // camera does with the same seats once nobody is left to steer.
-    if (
-      mode === "match" &&
-      match.state === "playing" &&
-      !humansAlive() &&
-      !spectating
-    ) {
+    if (inPlay() && match.state === "playing" && !humansAlive() && !spectating) {
       spectating = true;
       spectateStop = 1; // the first living rider; stops()[0] is the overview
       view.setMode("follow");
     }
 
-    if (spectating && mode === "match") {
+    if (spectating && inPlay()) {
       // Tap vs hold, per seat: released before SPIN_HOLD_SECONDS cycles the
       // stop (cycleStop, below — the same switch the old press-edge version
       // did); held past it spins the view instead, continuously, for as long
@@ -532,7 +672,7 @@ function boot() {
    * Everything the player is being *told* is gated on being in a match.
    */
   function handleEvents(events) {
-    const inMatch = mode === "match";
+    const inMatch = inPlay();
     for (const e of events) {
       switch (e.type) {
         case "roundStart": {
@@ -540,12 +680,7 @@ function boot() {
           for (const rider of riders.values()) rider.setAlive(true);
           // A fresh round means everyone is alive again, so any spectator
           // camera from the round before belongs to a race that is over.
-          spectating = false;
-          spectateStop = 0;
-          lastSpectateCaption = null;
-          lastResolvedStop = undefined;
-          followId = null;
-          ui.hideSpectate();
+          clearSpectate();
           view.resetOrbit();
           if (inMatch) {
             // Clearing the state above is not enough on its own: the camera
@@ -572,7 +707,11 @@ function boot() {
 
         case "eliminated": {
           const p = world.byId(e.id);
-          riders.get(e.id).setAlive(false);
+          // A net match can in principle carry an id this device has no
+          // rider for — a frame packed against a roster it has not been told
+          // about yet. Say nothing rather than throw into the render loop.
+          if (!p) break;
+          riders.get(e.id)?.setAlive(false);
           fx.burst(p.x, p.y, PALETTE[p.colorIndex].hex);
           // Your own crash is worth more shake than a rival's.
           view.kick(p.kind === "human" ? 0.9 : 0.4);
@@ -627,6 +766,9 @@ function boot() {
             ui.banner(winnerPhrase(winner, { match: true }), {
               hex: PALETTE[winner.colorIndex].hex,
               actions: true,
+              // Only a host may call for another match, so a guest gets the
+              // way back to the paddock and no button that does nothing.
+              rematch: mode !== "net" || !!net?.rematch,
               sub: "first to " + match.target,
             });
             sfx.matchWin();
@@ -634,15 +776,10 @@ function boot() {
             // The steering buttons would sit on top of Rematch; the match is
             // over, so there is nothing left to steer anyway.
             ui.setTouchVisible(false);
-            ui.hideSpectate();
             // And with those buttons gone a spectator has no way back to the
             // overview, so take them there: a winner banner reads badly over
             // a camera still parked behind somebody's tail.
-            spectating = false;
-            spectateStop = 0;
-            lastSpectateCaption = null;
-            lastResolvedStop = undefined;
-            followId = null;
+            clearSpectate();
             view.resetOrbit();
             view.setMode("play");
           }
