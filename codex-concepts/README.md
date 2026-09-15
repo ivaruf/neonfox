@@ -1,5 +1,34 @@
 # Trailblazers — Codex concepts
 
+## Detailed fox · cruising study
+
+The original `orange-fox.blend` and its GLBs remain untouched as the lower-detail
+option. The new assets use the `fox-detailed` prefix:
+
+- `fox-detailed.blend`: editable detailed model, six-bone tail rig, and timeline.
+- `fox-detailed.glb`: assembled animated rider and independent orb.
+- `fox-detailed-rider.glb` / `fox-detailed-orb.glb`: separate assets.
+- `fox-detailed-preview.png`: full-resolution studio still.
+- `fox-cruise-preview.gif` / `fox-cruise-preview.mp4`: two-second motion preview.
+
+Added a sculpted muzzle, amber eyes with iris detail, layered cheek/chest/crown
+fur, swept tail layers, fine whiskers, cuff stitching, and harness hardware.
+The `Cruise_Wind` clip combines body bob, ear flutter, fur-tip motion, and
+weighted tail movement in one looping animation. It lasts two seconds.
+
+`PlayerRoot` still moves the whole assembly; `RiderRoot` remains available for
+independent jumps and flips. The cruising loop animates `CruiseMotion` and its
+secondary controls, leaving `RiderRoot` and `OrbRoot` unkeyed. This version has
+an authored wind loop and a tail rig; full-body posing and victory clips remain
+future work. Runtime quality selection has not been connected to gameplay.
+
+`build_fox_detailed.py` reads the old fox and writes only the new detailed files.
+It renders a still and 24 preview frames. `merge_cruise_clip.py` consolidates
+Blender's exported tracks into the single `Cruise_Wind` clip. The GLB hierarchy,
+skin presence, duration, and matching loop endpoints were checked; rendered
+poses were visually reviewed. No playtesting was performed. Procedural fur
+shading remains Blender-only; fur geometry and animation are included in GLB.
+
 ## Companion animals
 
 **Dog addition:** `green-dog.blend` contains a warm tan puppy with chocolate
