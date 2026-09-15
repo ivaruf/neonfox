@@ -52,6 +52,9 @@ touch `document`/`window`.
   To face sim heading `h`: `root.rotation.y = Math.atan2(-Math.cos(h), -Math.sin(h))`.
 - Colours are hex strings from `PALETTE[colorIndex].hex`; convert with
   `BABYLON.Color3.FromHexString` where needed.
+- **glTF nodes arrive with a `rotationQuaternion`,** which makes the Euler
+  `rotation` silently inert. Null the quaternion before writing `rotation` on
+  any node that came out of a loaded model. This cost time once already.
 - Fixed timestep: `main.js` steps the sim at `TICK` with an accumulator,
   clamps frame dt to 0.1 s and runs at most 4 steps per frame. **Render
   interpolation:** after stepping, `alpha = acc / TICK` is how far the frame
