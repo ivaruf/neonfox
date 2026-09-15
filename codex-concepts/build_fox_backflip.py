@@ -62,10 +62,10 @@ for frame in range(1,36):
         bone.rotation_quaternion=qa.slerp(qb,fold); bone.scale=sa.lerp(sb,fold)
         for path in ['location','rotation_quaternion','scale']: bone.keyframe_insert(path,frame=frame)
     for i,bone in enumerate(tail.pose.bones):
-        bone.rotation_mode='XYZ'; bone.rotation_euler=base_tail[bone.name]+Vector((.76*fold,0,.025*math.sin(flight*math.pi*2-i*.4)*fold))
+        bone.rotation_mode='XYZ'; bone.rotation_euler=Vector(base_tail[bone.name])+Vector((.76*fold,0,.025*math.sin(flight*math.pi*2-i*.4)*fold))
         bone.keyframe_insert('rotation_euler',frame=frame)
     for i,obj in enumerate(wind):
-        obj.rotation_euler=base_wind[obj.name]+Vector((.06*fold*math.sin(flight*math.pi*2+i),0,.035*fold))
+        obj.rotation_euler=Vector(base_wind[obj.name])+Vector((.06*fold*math.sin(flight*math.pi*2+i),0,.035*fold))
         obj.keyframe_insert('rotation_euler',frame=frame)
 scene.frame_set(1)
 rider['celebration_trigger']='Play once on the stream owner when a different rider crashes into that owner\'s neon stream. Resume Run_On_Orb afterward.'

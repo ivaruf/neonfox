@@ -1,5 +1,27 @@
 # Trailblazers — Codex concepts
 
+## Stream-owner celebration · backflip
+
+`fox-celebration.blend` previews a brief crouch, tucked backwards somersault,
+and landing. `fox-celebration.glb` and `fox-celebration-rider.glb` include both:
+
+- `Run_On_Orb`: the existing 0.8-second looping gait.
+- `Stream_Tag_Backflip`: a 1.133-second one-shot celebration, returning to the
+  starting running pose. The orb remains stationary and independent.
+
+**Intended trigger:** play the celebration on the owner of a neon stream when
+a different rider crashes into that stream. After the one-shot finishes, resume
+`Run_On_Orb`. Avoid restarting the celebration if it is already playing. This
+is the asset contract; gameplay event wiring is left to the gameplay project.
+
+`fox-backflip-preview.gif` / `.mp4` show the motion, with short review pauses at
+the start and end. Those pauses are not part of the exported animation.
+`build_fox_backflip.py` reads `fox-running.blend`; `combine_fox_clips.py` copies
+the existing run tracks onto matching nodes in the new GLBs. All earlier fox
+files remain unchanged. Both clip durations, starting/ending poses, and the
+unanimated orb were checked; airborne/tucked poses were visually reviewed.
+No playtesting was performed.
+
 ## Running fox · orb gait study
 
 `fox-running.blend` and `fox-running.glb` contain the new running study;
