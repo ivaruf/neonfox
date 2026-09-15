@@ -1,0 +1,289 @@
+You are building a small playable proof-of-concept for a browser game.
+
+## Goal
+
+Create a simple 3D prototype inspired by the old game Achtung, die Kurve, but with a fresh visual identity:
+
+- Each player controls a character riding or gliding on a glowing orb
+- The orb leaves a trail of the same color behind it
+- Hitting a wall or any trail eliminates the player
+- Trails should occasionally have small gaps, so players can pass through if timed well
+- The game should feel fun alone, and even better with others
+
+This is a POC / mock-up, so prioritize:
+1. core gameplay feel
+2. readability
+3. simple but appealing 3D presentation
+4. clean structure
+
+Do NOT overbuild. Keep it lightweight and easy to run locally.
+
+---
+
+## Product vision
+
+The vibe is:
+- whimsical
+- colorful
+- arcade-like
+- readable
+- playful, not gritty
+- simple 3D graphics, not realistic
+
+The prototype should communicate the fantasy:
+“Cute or expressive riders gliding on glowing orbs, leaving neon trails in a small arena.”
+
+For this first version, we do NOT need polished art assets.
+Use simple mock-up quality visuals:
+- primitive geometry
+- low-poly placeholder riders
+- orbs with emissive glow
+- glowing colored trails
+- simple arena floor and walls
+
+If character models are too much, use simple stylized placeholders:
+- a sphere orb
+- a tiny animal-like or capsule-like rider on top
+- enough to communicate “character riding orb”
+
+---
+
+## Tech constraints
+
+Build this as a browser-based prototype using:
+
+- HTML
+- CSS
+- JavaScript
+
+Preferred rendering approach:
+- Babylon.js
+
+Avoid frameworks unless truly necessary.
+No backend needed.
+No multiplayer networking needed yet.
+
+The result should run by opening locally or via a simple static server.
+
+---
+
+## Prototype scope
+
+Build a small arena-based 3D game with:
+
+### 1. Arena
+- Flat enclosed arena
+- Simple boundaries/walls
+- Camera angle should make trails easy to read
+- Arena can be circular, square, or rounded rectangle
+- Use a clean, glowing arcade aesthetic
+
+### 2. Players
+Implement at least:
+- 1 human player
+- 2–5 AI players
+
+Optional bonus:
+- local multiplayer on one keyboard for 2 players
+
+Each player should have:
+- a distinct color
+- a glowing orb
+- a simple rider placeholder
+- continuous forward movement
+- left/right turning
+
+### 3. Movement
+Core movement should mimic Kurve-like gameplay:
+- constant forward motion
+- left/right steering only
+- no braking needed for the first version
+- smooth handling
+- readable turning radius
+
+The orb should feel like it glides, not like a heavy rolling physics object.
+
+### 4. Trail system
+This is the most important mechanic.
+
+Each moving player leaves a solid trail behind them:
+- trail color matches the orb/player color
+- trail remains in the arena
+- collision with any trail causes elimination
+- collision with wall causes elimination
+
+Add periodic trail gaps:
+- every so often, the trail temporarily stops being drawn for a short distance
+- this should create the classic “slip through” opportunity
+- gaps should be visible/readable but not too large
+
+Implementation can be simple:
+- sample positions over time
+- store trail segments
+- use line meshes, tubes, ribbons, or another simple approach
+- collision can be approximate if performant and reliable
+
+### 5. Elimination and round flow
+- When a player hits a wall or trail, they are eliminated
+- Round continues until one player remains
+- Show a simple winner message
+- Allow quick restart with a key press or button
+
+### 6. AI
+AI only needs to be “good enough” for a prototype:
+- move continuously
+- turn when close to wall or danger
+- survive long enough to create fun trail interactions
+- not perfect, just believable
+
+Simple heuristic AI is fine.
+
+---
+
+## Visual style for the POC
+
+Keep visuals simple but charming.
+
+### Environment
+- dark or slightly glossy arena floor
+- emissive lighting accents
+- simple skybox or gradient background
+- optional subtle bloom/glow if easy
+
+### Players
+Each player should be visually distinct by color:
+- blue
+- pink
+- green
+- orange
+- purple
+- yellow
+
+For rider placeholders:
+- simple low-poly stylized animal heads/bodies OR
+- tiny capsules / chibi placeholders / blocky mascots
+
+Do NOT spend too much time on art fidelity.
+This is a gameplay mock-up, not final concept art.
+
+### Trails
+Trails should be the star:
+- bright
+- colorful
+- easy to read
+- persistent
+- clearly show gaps
+
+---
+
+## Controls
+
+At minimum:
+- Player 1:
+  - left arrow = turn left
+  - right arrow = turn right
+
+Optional:
+- Player 2:
+  - A / D or Q / E
+
+Also support:
+- R = restart round
+
+---
+
+## Deliverables
+
+Provide:
+
+1. A working prototype
+2. Clean file structure
+3. Short README explaining:
+   - how to run it
+   - controls
+   - architecture overview
+   - where core gameplay logic lives
+4. Brief notes on what was intentionally simplified
+
+---
+
+## Architecture guidance
+
+Keep the code modular and understandable.
+
+Suggested structure:
+- game setup / scene init
+- player entity
+- trail system
+- collision system
+- AI controller
+- round manager
+- UI overlay
+
+Please keep the code easy for a human or another agent to iterate on later.
+
+---
+
+## Acceptance criteria
+
+The prototype is successful if:
+
+- It runs in browser
+- A human can steer a rider/orb in a 3D arena
+- AI opponents move and leave trails
+- Trails match orb colors
+- Trail gaps appear periodically
+- Collision with trails and walls works
+- Players are eliminated on collision
+- A round ends with a winner
+- The game feels recognizably inspired by Achtung, die Kurve
+- The presentation clearly communicates “characters riding glowing orbs”
+
+---
+
+## Important tradeoffs
+
+Prefer:
+- simple and working
+over
+- ambitious and incomplete
+
+Prefer:
+- readable trails and solid gameplay
+over
+- fancy graphics
+
+Prefer:
+- a clean POC
+over
+- a half-finished big architecture
+
+---
+
+## Nice-to-have extras (only if time allows)
+
+If the core is already working well, consider:
+- simple boost pad or moving obstacle
+- slight camera shake or effects on elimination
+- simple orbiting spectator camera for menu/demo mode
+- basic score tracking across rounds
+- 2-player same-keyboard local mode
+- tiny wobble/lean animation on riders while turning
+
+Do not let these extras delay the core prototype.
+
+---
+
+## Final instruction
+
+Build the prototype in a pragmatic way.
+Start with the simplest playable version first:
+1. arena
+2. one player movement
+3. trail drawing
+4. collision
+5. AI
+6. round flow
+7. visual cleanup
+
+Think like you are making a convincing game-feel mock-up for a concept, not a production-ready game.
