@@ -108,7 +108,7 @@
 //         steps get a landscape layout of their own, and every panel in the
 //         game stops stretching to the edges of a sideways phone: 640px, not
 //         760, so the arena still shows down both sides.
-const VERSION = "v1.7.4";
+const VERSION = "v1.7.5"; // cached shells learn the arcade moved to gophercloud.games
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting
@@ -124,6 +124,9 @@ const HEAVY = /\/(models|audio|vendor)\//;
 const ASSETS = [
   "./",
   "./index.html",
+  // Has to be IN the cache, not merely deployed: the players this rescues
+  // are the ones whose browser has stopped asking this origin for anything.
+  "./moved.js",
   "./manifest.webmanifest",
   "./css/style.css",
   // Keep this list in step with js/ — cache.addAll() is all-or-nothing, so one
