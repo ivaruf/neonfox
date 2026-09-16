@@ -108,7 +108,7 @@
 //         steps get a landscape layout of their own, and every panel in the
 //         game stops stretching to the edges of a sideways phone: 640px, not
 //         760, so the arena still shows down both sides.
-const VERSION = "v1.7.0";
+const VERSION = "v1.7.4";
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting

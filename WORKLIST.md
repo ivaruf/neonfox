@@ -11,10 +11,12 @@ mattering, say so in the entry and delete it.
 
 ---
 
-## The neon palette is not distinct enough
+## Neon palette: revised hues, visual verification pending
 
-**Every rider colour has to be tellable from every other one at a glance, and
-two pairs currently are not.** `js/config.js` `PALETTE`:
+**Every rider colour has to be tellable from every other one at a glance.**
+Plum is now deeper violet and Zippy is red; Tango keeps its original orange.
+No playtesting was performed, per the user’s request; verify the new hues under
+trail bloom before considering the visibility issue fully checked. `js/config.js` `PALETTE`:
 
 | slot | name  | hex       |        |
 | ---- | ----- | --------- | ------ |
@@ -22,10 +24,10 @@ two pairs currently are not.** `js/config.js` `PALETTE`:
 | 1    | Mochi | `#ff5fb4` | pink   |
 | 2    | Kiwi  | `#5cf07a` | green  |
 | 3    | Tango | `#ffa03c` | orange |
-| 4    | Plum  | `#b07cff` | violet |
-| 5    | Zippy | `#ffe14a` | yellow |
+| 4    | Plum  | `#7838e8` | deep violet |
+| 5    | Zippy | `#ed3038` | red |
 
-The reported trouble is **the yellow and the violet hues especially** — Tango
+The original reported trouble was **the yellow and the violet hues especially** — Tango
 and Zippy read as one warm smear at speed, and Mochi and Plum as one cool one.
 
 Why it is worse here than the hex codes suggest: a rider's colour is worn by

@@ -27,6 +27,7 @@
 import {
   TICK,
   GO_FLASH_SECONDS,
+  CRASH_VIEW_HOLD_SECONDS,
   MAX_PLAYERS,
   PALETTE,
   ARENA_SIZES,
@@ -187,6 +188,7 @@ function boot() {
    * overview, 1.. are living riders in roster order.
    */
   let spectating = false;
+  let crashViewHold = 0;
   let spectateStop = 0;
   let lastSpectateCaption = null; // last text handed to ui.setSpectate, so a step where nothing changed writes to the DOM zero times instead of sixty a second
   let lastResolvedStop; // last value read from stops()[spectateStop]; deliberately starts undefined, which never equals a real stop (null or an id), so the very first resolve always counts as a change
@@ -290,6 +292,7 @@ function boot() {
    * apart by a line each. */
   function clearSpectate() {
     spectating = false;
+    crashViewHold = 0;
     spectateStop = 0;
     lastSpectateCaption = null;
     lastResolvedStop = undefined;
@@ -720,9 +723,16 @@ function boot() {
       !humansAlive() &&
       !spectating
     ) {
-      spectating = true;
-      spectateStop = 1; // the first living rider; stops()[0] is the overview
-      view.setMode("follow");
+      // Sim-time delay: the crash remains visible and pausing freezes the wait.
+      // Requiring an active round prevents a late chase during round-over.
+      crashViewHold += TICK;
+      if (crashViewHold >= CRASH_VIEW_HOLD_SECONDS) {
+        spectating = true;
+        spectateStop = 1; // the first living rider; stops()[0] is the overview
+        view.setMode("follow");
+      }
+    } else {
+      crashViewHold = 0;
     }
 
     if (spectating && inPlay()) {

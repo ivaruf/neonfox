@@ -108,17 +108,20 @@ export const RIDER_SCALE = 0.8; // concept model units -> arena units
  * and the match goes to the first past a target that scales with the field. */
 export const COUNTDOWN_SECONDS = 2.2;
 export const GO_FLASH_SECONDS = 0.7;
+// Leave the crash burst in view before starting the spectator camera.
+export const CRASH_VIEW_HOLD_SECONDS = 0.9;
 export const ROUND_OVER_SECONDS = 2.6;
 export const POINTS_PER_RIVAL = 5;
 export const MAX_PLAYERS = 6;
 
 /* Six riders, six colours. Names are the AI riders' names; humans are "You",
  * or "P1" and "P2" when two share a keyboard. */
+// Deeper violet separates Plum from pink; Tango keeps its original orange.
 export const PALETTE = [
   { name: "Bolt", hex: "#3aa0ff" },
   { name: "Mochi", hex: "#ff5fb4" },
   { name: "Kiwi", hex: "#5cf07a" },
   { name: "Tango", hex: "#ffa03c" },
-  { name: "Plum", hex: "#b07cff" },
-  { name: "Zippy", hex: "#ffe14a" },
+  { name: "Plum", hex: "#7838e8" },
+  { name: "Zippy", hex: "#ed3038" },
 ];

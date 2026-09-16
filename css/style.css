@@ -206,7 +206,7 @@ button:focus-visible {
   background: rgba(40, 60, 120, 0.7);
 }
 .seg button[aria-pressed="true"] {
-  background: linear-gradient(135deg, #3aa0ff, #b07cff);
+  background: linear-gradient(135deg, #3aa0ff, #7838e8);
   border-color: transparent;
   color: #08102a;
   font-weight: 700;
@@ -354,7 +354,7 @@ button:focus-visible {
  * than one button drawn twice.
  */
 .primary.together {
-  background: linear-gradient(135deg, #b07cff, #ff5fb4 55%, #ffa03c);
+  background: linear-gradient(135deg, #7838e8, #ff5fb4 55%, #ffa03c);
   box-shadow:
     0 0 24px rgba(255, 95, 180, 0.5),
     0 8px 24px rgba(0, 0, 0, 0.4);
