@@ -52,6 +52,7 @@ export async function joinSession({ code, name, seats, coarse }) {
     spectator: false,
     started: false,
     match: { state: "idle", round: 0, scores: {}, target: 0 },
+    rules: null, // { arenaName, turnName, target } once the host has said
     onRoster: null,
     onStatus: null,
     onBegin: null,
@@ -77,6 +78,15 @@ export async function joinSession({ code, name, seats, coarse }) {
     for (const id of value.you ?? []) myIds.push(id);
     session.roster = value.roster ?? [];
     session.match.target = value.target ?? session.match.target;
+    // The room's rules, for the lobby to say out loud: a guest cannot see the
+    // host's paddock, and a Hairpin game is a surprise worth being warned
+    // about before the first corner. Names only — the guest simulates
+    // nothing, so it has no use for the rate itself.
+    session.rules = {
+      arenaName: value.arenaName ?? "",
+      turnName: value.turnName ?? "",
+      target: session.match.target,
+    };
     world.setArena(value.arenaHalf ?? world.half);
     world.setRoster(
       session.roster.map((r) => ({

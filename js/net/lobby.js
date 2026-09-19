@@ -154,6 +154,7 @@ const CSS = `
       "code   roster"
       "words  roster"
       "status roster"
+      "rules  roster"
       "blaze  blaze";
     gap: 2px 16px;
     align-content: center;
@@ -161,6 +162,7 @@ const CSS = `
   #lobby-code { grid-area: code; margin: 0; }
   #lobby-words { grid-area: words; }
   #lobby-status { grid-area: status; }
+  #lobby-rules { grid-area: rules; }
   #lobby-roster { grid-area: roster; margin: 0; align-self: center; }
   #lobby-blaze { grid-area: blaze; margin: 8px 0 0; }
   #lobby .code-row.hero .code-slot {
@@ -358,6 +360,15 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   const lobbyStatus = el("p", "note live");
   lobbyStatus.id = "lobby-status";
   lobbyView.append(lobbyStatus);
+  // The rules of this room — arena, turning, win at — which the host set in
+  // the paddock and a guest has no other way of seeing. One line, in the
+  // order the paddock asks them, painted from session.rules whenever the
+  // roster is; both ends carry the same three names, so it reads the same on
+  // every screen in the room.
+  const rulesLine = el("p", "note");
+  rulesLine.id = "lobby-rules";
+  rulesLine.hidden = true;
+  lobbyView.append(rulesLine);
   const rosterList = el("ul", "roster");
   rosterList.id = "lobby-roster";
   lobbyView.append(rosterList);
@@ -459,6 +470,14 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
       li.append(dot, name, kind);
       rosterList.append(li);
     }
+    paintRules();
+  }
+
+  function paintRules() {
+    const rules = session?.rules;
+    rulesLine.hidden = !rules;
+    if (!rules) return;
+    rulesLine.textContent = `${rules.arenaName} arena · ${rules.turnName} turning · first to ${rules.target}`;
   }
 
   nameInput.addEventListener("change", () => {
@@ -526,6 +545,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
       const { hostSession } = await import("./host.js");
       const next = await hostSession({
         arenaIndex: settings.arenaIndex(),
+        turnIndex: settings.turnIndex(),
         target: settings.target(),
         ais: settings.ais(),
         name: playerName(),
@@ -609,6 +629,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
     session?.leave();
     session = null;
     rosterList.textContent = "";
+    rulesLine.hidden = true;
   }
 
   paintCode();

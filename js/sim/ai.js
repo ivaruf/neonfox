@@ -12,9 +12,15 @@
  * (reaction), how far it looks (horizon) and how restless it is (wander).
  * Slow lookers die to things a fast looker would have seen; that is the
  * whole difficulty model, and for a prototype it is a believable one.
+ *
+ * The lookahead steers at world.turnRate, never at a constant: turning is a
+ * match setting, and an AI that planned with Classic's rate in a Glide match
+ * would keep choosing turns its fox cannot make and die at every wall. The
+ * manoeuvre hold times below are in seconds, so a hard turn is a wider or
+ * tighter arc by mode, exactly as it is for a human holding the key.
  */
 
-import { SPEED, TURN_RATE, HEAD_RADIUS } from "../config.js";
+import { SPEED, HEAD_RADIUS } from "../config.js";
 
 const STEP = 1 / 20; // lookahead resolution in seconds
 
@@ -93,7 +99,7 @@ function survive(world, p, m, steps) {
   const side = HEAD_RADIUS * 0.8;
   for (let i = 0; i < steps; i++) {
     const t = i < holdSteps ? m.turn : 0;
-    h += t * TURN_RATE * STEP;
+    h += t * world.turnRate * STEP;
     x += Math.cos(h) * SPEED * STEP;
     y += Math.sin(h) * SPEED * STEP;
     if (world.blockedAt(x, y, p.slot)) return i;

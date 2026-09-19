@@ -78,6 +78,7 @@ touch `document`/`window`.
 // world.js
 const world = new World(seed?);
 world.setArena(half);      // arena size, from ARENA_SIZES; before setup(). Reallocates the grid.
+world.setTurnRate(rate);   // rad/s at full steer for EVERY rider: TURN_MODES[i].rate. Any time; ai.js plans with world.turnRate.
 world.setup(specs);        // specs: [{ id, name, colorIndex, kind: 'human'|'ai', seat }]
 world.spawn();             // new round: clears grid, scatters riders with a safe runway
 world.steerOnly(dt);       // countdown: aim in place
@@ -222,15 +223,17 @@ export class Input {
 
 // ui.js
 export class UI {
-  constructor(root, { onStart, onRematch, onMenu, onArena, onMusicVolume, onSfxVolume, onTogether, onSound })
+  constructor(root, { onStart, onRematch, onMenu, onArena, onTurn, onMusicVolume, onSfxVolume, onTogether, onSound })
   get humans()   // 1 | 2 from the Riders row
   get ais()      // 1..5 from the Rivals row; humans + ais <= MAX_PLAYERS enforced by disabling
   get arena()    // index into ARENA_SIZES from the slider
+  get turn()     // index into TURN_MODES from the Turning slider
   get target()   // winning score from the "Win at" slider
   // The target slider follows the roster (defaultTarget for the current field)
   // until the host moves it, after which their number sticks for the session.
   setArena(i)    // move the slider and its label without firing onArena
-  // onArena(index) fires on the slider's `change` (release); the name label follows `input` live
+  setTurn(i)     // the same silent restore for the Turning slider
+  // onArena(index) / onTurn(index) fire on the slider's `change` (release); the name label follows `input` live
   showMenu(); hideMenu(); showSound(); get soundOpen
   showPause({ live, canRestart }); hidePause(); get pauseOpen
   setPauseButton(visible, live)   // the in-match pill; `live` is remembered
@@ -296,6 +299,10 @@ export class Sfx {
 - Arena size: `ARENA_SIZES[ui.arena].half` is applied with `world.setArena` and
   `view.setArena` before every match, attract included, so the menu previews
   the size live; the choice persists in localStorage `neonfox.arena.v1`.
+- Turning: `TURN_MODES[ui.turn].rate` goes to `world.setTurnRate` right
+  beside it, attract included, so the bots behind the paddock preview the
+  mode; persists in `neonfox.turn.v1`. Both restores at boot go through one
+  `savedIndex(key, length, fallback)` helper and the silent `ui.setX(i)`.
 - Humans take palette slots 0 and 1; AI fill the rest in order. Names: "You"
   for a solo human, "P1"/"P2" for two, `PALETTE[i].name` for AI.
 - Routes events: roundStart -> trails.reset, riders and markers alive, banner
@@ -401,12 +408,13 @@ export class ShadowWorld {
 export function createFeed(world) => ({ pushEvent, pushTrail, pushState, rewind, pump(out) })
 
 // net/host.js  /  net/guest.js — one surface, so main.js cannot tell them apart
-await hostSession({ arenaIndex, target, ais, name, seats, coarse })
+await hostSession({ arenaIndex, turnIndex, target, ais, name, seats, coarse })
 await joinSession({ code, name, seats, coarse })
 // => {
 //   kind: 'host' | 'guest', code, mode: 'relay'|'broker'|'tabs', detail,
 //   world,            // ShadowWorld: what main.js renders
 //   match,            // { state, round, scores, target }, kept from the host
+//   rules,            // { arenaName, turnName, target }: what the room plays by, for the lobby to print
 //   roster, seats, started, spectator,
 //   onRoster, onStatus, onBegin, onClosed,   // callbacks the caller sets
 //   setLocalTurn(seat, turn),   // -1 | 0 | +1, clamped on the way out

@@ -56,7 +56,9 @@ stopping the game to get at it.
 Crash into another fox's trail and it throws a backflip at you. Survive the
 round and you throw two.
 
-Every rider moves at constant speed and can only turn. Trails break for a
+Every rider moves at constant speed and can only turn — how tightly is the
+match's Turning setting, four modes from Hairpin to Glide, and the same for
+every fox in the round. Trails break for a
 short gap every few seconds; slip through one if you time it. Starts are
 random, as in the original, but never pointed straight at a nearby wall.
 
@@ -144,6 +146,13 @@ playing it.
   both portrait and landscape. It was a circle first; a square fills a phone
   screen far better. Five sizes on the menu slider, from Tiny to Vast; riders
   and trails keep their size, so it is a zoom in effect.
+- **Turning is a rule of the match, not of a rider.** Four modes on the
+  paddock's Turning slider — Hairpin, Classic, Wide, Glide — set one turn
+  rate for every fox; Classic is the game as the first playtest tuned it and
+  Wide is where it launched. Crossed with the arena sizes that is a grid of
+  quite different games: Hairpin on Tiny is a knife fight, Glide on Vast is
+  about reading lines. A host's choice travels to guests with the roster and
+  the lobby says it out loud.
 - **Sound is half migrated.** The hub rule changed on 2026-09-15: sound is
   composed in Sonic Pi and rendered, rather than synthesized at runtime. The
   theme is a render; the small cues are still WebAudio oscillators from

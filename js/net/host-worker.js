@@ -206,6 +206,7 @@ onmessage = ({ data }) => {
     case "SETUP": {
       world = new World(data.seed);
       world.setArena(data.arenaHalf);
+      world.setTurnRate(data.turnRate);
       match = new Match(world, data.specs, { target: data.target });
       rosterVersion = data.rosterVersion & 0xff;
       frameNo = 0;

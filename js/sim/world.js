@@ -1,9 +1,10 @@
 /*
  * world.js — the simulation. Where the gameplay lives.
  *
- * Riders move at constant speed, steer at a constant rate, paint their trail
- * into the collision grid where they stand, and die when their head touches
- * paint or the wall. Everything here is plain numbers: no DOM, no Babylon,
+ * Riders move at constant speed, steer at a constant rate — one rate for the
+ * whole match, chosen from TURN_MODES in config and set with setTurnRate() —
+ * paint their trail into the collision grid where they stand, and die when
+ * their head touches paint or the wall. Everything here is plain numbers: no DOM, no Babylon,
  * so the same file can run in a Web Worker on a host and feed snapshots to
  * guests when multiplayer arrives (see README). The renderer only reads.
  *
@@ -52,6 +53,7 @@ export class World {
     this.rng = mulberry32(seed);
     this.half = ARENA_HALF; // the square runs -half..half on both axes
     this.grid = new Grid(ARENA_HALF, GRID_CELL);
+    this.turnRate = TURN_RATE; // radians per second at full steer, every rider
     this.players = [];
     this.tickCount = 0;
   }
@@ -66,6 +68,18 @@ export class World {
     if (half === this.half) return;
     this.half = half;
     this.grid = new Grid(half, GRID_CELL);
+  }
+
+  /*
+   * Choose how tightly every rider turns, in radians per second at full
+   * steer (TURN_MODES[i].rate). It is a plain number here rather than a mode
+   * index because the sim has no menu: whoever owns the menu — main.js for a
+   * local match, the host for a net one — resolves the name to a rate. Safe
+   * to call at any time; it takes effect on the next tick, and the AI plans
+   * with whatever it currently is (ai.js reads world.turnRate).
+   */
+  setTurnRate(rate) {
+    this.turnRate = rate;
   }
 
   /*
@@ -173,7 +187,7 @@ export class World {
     for (const p of this.players) {
       if (!p.alive) continue;
       p.ph = p.heading;
-      p.heading += p.turn * TURN_RATE * dt;
+      p.heading += p.turn * this.turnRate * dt;
     }
   }
 
@@ -189,7 +203,7 @@ export class World {
       p.px = p.x;
       p.py = p.y;
       p.ph = p.heading;
-      p.heading += p.turn * TURN_RATE * dt;
+      p.heading += p.turn * this.turnRate * dt;
       if (p.heading > Math.PI) p.heading -= TAU;
       else if (p.heading < -Math.PI) p.heading += TAU;
       const step = SPEED * dt;

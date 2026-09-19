@@ -8,7 +8,9 @@
  * losing an evening to them — that rounds end, that a round ends with at most
  * one rider standing, that the scoreboard only ever goes up, that the match
  * reaches a winner past the target, and that every elimination can name what
- * killed it.
+ * killed it. Then it plays the seeded match once more in every turning mode,
+ * because a rate the AI cannot plan for would show up here as a match of
+ * wall deaths and one-second rounds long before a player reported it.
  *
  * It is not a unit-test suite and is not trying to be (hub CLAUDE.md §11
  * keeps verification light). It is one command, a handful of seconds, and a
@@ -21,7 +23,7 @@
 
 import { World } from "../js/sim/world.js";
 import { Match } from "../js/sim/match.js";
-import { TICK, PALETTE, MAX_PLAYERS } from "../js/config.js";
+import { TICK, PALETTE, MAX_PLAYERS, TURN_MODES } from "../js/config.js";
 
 /* Five rivals, no humans: the sim never learns the difference, and a field
  * that big makes trails cross early, which is where the interesting bugs are. */
@@ -48,7 +50,8 @@ function assert(ok, message) {
 
 /*
  * Play one match to its end and return everything worth printing. `world` is
- * passed in rather than made here so the caller decides seeded or not.
+ * passed in rather than made here so the caller decides seeded or not, and
+ * how tightly everyone turns (World.setTurnRate) is likewise the caller's.
  */
 function playMatch(world, label) {
   const specs = buildSpecs(FIELD);
@@ -162,5 +165,13 @@ function report(s) {
 report(playMatch(new World(12345), "seeded match"));
 /* Then an unseeded one, because "it passes" must not mean "it passes on 12345". */
 report(playMatch(new World(), "random seed"));
+/* Then the same seed in every turning mode. The two above ran at the default
+ * (Classic), so this is where Hairpin and Glide get their only exercise; the
+ * wall share and the round length are the numbers to read. */
+for (const mode of TURN_MODES) {
+  const world = new World(12345);
+  world.setTurnRate(mode.rate);
+  report(playMatch(world, `seeded match, ${mode.name} (${mode.rate} rad/s)`));
+}
 
 console.log("sim-smoke: ok");

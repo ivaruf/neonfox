@@ -6,9 +6,9 @@
  * at first; a square fills a phone screen far better under a fixed camera.
  * A head is 0.9 wide and a trail 0.6, which is about one hundredth of the
  * arena — the same proportion as the original Kurve's pixel-wide line on a
- * 640-wide field. Speed over turn rate is the turning radius: 9 / 3.8 is
- * about 2.4 units, so a full U-turn needs some eight trail-widths of room.
- * It started at 2.6 (radius 3.5) and the first playtest wanted it tighter.
+ * 640-wide field. Speed over turn rate is the turning radius, and since
+ * 2026-09-19 that is a match setting rather than one number: see TURN_MODES,
+ * which keeps the value the first playtest settled on as "Classic".
  */
 
 /*
@@ -41,7 +41,35 @@ export const SPAWN_RUNWAY = 14;
 export const TICK = 1 / 60;
 
 export const SPEED = 9; // units per second
-export const TURN_RATE = 3.8; // radians per second at full steer
+
+/*
+ * Turning is a match setting, and it is the one that most changes what kind
+ * of game this is. Speed over turn rate is the turning radius — how much room
+ * a U-turn needs, and so whether a bad line can be bailed out of or has to be
+ * lived with. Classic is what the first playtest settled on: 3.8 rad/s, a
+ * radius of about 2.4 units, some eight trail widths for a U-turn. Wide is
+ * where the game launched (2.6, radius 3.5) before that playtest asked for
+ * tighter; it stays as a mode because it plays as a different game rather
+ * than a worse one — long arcs you commit to a few seconds ahead, where the
+ * nearest wall is the real opponent. Hairpin is tight enough to double back
+ * and box a rival in; Glide is the other extreme, a U-turn that needs nearly
+ * a third of a Tiny arena. The steps are roughly even on a log scale, so each
+ * neighbour feels about half again as different as the last.
+ *
+ * One rate for every rider in a match, always. A per-rider radius would be a
+ * handicap system, and this game's fairness is that everyone steers the same
+ * fox. In a net match the host's choice travels to guests with the roster.
+ */
+export const TURN_MODES = [
+  { name: "Hairpin", rate: 6.0 }, // radius 1.5
+  { name: "Classic", rate: 3.8 }, // radius 2.4
+  { name: "Wide", rate: 2.6 }, // radius 3.5
+  { name: "Glide", rate: 1.8 }, // radius 5.0
+];
+export const TURN_DEFAULT = 1; // index into TURN_MODES
+/* Radians per second at full steer before any match has picked a mode: the
+ * World starts here, and World.setTurnRate() is what a match calls. */
+export const TURN_RATE = TURN_MODES[TURN_DEFAULT].rate;
 export const HEAD_RADIUS = 0.45; // collision radius of the orb
 export const TRAIL_HALF_WIDTH = 0.3; // trail is 0.6 wide, solid all the way through
 
@@ -52,9 +80,12 @@ export const GAP_LENGTH = 2.6; // units of travel with no trail (about 4 trail w
 /*
  * Own trail younger than this many ticks is not solid to its owner. The head
  * stamps the grid where it stands, so without this every rider would die on
- * its own fresh paint. Ten ticks is 1.5 units back; at maximum turn rate the
- * head is 1.5 units away from that point, well clear of the 0.75 unit
- * contact distance, so the window can never be exploited by a hard turn.
+ * its own fresh paint. Ten ticks is 1.5 units back; at Classic's turn rate a
+ * head turning hard is 1.5 units from that point, and 1.4 at Hairpin's, both
+ * well clear of the 0.75 unit contact distance. The chord of a ten-tick arc
+ * shrinks only slowly with the rate — (18 / rate) x sin(rate / 12) — and does
+ * not reach 0.75 until past 22 rad/s, so no mode in TURN_MODES can exploit
+ * the window with a hard turn. Re-check this if a mode ever goes tighter.
  */
 export const SELF_IGNORE_TICKS = 10;
 

@@ -32,7 +32,7 @@
  * simulation of it.
  */
 
-import { MAX_PLAYERS, PALETTE, ARENA_SIZES } from "../config.js";
+import { MAX_PLAYERS, PALETTE, ARENA_SIZES, TURN_MODES } from "../config.js";
 import {
   MSG,
   NET_VERSION,
@@ -50,6 +50,7 @@ import { newCode } from "./codes.js";
 
 export async function hostSession({
   arenaIndex,
+  turnIndex,
   target,
   ais,
   name,
@@ -85,6 +86,12 @@ export async function hostSession({
   let rendezvous = null;
   let arena =
     ARENA_SIZES[Math.max(0, Math.min(ARENA_SIZES.length - 1, arenaIndex))];
+  const turn =
+    TURN_MODES[Math.max(0, Math.min(TURN_MODES.length - 1, turnIndex))];
+  /* What this room plays by, in words, for the lobby to print. The same
+   * three settings travel to guests by name in every roster message, so both
+   * ends can show one line and it says the same thing on each. */
+  session.rules = { arenaName: arena.name, turnName: turn.name, target };
   let hostName = cleanName(name);
 
   const say = (text) => session.onStatus?.(text);
@@ -155,6 +162,7 @@ export async function hostSession({
       v: rosterVersion,
       arenaHalf: arena.half,
       arenaName: arena.name,
+      turnName: turn.name,
       target,
       you: peer ? peer.ids : myIds,
       roster: session.roster.map((r) => ({
@@ -406,6 +414,7 @@ export async function hostSession({
         seat: r.seat,
       })),
       arenaHalf: arena.half,
+      turnRate: turn.rate,
       target,
       rosterVersion,
     });

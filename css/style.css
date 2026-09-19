@@ -870,6 +870,13 @@ kbd {
  * untouched. The sound and pause panels need no areas at all: they are short
  * enough that standing their two slider rows side by side is the whole fix.
  *
+ * Five settings on the right since Turning arrived (2026-09-19), and the
+ * paddock is exactly as tall as it was with four: the doors moved up a row to
+ * sit beside Win at, the update pill sits beside Turning, and the kicker —
+ * the one line the left column could spare — goes, for the reason the
+ * lobby's h1 went. Adding a row would have been 44px this layout does not
+ * have; the hub's rule is that this menu must not scroll.
+ *
  * This is maxgear's shape, copied deliberately rather than reinvented (hub
  * CLAUDE.md §2), including its 500px cut: a tablet is taller than that
  * whichever way up it is held, and keeps the stacked layout.
@@ -916,8 +923,8 @@ kbd {
       "logo   riders"
       "logo   rivals"
       "logo   arena"
-      "kicker target"
-      "update play"
+      "update turning"
+      "play   target"
       "hint   hint"
       "tools  tools"
       "build  build";
@@ -939,10 +946,10 @@ kbd {
     max-height: 100%;
     margin: 0 auto;
   }
+  /* The logo beside it already says the name, and its row is the one the
+   * column gave up when Turning arrived. Portrait keeps it. */
   #menu .kicker {
-    grid-area: kicker;
-    align-self: center;
-    margin: 0;
+    display: none;
   }
   #update {
     grid-area: update;
@@ -957,6 +964,9 @@ kbd {
   }
   #row-arena {
     grid-area: arena;
+  }
+  #row-turn {
+    grid-area: turning;
   }
   #row-target {
     grid-area: target;

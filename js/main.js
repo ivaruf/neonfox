@@ -32,6 +32,8 @@ import {
   PALETTE,
   ARENA_SIZES,
   ARENA_DEFAULT,
+  TURN_MODES,
+  TURN_DEFAULT,
   SPIN_HOLD_SECONDS,
   SPIN_RATE,
   ZOOM_KEY_RATE,
@@ -65,6 +67,24 @@ if (!window.BABYLON) {
   }
 } else {
   boot();
+}
+
+/*
+ * A saved menu index — the arena size, the turning mode — read back from
+ * localStorage, or `fallback` when there is none, it is out of range for the
+ * list it indexes (a mode removed between builds), or storage is unavailable.
+ * try/catch per hub CLAUDE.md §6: private mode and quota limits are real.
+ */
+function savedIndex(key, length, fallback) {
+  try {
+    const parsed = parseInt(localStorage.getItem(key), 10);
+    if (Number.isInteger(parsed) && parsed >= 0 && parsed < length) {
+      return parsed;
+    }
+  } catch {
+    // localStorage unavailable; the default stands.
+  }
+  return fallback;
 }
 
 function boot() {
@@ -108,6 +128,7 @@ function boot() {
     onMusicVolume,
     onSfxVolume,
     onArena,
+    onTurn,
     onTogether,
     onSound,
     onResume: () => setPaused(false),
@@ -116,24 +137,16 @@ function boot() {
     onEscape,
   });
 
-  // Restore the saved arena size before the very first match (the attract
-  // one, below) ever spawns, so the title screen already shows the size the
-  // player left it on rather than flashing "Classic" for a frame. try/catch
-  // per hub CLAUDE.md §6: private mode and quota limits are real.
-  let savedArena = ARENA_DEFAULT;
-  try {
-    const parsed = parseInt(localStorage.getItem("neonfox.arena.v1"), 10);
-    if (
-      Number.isInteger(parsed) &&
-      parsed >= 0 &&
-      parsed < ARENA_SIZES.length
-    ) {
-      savedArena = parsed;
-    }
-  } catch {
-    // localStorage unavailable; the default stands.
-  }
-  ui.setArena(savedArena);
+  // Restore the saved arena size and turning mode before the very first
+  // match (the attract one, below) ever spawns, so the title screen already
+  // shows the settings the player left rather than flashing the defaults for
+  // a frame. Both are silent restores: setArena/setTurn move the slider
+  // without firing the callbacks, so putting a choice back is not itself a
+  // choice.
+  ui.setArena(
+    savedIndex("neonfox.arena.v1", ARENA_SIZES.length, ARENA_DEFAULT),
+  );
+  ui.setTurn(savedIndex("neonfox.turn.v1", TURN_MODES.length, TURN_DEFAULT));
 
   const trails = new TrailRenderer(view.scene);
   const fx = createEffects(view.scene);
@@ -271,6 +284,10 @@ function boot() {
     const half = ARENA_SIZES[ui.arena].half;
     world.setArena(half);
     view.setArena(half);
+    // And everyone turns at the rate the Turning slider names — the attract
+    // match too, so the bots behind the paddock preview the mode the same way
+    // the floor previews the arena size.
+    world.setTurnRate(TURN_MODES[ui.turn].rate);
 
     // opts.attract's own match never ends and must keep scaling its target
     // to the field (target: 0); a real match instead uses whatever the host
@@ -357,11 +374,12 @@ function boot() {
 
   /*
    * Multiplayer lives behind one door in the paddock, and everything on the
-   * other side of it is js/net/. The lobby reads four of the paddock's own
-   * settings when it opens a game — arena, target and bots stay the host's to
-   * set and travel to guests on join (js/net/host.js); local players is this
-   * device's alone and decides how many seats it brings. None of the four is
-   * asked for twice: the lobby has no controls of its own for any of them.
+   * other side of it is js/net/. The lobby reads five of the paddock's own
+   * settings when it opens a game — arena, turning, target and bots stay the
+   * host's to set and travel to guests on join (js/net/host.js); local
+   * players is this device's alone and decides how many seats it brings.
+   * None of the five is asked for twice: the lobby has no controls of its
+   * own for any of them.
    * It hands back a session once a match actually begins.
    */
   const lobby = createLobby({
@@ -369,6 +387,7 @@ function boot() {
     ui,
     settings: {
       arenaIndex: () => ui.arena,
+      turnIndex: () => ui.turn,
       target: () => ui.target,
       ais: () => ui.ais,
       // Local players, answered in the paddock before anyone opens this
@@ -589,6 +608,20 @@ function boot() {
   function onArena(index) {
     try {
       localStorage.setItem("neonfox.arena.v1", String(index));
+    } catch {
+      // localStorage unavailable; the choice just won't survive a reload.
+    }
+    sfx.click();
+    if (mode === "menu") enterMenu();
+  }
+
+  /* The Turning slider, on release, the same way: remember it, and let the
+   * attract match show the bots taking the new radius. A local match already
+   * running keeps its rate — a rule of the match does not change under the
+   * riders mid-round — and picks the new one up at the next Blaze!. */
+  function onTurn(index) {
+    try {
+      localStorage.setItem("neonfox.turn.v1", String(index));
     } catch {
       // localStorage unavailable; the choice just won't survive a reload.
     }

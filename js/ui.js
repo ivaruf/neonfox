@@ -12,14 +12,16 @@
  * shape as the segmented rows in spirit (a menu choice main.js reads back),
  * but is its own control: setArena(i) moves it and repaints its label
  * silently, so main.js can restore a saved preference without that restore
- * itself firing onArena as if the player had just dragged it. The two
- * volume sliders (music/effects, replacing the old single sound toggle)
- * follow the same "silent restore" shape: setVolumes(music, sfx) moves both
- * without firing onMusicVolume/onSfxVolume, so main.js can put a saved
- * mix back on screen at boot without that itself counting as the player
- * choosing a new one. Each volume is now TWO sliders, in the sound menu and
- * in the pause overlay, and _paintVolume is the only thing that writes
- * either: two windows onto one setting, never two settings.
+ * itself firing onArena as if the player had just dragged it. The Turning
+ * slider is the same control again — get turn / setTurn(i) / onTurn — for
+ * the match's turn rate, an index into TURN_MODES. The two volume sliders
+ * (music/effects, replacing the old single sound toggle) follow the same
+ * "silent restore" shape: setVolumes(music, sfx) moves both without firing
+ * onMusicVolume/onSfxVolume, so main.js can put a saved mix back on screen
+ * at boot without that itself counting as the player choosing a new one.
+ * Each volume is now TWO sliders, in the sound menu and in the pause
+ * overlay, and _paintVolume is the only thing that writes either: two
+ * windows onto one setting, never two settings.
  *
  * Panels are this file's other job. #menu, #sound and #pause are shown and
  * hidden here because that is DOM state, the same kind of thing
@@ -32,7 +34,7 @@
  * be stopped, it does not work it out.
  */
 
-import { MAX_PLAYERS, ARENA_SIZES } from "./config.js";
+import { MAX_PLAYERS, ARENA_SIZES, TURN_MODES } from "./config.js";
 // The one place the DOM lane reaches into the sim lane: defaultTarget is a
 // pure function of a headcount (no World, no DOM), used to keep the "Win
 // at" slider's suggested value in step with the roster. Keep this import to
@@ -47,6 +49,7 @@ export class UI {
       onRematch,
       onMenu,
       onArena,
+      onTurn,
       onMusicVolume,
       onSfxVolume,
       onTogether,
@@ -59,6 +62,7 @@ export class UI {
   ) {
     this.root = root;
     this.onArena = onArena || (() => {});
+    this.onTurn = onTurn || (() => {});
     this.onMusicVolume = onMusicVolume || (() => {});
     this.onSfxVolume = onSfxVolume || (() => {});
     this.onSound = onSound || (() => {});
@@ -89,6 +93,8 @@ export class UI {
     this.spectateTextEl = root.querySelector("#spectate-text");
     this.arenaSizeEl = root.querySelector("#arena-size");
     this.arenaNameEl = root.querySelector("#arena-name");
+    this.turnModeEl = root.querySelector("#turn-mode");
+    this.turnNameEl = root.querySelector("#turn-name");
     /*
      * Each volume is two sliders, not one: the sound menu's and the pause
      * overlay's. They are two places to reach ONE setting, never two
@@ -226,6 +232,15 @@ export class UI {
     this.arenaSizeEl.addEventListener("change", () => {
       this.onArena(this.arena);
     });
+    // Turning, the same two events for the same reason: the name follows the
+    // thumb, and only the release restarts the attract match behind the
+    // paddock so the player can watch the bots take the new radius.
+    this.turnModeEl.addEventListener("input", () => {
+      this._paintTurnLabel(this.turn);
+    });
+    this.turnModeEl.addEventListener("change", () => {
+      this.onTurn(this.turn);
+    });
 
     // The moment the host drags this even once, it is their number: stop
     // following the roster for the rest of the session (see
@@ -341,6 +356,26 @@ export class UI {
     const name = ARENA_SIZES[i].name;
     this.arenaNameEl.textContent = name;
     this.arenaSizeEl.setAttribute("aria-valuetext", name);
+  }
+
+  /** Index into TURN_MODES from the Turning slider: how tightly every rider
+   *  in the match turns. */
+  get turn() {
+    return Number(this.turnModeEl.value);
+  }
+
+  /** Move the Turning slider and repaint its name without firing onTurn —
+   *  the silent restore, exactly as setArena. */
+  setTurn(i) {
+    const clamped = Math.max(0, Math.min(TURN_MODES.length - 1, i));
+    this.turnModeEl.value = String(clamped);
+    this._paintTurnLabel(clamped);
+  }
+
+  _paintTurnLabel(i) {
+    const name = TURN_MODES[i].name;
+    this.turnNameEl.textContent = name;
+    this.turnModeEl.setAttribute("aria-valuetext", name);
   }
 
   get target() {

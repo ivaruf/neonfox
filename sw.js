@@ -108,7 +108,14 @@
 //         steps get a landscape layout of their own, and every panel in the
 //         game stops stretching to the edges of a sideways phone: 640px, not
 //         760, so the arena still shows down both sides.
-const VERSION = "v1.7.5"; // cached shells learn the arcade moved to gophercloud.games
+// v1.8.0  TURNING IS A RULE OF THE MATCH. A Turning slider joins the paddock
+//         under Arena — Hairpin, Classic, Wide, Glide — and sets one turn
+//         rate for every rider in the round; Classic is the game exactly as
+//         it was. The host's choice travels to guests with the roster and the
+//         lobby prints the room's rules, since a guest cannot see the host's
+//         paddock. The landscape paddock moves its doors up beside Win at to
+//         make room for the fifth row without growing, and drops the kicker.
+const VERSION = "v1.8.0"; // turning is a match setting
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting

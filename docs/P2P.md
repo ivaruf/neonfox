@@ -66,9 +66,12 @@ Worker, and it decides who crashed, who scored, and when a round begins and
 ends. A guest sends its steering and renders what comes back; it has no
 simulation to disagree with.
 
-Arena size, the "win at" target and the bot count are the host's settings,
-taken from the paddock's own controls when the game is opened and pushed to
-each guest with its welcome. How many riders a device itself brings is not a
+Arena size, turning, the "win at" target and the bot count are the host's
+settings, taken from the paddock's own controls when the game is opened and
+pushed to each guest with its welcome — by name as well as by number, so the
+lobby can print the room's rules on every screen in it; a guest cannot see
+the host's paddock, and a Hairpin game deserves a warning before the first
+corner. How many riders a device itself brings is not a
 host setting and not a lobby one either: it is that device's Local players
 row, read at the moment it opens or joins, clamped to one on a touch device
 and clamped again host-side in `cleanSeats()` because a guest must not be

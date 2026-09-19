@@ -156,6 +156,29 @@
           </div>
         </div>
 
+        <!--
+          How tightly everyone turns. A slider rather than a segmented row
+          because, like Arena, it is an ordered scale with a name at each
+          stop — and four names do not fit four pills on a phone. It is a rule
+          of the match, not a preference of a player: one rate for every
+          rider, and in a net game the host's choice travels with the roster.
+        -->
+        <div class="row" id="row-turn">
+          <label class="label" for="turn-mode">Turning</label>
+          <div class="slider">
+            <input
+              type="range"
+              id="turn-mode"
+              min="0"
+              max="3"
+              step="1"
+              value="1"
+              aria-valuetext="Classic"
+            />
+            <output id="turn-name" for="turn-mode">Classic</output>
+          </div>
+        </div>
+
         <div class="row" id="row-target">
           <label class="label" for="target">Win at</label>
           <div class="slider">
