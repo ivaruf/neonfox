@@ -196,7 +196,7 @@ const STEPS = {
   choose: {
     kicker: "Ride with a friend",
     heading: "Together",
-    back: "Back to the paddock",
+    back: "Back",
   },
   pad: { kicker: "Find a game", heading: "Their code", back: "Back" },
   host: {

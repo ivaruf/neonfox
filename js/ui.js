@@ -206,8 +206,8 @@ export class UI {
     if (quitEl && exit) {
       quitEl.hidden = false;
       quitEl.textContent = exit.verb({
-        arcade: "Back to the den",
-        app: "Close NeonFox",
+        arcade: "Back to arcade",
+        app: "Close",
       });
       quitEl.addEventListener("click", () => {
         exit.quit().then((how) => {
