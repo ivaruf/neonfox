@@ -217,9 +217,10 @@
 
         <!--
           Leaving the arcade. Sound and fullscreen used to sit beside this as
-          two more word pills; they are icons in the top-right corner now
-          (#corner-tools, further down) because neither is about the game and
-          both are wanted from more than one screen. This one stays in the
+          two more word pills; they are plates in the top-right corner now
+          (#corner-tools, further down) — sound behind the menu one, and mute
+          as a plate of its own — because none of them is about the game and
+          all are wanted from more than one screen. This one stays in the
           panel: it is a sentence, not a symbol, and it only exists at all
           when js/ui.js finds window.ArcadeExit — a browser or a hosting
           context that cannot do the thing never shows a button that would do
@@ -241,26 +242,179 @@
       </section>
 
       <!--
-        The sound menu. Both sliders used to sit in the paddock between the
-        way into a match and the way out of the game, which put a mixing desk
-        in the middle of a title screen — and they are set once, so by the
-        hub's own rule they belong behind a door rather than permanently on
-        screen. The ids did not move, so js/ui.js wires exactly the controls
-        it always did; only which panel they sit in changed. ui.js swaps the
-        two panels, so the paddock and this are never both up, and
+        THE CORNER: menu, mute, fullscreen — three plates, reading left to
+        right, with fullscreen outermost at the corner itself. fishtank's
+        shape and the set maxgear arrived at from the other end, and the one
+        the whole hub is heading for: none of the three belongs to a round,
+        none of them is a setting of the game, and a symbol survives being
+        shrunk to a corner where a word does not.
+
+        FIXED TO THE PAGE, ON EVERY SCREEN AND MID-MATCH. The cluster used to
+        be shown with the paddock and taken away for a round, because a Pause
+        pill wanted this corner too — and what that cost was a player who,
+        having started riding, could not fill the screen or turn the music
+        down without ending the match first. That pill is gone as of v1.9:
+        pausing is what the MENU plate does, so the thing that was fighting
+        for the corner is now the first thing in it.
+
+        THE FIRST TWO PLATES ARE DELIBERATELY DIFFERENT IN KIND, and that is
+        the whole point of drawing them side by side. The MENU plate opens the
+        panel below and stops the round when the round is this device's to
+        stop — a game played together is the host's simulation and carries on,
+        which the panel says rather than pretends. The MUTE plate touches
+        nothing but the sound, ever.
+        Somebody walking into the room is a different question from
+        setting a mix, and a player silencing the arena for them must not lose
+        the round they are riding for it — so mute opens no panel, closes
+        none, moves no focus and never pauses, mid-match included. M does the
+        same from the keyboard.
+
+        Art carries the meaning, so each button carries a real aria-label and
+        a title. js/screen.js rewrites the fullscreen one as the state
+        changes and js/ui.js rewrites mute's — the label is the only thing
+        that can tell a screen reader which way a toggle is pointing, and in
+        both cases the picture is swapped by CSS off the same aria-pressed so
+        the two cannot drift.
+      -->
+      <div id="corner-tools">
+        <!--
+          THE MENU. Three bars and not a gear: a gear says settings, and this
+          holds more than settings — mid-match it is the pause, with the way
+          to restart and the way out under it. It was a speaker until v1.9,
+          when the mixer stopped being a door of its own and moved inside the
+          one panel this opens.
+        -->
+        <button
+          type="button"
+          id="menu-open"
+          class="icon-button"
+          aria-label="Menu"
+          title="Menu (Esc)"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
+        <!--
+          MUTE, and it is a toggle rather than a door: one press for silence,
+          no menu in the way and nothing else moved. The two sliders behind
+          the menu keep their levels while it is down — this is a master gain
+          above both of them (js/audio.js), not a pair of zeroes written over
+          the mix — so unmuting gives back exactly what was set.
+          aria-pressed carries the state, the CSS draws the slash off it, and
+          js/ui.js writes the label in the same breath.
+        -->
+        <button
+          type="button"
+          id="mute-toggle"
+          class="icon-button"
+          aria-pressed="false"
+          aria-label="Mute"
+          title="Mute (M)"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M11 5 6 9H3v6h3l5 4Z" />
+            <path
+              class="icon-waves"
+              d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"
+            />
+            <path class="icon-slash" d="m15.5 9.5 6 5m0-5-6 5" />
+          </svg>
+        </button>
+        <!--
+          Hidden until js/screen.js has checked that this browser has element
+          fullscreen at all — iPhone Safari does not, and a button that does
+          nothing when pressed is worse than no button.
+        -->
+        <button
+          type="button"
+          id="screen-toggle"
+          class="icon-button"
+          aria-pressed="false"
+          aria-label="Fullscreen"
+          title="Fullscreen"
+          hidden
+        >
+          <!-- Four corners pushing out, and the same four pulled in for the
+               pressed state. CSS shows one and hides the other.
+               Every subpath of both is ABSOLUTE. .icon-on used to chain `m`
+               moves from wherever the previous bracket ended, which is how its
+               bottom-left corner came to sit at (3,15) — hard against the left
+               edge with its arms pointing the wrong way — while the other three
+               sat inset 9 from their own two edges. One asymmetric bracket in a
+               glyph of four reads as a broken line, and it was copied out of
+               here into five other games before anyone looked at it straight.
+               The four corners are (9,9), (15,9), (9,15) and (15,15) now: each
+               inset 9, every arm 6 long and pointing outward, symmetric about
+               the centre. Absolute moves are what keep it that way — with
+               relative ones, changing one arm silently moves the next bracket. -->
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path class="icon-off" d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6" />
+            <path
+              class="icon-on"
+              d="M3 9h6V3M21 9h-6V3M3 15h6v6M21 15h-6v6"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <!--
+        The scrim behind the pause panel, and only behind that one. It is its
+        own element rather than a ::before on #pause because a negative
+        z-index child paints above its parent's own background, which would
+        tint the glass it is meant to sit behind. js/ui.js shows it only for a
+        match that is genuinely stopped: a net game carries on without this
+        device, and dimming an arena somebody is still riding in would be a
+        lie told in CSS. It sits before #pause and after nothing, so the
+        scoreboard and the touch buttons still paint over the top of it.
+      -->
+      <div id="pause-scrim" hidden></div>
+
+      <!--
+        THE ONE PANEL, AND ITS CONTENTS ADAPT. There were two until v1.9 — a
+        #sound mixer opened by the corner speaker, and this pause overlay with
+        a SECOND pair of the same two sliders bolted into it. One setting, two
+        sets of controls, and a helper in js/ui.js whose only job was stopping
+        them being seen to disagree. They are one panel now, one pair of
+        sliders, one set of listeners, and there is nothing left to keep in
+        step.
+
+        What is in it answers where it was opened from, and js/ui.js paints
+        that by hiding what does not apply:
+
+          mid-match   the pause — kicker, heading, note, the two levels,
+                      Keep riding, and the two ways to throw the match away
+          elsewhere   the mixer — the two levels and the way back to whatever
+                      panel it displaced (the paddock, or the lobby)
+
+        Escape raises and lowers it; so does the corner's menu plate. It is
+        the only thing between a player and the two irreversible acts in this
+        game, restarting the match and leaving it, which is why both of those
+        live here rather than on a bare keypress.
+
+        Everything that reads differently for a net match is written by
+        js/ui.js when it opens this: a game on two screens cannot be stopped
+        from one of them, and the panel says so rather than pretending.
+
         tabindex="-1" is here so opening it can put focus inside the thing
         that just appeared instead of dropping it on the body.
       -->
       <section
-        id="sound"
+        id="pause"
         class="panel"
-        aria-labelledby="sound-title"
+        aria-labelledby="pause-title"
         tabindex="-1"
         hidden
       >
-        <p class="kicker">How loud is the arena</p>
-        <h2 id="sound-title">Sound</h2>
+        <p class="kicker" id="pause-kicker">Nothing moves until you say so</p>
+        <h2 id="pause-title">Paused</h2>
+        <p class="hint" id="pause-note"></p>
 
+        <!--
+          The one pair of volume sliders in the game. They kept these ids
+          through the merge and the pause overlay's own `pause-` prefixed pair
+          is what went, so nothing that reads a level had to learn a new name.
+        -->
         <div class="row">
           <label class="label" for="music-vol">Music</label>
           <div class="slider">
@@ -291,173 +445,17 @@
           </div>
         </div>
 
-        <p class="hint">
-          The theme rides under the whole match. Effects are the yips, the
-          crashes and the fanfare — drag that one and you will hear it.
-        </p>
-
-        <button type="button" id="sound-back" class="ghost">
-          Back
-        </button>
-      </section>
-
-      <!--
-        THE CORNER. Sound and fullscreen, as icons, in the top-right — the
-        shape fishtank arrived at, and for its reasons: neither belongs to a
-        round, neither is a setting of the game, and a symbol survives being
-        shrunk to a corner where a word does not.
-
-        FIXED TO THE PAGE, ON EVERY SCREEN AND MID-MATCH. It used to be shown
-        with the paddock and taken away for a round, because the Pause pill
-        wanted this corner too — and what that cost was a player who, having
-        started riding, could not fill the screen or turn the music down
-        without ending the match first. The pill moved inboard instead: it
-        belongs to a round and only exists while one is on, whereas these two
-        belong to the page. Reading in from the corner: fullscreen, sound,
-        pause.
-
-        The question that was left for its own turn — what the speaker should
-        do to a match in progress — is answered in js/main.js's onSound: it
-        raises the pause panel, which already carries this game's two volume
-        sliders, rather than a second mixer over a round nobody has stopped.
-
-        Art carries the meaning, so each button carries a real aria-label and
-        a title, and js/screen.js rewrites the fullscreen one as the state
-        changes — the label is the only thing that can tell a screen reader
-        which way the toggle is pointing.
-      -->
-      <div id="corner-tools">
-        <button
-          type="button"
-          id="sound-open"
-          class="icon-button"
-          aria-label="Sound"
-          title="Sound"
-        >
-          <!-- A speaker and two waves. Not a mute button and deliberately
-               without the slash fishtank's carries: this one opens a menu. -->
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M11 5 6 9H3v6h3l5 4Z" />
-            <path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14" />
-          </svg>
-        </button>
-        <!--
-          Hidden until js/screen.js has checked that this browser has element
-          fullscreen at all — iPhone Safari does not, and a button that does
-          nothing when pressed is worse than no button.
-        -->
-        <button
-          type="button"
-          id="screen-toggle"
-          class="icon-button"
-          aria-pressed="false"
-          aria-label="Fullscreen"
-          title="Fullscreen"
-          hidden
-        >
-          <!-- Four corners pushing out, and the same four pulled in for the
-               pressed state. CSS shows one and hides the other. -->
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path class="icon-off" d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6" />
-            <path class="icon-on" d="M3 9h6V3m12 6h-6V3M9 15H3v6m12 0v-6h6" />
-          </svg>
-        </button>
-      </div>
-
-      <!--
-        The way to the pause overlay for everyone without an Escape key,
-        which on a tablet is everyone. Without it a touch player could not
-        pause, could not reach the volume mid-match, and — the real hole —
-        had no way out of a match at all short of losing it.
-        It sits INBOARD of #corner-tools above, which keeps the corner itself:
-        this pill belongs to a round and goes when the round does, while the
-        two icons beside it are there whatever the game is doing.
-        It sits before #pause-scrim and #pause in the document, so both paint
-        over the top of it; js/ui.js takes it away while the overlay is up in
-        any case, because a Pause button beside an open pause menu is a
-        button asking to be pressed twice. Its label is "Menu" in a net
-        match, where the panel is not a pause and does not claim to be.
-      -->
-      <button type="button" id="pause-open" class="ghost" hidden>Pause</button>
-
-      <!--
-        The scrim behind the pause panel, and only behind that one. It is its
-        own element rather than a ::before on #pause because a negative
-        z-index child paints above its parent's own background, which would
-        tint the glass it is meant to sit behind. js/ui.js shows it only for a
-        match that is genuinely stopped: a net game carries on without this
-        device, and dimming an arena somebody is still riding in would be a
-        lie told in CSS. It sits before #pause and after nothing, so the
-        scoreboard and the touch buttons still paint over the top of it.
-      -->
-      <div id="pause-scrim" hidden></div>
-
-      <!--
-        The pause overlay. Escape raises it mid-match and lowers it again; it
-        is the only thing between a player and the two irreversible acts in
-        this game, restarting the match and leaving it, which is why both of
-        those now live here rather than on a bare keypress.
-        It carries its own pair of volume sliders rather than sending anyone
-        back to #sound. The two moments genuinely want different things: in
-        the paddock the mix is set once and belongs behind a door (hub §2),
-        and in the middle of a match it wants to be one tap away. They are
-        the same two numbers either way — js/ui.js moves both pairs together
-        — so there is no second setting to get out of step, only a second
-        place to reach the one setting.
-        Everything that reads differently for a net match is written by
-        js/ui.js when it opens this: a game on two screens cannot be stopped
-        from one of them, and the panel says so rather than pretending.
-      -->
-      <section
-        id="pause"
-        class="panel"
-        aria-labelledby="pause-title"
-        tabindex="-1"
-        hidden
-      >
-        <p class="kicker" id="pause-kicker">Nothing moves until you say so</p>
-        <h2 id="pause-title">Paused</h2>
-        <p class="hint" id="pause-note"></p>
-
-        <div class="row">
-          <label class="label" for="pause-music-vol">Music</label>
-          <div class="slider">
-            <input
-              type="range"
-              id="pause-music-vol"
-              min="0"
-              max="100"
-              step="1"
-              value="60"
-            />
-            <output id="pause-music-vol-out" for="pause-music-vol">60</output>
-          </div>
-        </div>
-
-        <div class="row">
-          <label class="label" for="pause-sfx-vol">Effects</label>
-          <div class="slider">
-            <input
-              type="range"
-              id="pause-sfx-vol"
-              min="0"
-              max="100"
-              step="1"
-              value="80"
-            />
-            <output id="pause-sfx-vol-out" for="pause-sfx-vol">80</output>
-          </div>
-        </div>
-
         <button type="button" id="resume" class="primary">Keep riding</button>
 
         <!--
           The two ways out, both of which throw the match away, both kept
           deliberately quiet next to Keep riding. #pause-restart is hidden by
           js/ui.js for a guest in a net match, where calling for another match
-          is the host's alone and this button would do nothing.
+          is the host's alone and this button would do nothing. The pair goes
+          altogether when there is no match: outside one they would both be
+          lies, and js/ui.js hides the row by its id.
         -->
-        <div class="menu-tools">
+        <div class="menu-tools" id="pause-tools">
           <button type="button" id="pause-restart" class="ghost">
             Restart the match
           </button>
@@ -465,6 +463,14 @@
             Back to the paddock
           </button>
         </div>
+
+        <!--
+          The way out when this is a mixer rather than a pause — there is no
+          Keep riding to serve as one. js/ui.js writes the label from the panel
+          it displaced, so it names the room a player is actually going back
+          to, and Escape leaves through the same function.
+        -->
+        <button type="button" id="menu-back" class="ghost">Back</button>
       </section>
 
       <!-- Live scoreboard during a match. -->

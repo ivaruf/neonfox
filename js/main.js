@@ -130,12 +130,12 @@ function boot() {
     onArena,
     onTurn,
     onTogether,
-    onSound,
-    onSoundBack,
+    onOpenMenu,
+    onCloseMenu,
+    onMute,
     onResume: () => setPaused(false),
     onRestart: onPauseRestart,
     onLeave: onPauseLeave,
-    onEscape,
   });
 
   // Restore the saved arena size and turning mode before the very first
@@ -167,7 +167,11 @@ function boot() {
 
   input.bindTouch(ui.touchButtons.left, ui.touchButtons.right);
   input.bindDrag(document.getElementById("arena"));
+  // The mix, and whether any of it is audible, both restored onto the controls
+  // before the first frame. Silent restores, all of them: putting a choice back
+  // is not itself a choice.
   ui.setVolumes(sfx.musicVolume, sfx.sfxVolume);
+  ui.setMuted(sfx.muted);
 
   let match = null;
   let net = null; // the peer-to-peer session, when there is one (js/net/)
@@ -340,7 +344,6 @@ function boot() {
     ui.hideHud();
     ui.hideBanner();
     ui.setTouchVisible(false);
-    ui.setPauseButton(false);
   }
 
   function beginMatch() {
@@ -364,7 +367,6 @@ function boot() {
     // rows existed, so paint the zeroes onto the fresh HUD here.
     ui.setScores(match.scores, aliveMap());
     ui.setTouchVisible(true);
-    ui.setPauseButton(true, false);
   }
 
   function onStart() {
@@ -469,8 +471,6 @@ function boot() {
     );
     ui.setScores(match.scores, aliveMap());
     ui.setTouchVisible(true);
-    // "Menu", not "Pause": this one does not stop.
-    ui.setPauseButton(true, true);
   }
 
   /* Rematch is the same field again — the menu still holds the choice. In a
@@ -513,8 +513,15 @@ function boot() {
       // buttons; a stopped one would be steering a statue from under the
       // panel, so it does not.
       ui.setTouchVisible(mode === "net");
-      ui.setPauseButton(false);
-      ui.showPause({
+      /*
+       * THE MENU ONLY PAUSES A GAME THAT IS OURS TO PAUSE. A local match is a
+       * simulation this page owns, so it stops and the panel says Paused. A net
+       * match is the host's, carries on regardless, and `live` is what tells the
+       * panel to say so rather than pretend — the scrim stays down and the
+       * arrows still steer, because the fox is still out there.
+       */
+      ui.showMenuPanel({
+        inPlay: true,
         live: mode === "net",
         canRestart: mode !== "net" || !!net?.rematch,
       });
@@ -525,8 +532,7 @@ function boot() {
       // the clips, they run again — the attract match behind the paddock must
       // never inherit a still scene.
       view.scene.animationsEnabled = true;
-      ui.hidePause();
-      ui.setPauseButton(inPlay());
+      ui.hideMenuPanel();
       // Coming back from a pause on a finished match must not put the
       // steering buttons back over the Rematch banner (matchOver took them
       // away on purpose).
@@ -551,17 +557,14 @@ function boot() {
   /*
    * Escape, which used to abandon the match outright — the same one-keypress
    * hazard R was, and worse for sitting on the key a player reaches for to
-   * get OUT of things. It is the pause overlay now, opened and closed, and it
+   * get OUT of things. It is the menu panel now, opened and closed, and it
    * no longer destroys anything at all; leaving is a button on the panel.
    * That is also why a finished match is not a special case here: there is
-   * nothing left to protect it from, and the overlay is a perfectly good
-   * place to turn the music down after the fanfare.
-   *
-   * ui.js is handed this same function for the in-match Pause pill, so the
-   * key and the button can never come to mean different things.
+   * nothing left to protect it from, and the panel is a perfectly good place
+   * to turn the music down after the fanfare.
    *
    * Outside a match it backs out of whatever is sitting over the paddock: the
-   * sound menu, or the lobby (which enterMenu closes). In the bare paddock it
+   * menu panel, or the lobby (which enterMenu closes). In the bare paddock it
    * restarts the attract match, which is what it has always done and is
    * harmless.
    */
@@ -571,66 +574,100 @@ function boot() {
       setPaused(!paused);
       return;
     }
-    if (ui.soundOpen) {
-      // The panel's own Back button, exactly — not showMenu(), which would put
-      // the player on the paddock even when the mixer was opened over the
+    if (ui.menuPanelOpen) {
+      // The panel's own way out, exactly — not showMenu(), which would put the
+      // player on the paddock even when the panel was opened over the
       // multiplayer lobby and would look like being thrown out of the room.
-      onSoundBack();
+      onCloseMenu();
       return;
     }
     onMenu();
   }
 
   /*
-   * The corner speaker, which since the cluster became permanent chrome is on
-   * every screen this game has — so this decides WHICH mixer a press means, and
-   * ui.js decides nothing. The unlock is here because opening the mixer is a
-   * genuine user gesture and the whole point of standing in front of the
-   * effects slider is to hear it move; doing it here rather than on the first
-   * drag means the first drag makes a sound too.
+   * THE CORNER'S MENU PLATE. It is on every screen this game has, so this
+   * decides what a press MEANS and ui.js decides nothing. The unlock is here
+   * because pressing it is a genuine user gesture and the whole point of
+   * standing in front of the effects slider is to hear it move; doing it here
+   * rather than on the first drag means the first drag makes a sound too.
    *
-   * MID-MATCH IT RAISES THE PAUSE PANEL, NOT THE SOUND MENU, and that is the
-   * decision this whole thing turns on. Two reasons, and either would do. The
-   * pause panel already carries this exact pair of volume sliders, so a second
-   * mixer would be a second set of controls for one setting — kept in step by
-   * _paintVolume, but two things on screen that must never be seen to disagree
-   * is a promise worth not making. And the sound menu does not stop anything:
-   * only setPaused does, so opening a mixer over a live round would leave four
-   * riders steering themselves into a wall while the player set the music. The
-   * pause panel is the honest landing for anything that interrupts a round,
-   * which is the same answer maxgear reached from the other direction.
+   * MID-MATCH IT IS THE PAUSE, which is what the pill it replaced always did.
+   * There is no second mixer to raise over a live round any more — the sliders
+   * are in this panel — and that is most of why the two panels became one: a
+   * mixer that stopped nothing, opened over a round nobody had paused, would
+   * leave four riders steering themselves into a wall while the player set the
+   * music.
    *
-   * A net match is the one case where the round genuinely carries on; the panel
-   * says so itself ("Still riding") and its sliders work all the same.
+   * ONLY A LOCAL MATCH ACTUALLY STOPS. setPaused raises the same panel either
+   * way and hands it `live`, so in a net game it opens over a round that
+   * carries on and says exactly that. Pressing again closes it, so the plate
+   * can never be a button that does nothing.
    */
-  function onSound() {
+  function onOpenMenu() {
     sfx.unlock();
     sfx.click();
     if (inPlay()) {
-      // Already paused: the mixer is on screen, so put the cursor on it rather
-      // than letting the press do nothing at all.
-      if (paused) ui.focusPause();
-      else setPaused(true);
+      setPaused(!paused);
       return;
     }
-    ui.showSound();
+    if (ui.menuPanelOpen) {
+      onCloseMenu();
+      return;
+    }
+    ui.showMenuPanel({ inPlay: false });
   }
 
-  /* The way back out of the sound menu — its own Back button, and Escape,
-   * through this one function so they can never leave by different doors. */
-  function onSoundBack() {
+  /* The way back out of the panel — its own button, and Escape, through this
+   * one function so they can never leave by different doors. */
+  function onCloseMenu() {
     sfx.click();
-    ui.hideSound();
+    ui.hideMenuPanel();
+  }
+
+  /*
+   * THE CORNER'S MUTE PLATE, and the M key, which are the same press arriving
+   * by two routes. It is a live control: it works mid-round, with no panel up,
+   * and it stops nothing — a player silencing the arena because somebody
+   * walked into the room must not lose the round they are riding for it. No
+   * panel opens, none closes, no focus moves, nothing pauses.
+   *
+   * The levels behind the menu are untouched: js/audio.js does this with a
+   * master gain above both sliders, so unmuting gives back exactly the mix
+   * that was set. A mute that costs you your mix is a mute nobody presses
+   * twice. It is remembered under its own key, neonfox.muted.v1, which is a
+   * NEW one — the levels' keys and the pre-slider migration key are all left
+   * exactly as they are (hub CLAUDE.md §6).
+   */
+  function onMute() {
+    const muted = sfx.toggleMute();
+    ui.setMuted(muted);
+    // Only on the way back: the sound returning is its own confirmation, and a
+    // click fired into a bus that is already ramping to zero is a click nobody
+    // hears the end of.
+    if (!muted) sfx.click();
+  }
+
+  /* Moving a level while everything is muted lifts the mute. A slider silently
+   * cancelled by a control somewhere else is a slider nobody can use — you drag
+   * it, nothing happens, and the plate in the corner is the last place anyone
+   * looks. Only a real drag comes through here; ui.setVolumes() at boot is a
+   * silent restore and fires nothing. */
+  function liftMute() {
+    if (!sfx.muted) return;
+    sfx.setMuted(false);
+    ui.setMuted(false);
   }
 
   function onMusicVolume(v) {
     sfx.setMusicVolume(v);
+    liftMute();
   }
 
   // Dragging the effects slider is itself a gesture, and unlocking here lets
   // the player hear what they are setting straight away.
   function onSfxVolume(v) {
     sfx.setSfxVolume(v);
+    liftMute();
     sfx.unlock();
   }
 
@@ -679,6 +716,12 @@ function boot() {
       }
     } else if (name === "menu") {
       onEscape();
+    } else if (name === "mute") {
+      // M, and it is the corner plate's own press arriving by keyboard: silence
+      // this instant, mid-round included, with nothing else moved. js/input.js
+      // already refuses to send it while somebody is typing a name in the
+      // lobby.
+      onMute();
     }
   };
 

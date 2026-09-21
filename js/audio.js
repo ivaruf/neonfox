@@ -9,12 +9,19 @@
  * song, which cannot be synthesized: it is the single shipped audio file,
  * audio/theme.m4a, fetched and decoded once and looped underneath.
  *
- * This class is the whole mixer: two GainNodes hang off ctx.destination,
- * musicGain and sfxGain, one per volume slider in the menu, so a cue and
- * the theme can be balanced independently and either taken all the way to
- * silent without touching the other. Every synthesized cue connects to
- * sfxGain instead of the destination directly; the theme source connects
- * to musicGain.
+ * This class is the whole mixer: two GainNodes, musicGain and sfxGain, one
+ * per volume slider in the menu, so a cue and the theme can be balanced
+ * independently and either taken all the way to silent without touching the
+ * other. Every synthesized cue connects to sfxGain instead of the destination
+ * directly; the theme source connects to musicGain.
+ *
+ * A THIRD GAIN SITS ABOVE BOTH OF THEM, and that is the mute. The two hang off
+ * masterGain and masterGain hangs off the destination, so silencing the arena
+ * is one number going to 0 and coming back to 1 — the mix underneath is never
+ * touched, and unmuting gives back exactly the levels that were set. Muting by
+ * writing zeroes over _musicVolume and _sfxVolume would have destroyed them,
+ * and the player who reaches for a mute plate when somebody walks in is not
+ * asking to lose their mix.
  *
  * The AudioContext itself is created lazily by unlock(), which main.js
  * calls on the first pointerdown/keydown, because autoplay policies refuse
@@ -26,8 +33,15 @@
 
 const MUSIC_KEY = "neonfox.vol.music.v1";
 const SFX_KEY = "neonfox.vol.sfx.v1";
+// The mute plate in the corner, on its own key (hub CLAUDE.md §6:
+// <slug>.<thing>.v<n>). A NEW key rather than a reuse of either name above:
+// this is a switch, those are levels, and the whole point of the master gain
+// below is that the two never write over each other.
+const MUTED_KEY = "neonfox.muted.v1";
 // Pre-volume-sliders key: a single on/off toggle. Read once as a migration
-// fallback (see the constructor) and never written back to.
+// fallback (see the constructor) and never written back to. It is NOT the
+// mute key — MUTED_KEY above is — and it must keep working exactly as it
+// does for anyone who has not launched since the sliders arrived.
 const OLD_SOUND_KEY = "neonfox.sound.v1";
 
 const DEFAULT_MUSIC_VOLUME = 0.6;
@@ -44,6 +58,7 @@ function clamp01(v) {
 export class Sfx {
   constructor() {
     this._ctx = null;
+    this._masterGain = null;
     this._musicGain = null;
     this._sfxGain = null;
     this._themeStarted = false;
@@ -51,6 +66,17 @@ export class Sfx {
 
     this._musicVolume = DEFAULT_MUSIC_VOLUME;
     this._sfxVolume = DEFAULT_SFX_VOLUME;
+    this._muted = false;
+
+    // Read on its own, before the levels and independently of them: a muted
+    // player who has never touched a slider must still come back muted, and a
+    // muted player who HAS set a mix must come back to that mix, silenced.
+    try {
+      this._muted = localStorage.getItem(MUTED_KEY) === "1";
+    } catch {
+      // Private mode / quota errors: the game starts audible, which is the
+      // safe half of this particular guess.
+    }
 
     try {
       const storedMusic = localStorage.getItem(MUSIC_KEY);
@@ -105,6 +131,34 @@ export class Sfx {
     if (this._sfxGain) this.#applyGain(this._sfxGain, this._sfxVolume);
   }
 
+  get muted() {
+    return this._muted;
+  }
+
+  /**
+   * Silence, or give it back. One number on the master gain above the two
+   * sliders' own — never a zero written over a stored level — so the mix
+   * survives being muted and comes back exactly as it was set. The same ramp
+   * every other gain change here uses, so it fades over ~10 ms rather than
+   * cutting a playing cue off with a click.
+   */
+  setMuted(muted) {
+    this._muted = !!muted;
+    try {
+      localStorage.setItem(MUTED_KEY, this._muted ? "1" : "0");
+    } catch {
+      // Storage can be unavailable; the in-memory state still applies live.
+    }
+    const level = this._muted ? 0 : 1;
+    if (this._masterGain) this.#applyGain(this._masterGain, level);
+  }
+
+  /** Flip it and hand back where it landed, so one press is one call. */
+  toggleMute() {
+    this.setMuted(!this._muted);
+    return this._muted;
+  }
+
   /** Glide a gain node to a new value instead of snapping it, so a fast
    *  slider drag ramps smoothly rather than clicking on every "input". */
   #applyGain(node, value) {
@@ -119,13 +173,20 @@ export class Sfx {
         const AudioCtor = window.AudioContext || window.webkitAudioContext;
         this._ctx = new AudioCtor();
 
+        // The mute, above everything. Built first because the two below it
+        // connect to it rather than to the destination, and it opens on
+        // whatever the corner plate was left on last session.
+        this._masterGain = this._ctx.createGain();
+        this._masterGain.gain.value = this._muted ? 0 : 1;
+        this._masterGain.connect(this._ctx.destination);
+
         this._musicGain = this._ctx.createGain();
         this._musicGain.gain.value = this._musicVolume;
-        this._musicGain.connect(this._ctx.destination);
+        this._musicGain.connect(this._masterGain);
 
         this._sfxGain = this._ctx.createGain();
         this._sfxGain.gain.value = this._sfxVolume;
-        this._sfxGain.connect(this._ctx.destination);
+        this._sfxGain.connect(this._masterGain);
       }
       if (this._ctx.state === "suspended") this._ctx.resume();
     } catch {

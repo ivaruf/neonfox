@@ -214,7 +214,10 @@ export class Input {
   takeDrag()                          // {dx, dy, dz} accumulated since last call, then zeroed (reused object);
                                       // dx/dy drag in CSS px, dz zoom in wheel-pixel units (pinch is converted: 1 px of pinch spread = -1 dz)
   zoomKey()                           // +1 ArrowUp (in) | -1 ArrowDown (out) | 0, held state
-  onCommand = null                    // (name) => void: 'start' Enter/Space, 'menu' Escape
+  onCommand = null                    // (name) => void: 'start' Enter/Space, 'menu' Escape, 'mute' M
+// 'mute' is refused while a text field has focus (the lobby's name box); a
+// focused button or slider still hears it, because the mute plate keeps focus
+// after a click and its own key has to keep working.
 // There is deliberately NO 'restart' command. R used to fire one on a single
 // unmodified keypress — a stray reach from rider two's A/D — and nothing
 // asked first. Restarting lives on the pause overlay now.
@@ -223,7 +226,8 @@ export class Input {
 
 // ui.js
 export class UI {
-  constructor(root, { onStart, onRematch, onMenu, onArena, onTurn, onMusicVolume, onSfxVolume, onTogether, onSound })
+  constructor(root, { onStart, onRematch, onMenu, onArena, onTurn, onMusicVolume, onSfxVolume,
+                      onTogether, onOpenMenu, onCloseMenu, onMute, onResume, onRestart, onLeave })
   get humans()   // 1 | 2 from the Riders row
   get ais()      // 1..5 from the Rivals row; humans + ais <= MAX_PLAYERS enforced by disabling
   get arena()    // index into ARENA_SIZES from the slider
@@ -234,14 +238,25 @@ export class UI {
   setArena(i)    // move the slider and its label without firing onArena
   setTurn(i)     // the same silent restore for the Turning slider
   // onArena(index) / onTurn(index) fire on the slider's `change` (release); the name label follows `input` live
-  showMenu(); hideMenu(); showSound(); get soundOpen
-  showPause({ live, canRestart }); hidePause(); get pauseOpen
-  setPauseButton(visible, live)   // the in-match pill; `live` is remembered
-  // #menu and #sound are one slot: showMenu shows the paddock and hides the
-  // sound panel, showSound does the reverse, hideMenu takes both away (a match
-  // started from the keyboard must not leave a mixer floating over the round).
-  // onSound() fires on both the Sound pill and its Back — the glue's cue to
-  // click and unlock the audio context, nothing about which panel is up.
+  showMenu(); hideMenu()
+  showMenuPanel({ inPlay, live, canRestart }); hideMenuPanel(); get menuPanelOpen
+  setMuted(muted)   // the corner plate's aria-pressed, label and title, in one write
+  // ONE PANEL WITH TWO FACES (#pause). `inPlay` picks: mid-match it is the
+  // pause — heading, note, the two levels, Keep riding and the two ways to
+  // throw the match away — and anywhere else it is the mixer, the two levels
+  // and the way back to whatever panel it displaced. #sound is gone and so is
+  // the second pair of sliders it carried.
+  // #menu and the panel are one slot: showMenu shows the paddock and takes the
+  // panel down, hideMenu takes both away (a match started from the keyboard
+  // must not leave a mixer floating over the round). Outside a match the panel
+  // remembers which panel it displaced — the paddock, or the lobby, which
+  // js/net/lobby.js owns — and puts that one back, so a mixer opened from a
+  // room does not read as being thrown out of it.
+  // onOpenMenu() / onCloseMenu() fire on the corner's menu plate and the
+  // panel's own way out; the glue decides what either means (pause, or not) and
+  // owns the click and the unlock. onMute() fires on the mute plate and does
+  // exactly one thing: it never opens, closes or focuses a panel, and never
+  // pauses. M arrives at the same place through input.onCommand.
   showHud(players /* [{ id, name, hex }] */, target); hideHud();
   setScores(scores /* id -> points */, aliveById /* id -> bool */)
   banner(text, { sub = '', hex = '', actions = false } = {}); hideBanner();
@@ -249,9 +264,11 @@ export class UI {
   setSpectate(text, hex)     // caption above the touch buttons: whose ride the camera is on
   hideSpectate()
   setVolumes(music, sfx)     // move both sliders and their readouts without firing the callbacks
-  // The volume sliders live in #sound, not #menu, and fire onMusicVolume(0..1)
-  // / onSfxVolume(0..1) on `input`, live while dragging, because a volume you
-  // cannot hear until you let go is not a volume control.
+  // There is ONE pair of volume sliders, in the menu panel, and they fire
+  // onMusicVolume(0..1) / onSfxVolume(0..1) on `input`, live while dragging,
+  // because a volume you cannot hear until you let go is not a volume control.
+  // There were two pairs until v1.9 — one per panel — and a helper whose whole
+  // job was keeping them in step; one panel means one pair means no helper.
   touchButtons               // { left, right } HTMLButtonElements
 }
 // Uses the ids already in index.html. No new DOM structure without updating index.html.
@@ -264,17 +281,21 @@ export class UI {
 
 // audio.js
 export class Sfx {
-  constructor()               // volumes from localStorage, try/catch, defaults 0.6 music / 0.8 effects
+  constructor()               // volumes and mute from localStorage, try/catch, defaults 0.6 music / 0.8 effects
   get musicVolume(); setMusicVolume(v)   // 0..1, persisted 'neonfox.vol.music.v1'
   get sfxVolume();   setSfxVolume(v)     // 0..1, persisted 'neonfox.vol.sfx.v1'
+  get muted(); setMuted(m); toggleMute() // persisted 'neonfox.muted.v1'; toggleMute returns the new state
   unlock()                    // create/resume AudioContext on first gesture; starts the theme
   click(); ready(); go(); crash(); roundWin(); matchWin()
   taunt(voice = 0, delay = 0)  // the yip a fox makes when it celebrates; `voice`
                                // is the rider's palette index, so each fox has
                                // its own pitch, and `delay` is seconds ahead
 }
-// Two gain nodes hang off the destination, one per slider, so a cue and the
-// theme are mixed independently and either can be taken to silence. Cues stay
+// Two gain nodes, one per slider, so a cue and the theme are mixed
+// independently and either can be taken to silence. Both hang off a THIRD,
+// masterGain, which is the mute: one number to 0 and back to 1, so muting never
+// touches the two levels and unmuting gives back exactly the mix that was set.
+// (A mute that wrote zeroes over the stored volumes would destroy them.) Cues stay
 // synthesized (house rule); the theme is the one shipped file, audio/theme.m4a,
 // fetched and decoded once on the first gesture and looped. Loop start is
 // found by scanning the decoded buffer for the first sample above a noise
@@ -290,12 +311,19 @@ export class Sfx {
   pasting a name in front of a fixed phrase. Two humans share a screen, so
   neither is "you" and both get their label.
 - Volumes: `onMusicVolume`/`onSfxVolume` pass straight to the Sfx setters and
-  are restored onto the sliders at boot with `ui.setVolumes(...)`.
+  are restored onto the sliders at boot with `ui.setVolumes(...)`. Both also
+  lift the mute, because a slider silently cancelled by a control somewhere
+  else is a slider nobody can use; the boot restore is silent and does not.
+- Mute: `onMute` (the corner plate, and `M`) toggles `sfx` and repaints the
+  plate, and does nothing else at all — no panel, no focus, no pause, mid-round
+  included. Restored at boot with `ui.setMuted(sfx.muted)`.
 - Modes: `menu` runs an attract match (4 AI, `attract: true`) behind the
   panel with the camera in `orbit`; `match` runs the chosen field with the
-  camera in `play`. Enter or Space starts from the menu; Escape (and the
-  in-match Pause pill, which ui.js wires to the same `onEscape`) raises the
-  pause overlay.
+  camera in `play`. Enter or Space starts from the menu; Escape and the
+  corner's menu plate raise the menu panel, and mid-match that is the pause —
+  but only for a game this page owns. A net match is the host's simulation:
+  the panel opens over a round that carries on, says so, keeps the scrim down
+  and leaves the arrows steering.
 - Arena size: `ARENA_SIZES[ui.arena].half` is applied with `world.setArena` and
   `view.setArena` before every match, attract included, so the menu previews
   the size live; the choice persists in localStorage `neonfox.arena.v1`.

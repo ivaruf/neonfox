@@ -115,7 +115,23 @@
 //         lobby prints the room's rules, since a guest cannot see the host's
 //         paddock. The landscape paddock moves its doors up beside Win at to
 //         make room for the fifth row without growing, and drops the kicker.
-const VERSION = "v1.8.2"; // the corner belongs to the page: sound and fullscreen on every screen and mid-match, and the way out only where there is one
+// v1.8.2  THE CORNER BELONGS TO THE PAGE. Sound and fullscreen stop being
+//         shown with the paddock and taken away for a match: the cluster is
+//         fixed chrome on every screen and mid-match, the Pause pill moves
+//         inboard of it, and the way out of the game is drawn only where there
+//         is somewhere to go.
+// v1.9.0  THREE PLATES, AND ONE PANEL BEHIND THE FIRST. The corner reads menu,
+//         mute, fullscreen. Pause became the menu plate — a menu is what it
+//         always opened — and the inboard pill is gone with it. The mixer
+//         stopped being a door of its own, so #sound and the pause overlay are
+//         one panel wearing two faces and there is one pair of volume sliders
+//         where there were two. Mute is new: a live control that silences the
+//         arena mid-round without pausing it, a master gain above both levels
+//         so the mix survives, remembered under neonfox.muted.v1, and on M.
+//         And the exit-fullscreen glyph's bottom-left corner is fixed — it sat
+//         at (3,15) with its arms the wrong way round while the other three
+//         were inset 9, and five other games copied it out of here.
+const VERSION = "v1.9.0"; // three plates in the corner — menu, mute, fullscreen — one panel with two faces behind the first, and mute that never stops the round
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting

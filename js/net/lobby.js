@@ -163,7 +163,20 @@ const CSS = `
   #lobby-words { grid-area: words; }
   #lobby-status { grid-area: status; }
   #lobby-rules { grid-area: rules; }
-  #lobby-roster { grid-area: roster; margin: 0; align-self: center; }
+  /* AND THE ROSTER GIVES UP THE WIDTH THE CORNER TAKES. This is the one step
+     tall enough to reach the top of a sideways phone — six chips and an 88px
+     code do not leave much of 300px — and what is up there on the right is the
+     first roster row, under the menu/mute/fullscreen cluster. --corner-bite is
+     css/style.css's, declared in the identical media query and derived there:
+     it is how far the cluster reaches into a panel's content box, 0 on a wide
+     phone and 108px on the narrowest. Every chip loses the same width rather
+     than only the covered one, because a row of chips is a group and a group
+     of equals looks equal (hub §2). The choose and keypad steps are short
+     enough to sit clear of the band and are left alone. */
+  #lobby-roster {
+    grid-area: roster; margin: 0; align-self: center;
+    padding-right: var(--corner-bite);
+  }
   #lobby-blaze { grid-area: blaze; margin: 8px 0 0; }
   #lobby .code-row.hero .code-slot {
     width: 64px; height: 64px; line-height: 64px; font-size: 34px; border-radius: 16px;

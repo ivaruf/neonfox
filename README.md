@@ -34,8 +34,9 @@ you are offline.
 | Rider two steers (two on one keyboard) | `A` `D` or `Q` `E`    | —                           |
 | Aim before the round starts     | steer during the countdown   | same                        |
 | Start / rematch                 | `Enter` or `Space`           | Blaze! / Rematch            |
-| Pause (and the way out)         | `Esc`                        | the Pause pill, top right   |
-| Restart the match               | on the pause overlay         | same                        |
+| Menu / pause (and the way out)  | `Esc`                        | the menu plate, top right   |
+| Mute everything                 | `M`                          | the mute plate, top right   |
+| Restart the match               | on the menu panel            | same                        |
 | Out of the round: switch view   | `←` `→` cycle survivors and overview | the same two buttons |
 | Out of the round: spin / zoom   | hold `←` `→` to spin, `↑` `↓` to zoom, or drag and wheel | hold a button to spin, drag to spin, pinch to zoom |
 
@@ -43,10 +44,18 @@ Once every human rider is out, the camera drops in behind one of the
 survivors and the steering controls cycle the view through them and back to
 the overview.
 
-`Esc` and the Pause pill open the same overlay: volume, restart, and the way
-back to the paddock. A local match genuinely stops behind it. A game played
+The top right corner carries three plates, on every screen and mid-match:
+menu, mute, fullscreen. `Esc` and the menu plate open the same panel, and what
+is in it answers where you were — mid-match the volumes, restart and the way
+back to the paddock; anywhere else just the volumes and the way back to
+whatever it displaced. A local match genuinely stops behind it. A game played
 together does not — it is the host's simulation and cannot be held from one
-screen, so the panel says so and your fox keeps riding while it is up.
+screen, so the panel says so and your fox keeps riding, and steering, while it
+is up.
+
+Mute is its own press and never a menu: one tap for silence, mid-round
+included, and it stops nothing. It is a master gain above both sliders, so the
+mix you set is the mix you get back when you unmute.
 
 There is no restart key. `R` used to throw the whole match away on one
 unmodified press, a stray reach from the `A`/`D` rider two steers with;
@@ -157,9 +166,11 @@ playing it.
   composed in Sonic Pi and rendered, rather than synthesized at runtime. The
   theme is a render; the small cues are still WebAudio oscillators from
   before the rule changed and want moving. Music and effects have separate
-  volume sliders, behind the paddock's Sound pill rather than on the title
+  volume sliders, behind the corner's menu plate rather than on the title
   screen itself: they are set once, so they do not need to be permanently in
-  front of a player who came here to ride.
+  front of a player who came here to ride. Mute is the plate beside it,
+  unmediated, because silencing the room is a different question from setting
+  a mix and a menu in front of it would be a menu in the way.
 - **Multiplayer has no host migration and no TURN.** Both doors out of the
   paddock — Blaze! and Multiplayer — are the same size, but the peer-to-peer
   one carries the honest limits `docs/P2P.md` writes down: the host closing

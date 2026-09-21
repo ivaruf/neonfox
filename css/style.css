@@ -451,13 +451,13 @@ button:focus-visible {
 }
 
 /*
- * THE CORNER CLUSTER: sound and fullscreen, as icons, top right.
+ * THE CORNER CLUSTER: menu, mute and fullscreen, as icons, top right.
  *
  * A pill of round icon buttons on the arena's own dark glass — fishtank's
- * shape, because the problem is the same one. Neither of these belongs to a
- * round and neither is a setting of the game, so neither wants a row in the
- * menu; and in a corner, at this size, a symbol survives where a word would
- * have to be shrunk until nobody reads it anyway.
+ * shape, because the problem is the same one. None of the three belongs to a
+ * round and none is a setting of the game, so none wants a row in the menu;
+ * and in a corner, at this size, a symbol survives where a word would have to
+ * be shrunk until nobody reads it anyway.
  *
  * 42px targets. The hub asks for touch targets that stay comfortable and a
  * tablet is the common case, so these are deliberately larger than the glyph
@@ -467,9 +467,9 @@ button:focus-visible {
  * paddock and taken away for a match, because the Pause pill wanted this corner
  * and two things cannot have one — which meant a player who had started riding
  * could not fill the screen or turn the music down without ending the round
- * first. The pill is the one that moved: it belongs to a match and only exists
- * while one is on, whereas these two belong to the page. Reading in from the
- * corner it is fullscreen, sound, pause.
+ * first. That pill does not exist any more: pausing is the first plate here, so
+ * the thing that was fighting for the corner is now in it. Reading in from the
+ * corner it is fullscreen, mute, menu.
  *
  * z-index 30 puts it over every panel (none of which has one), over the pause
  * scrim, over the scoreboard and over the crash bar at 10. Everything it sits
@@ -536,40 +536,46 @@ button:focus-visible {
 .icon-button[aria-pressed="true"] .icon-on {
   display: inline;
 }
-.icon-button[aria-pressed="true"] {
+/* Pressed means ACTIVE here, which is true of fullscreen and pointedly not of
+ * mute — a silenced arena is a thing that has been switched off, so it is
+ * scoped to the one plate it describes rather than left on .icon-button
+ * generally. */
+#screen-toggle[aria-pressed="true"] {
   color: var(--rim);
 }
 
-/*
- * The in-match pause pill, top right, opposite the scoreboard. It borrows
- * .ghost's shape but not its transparency: .ghost is written for a panel's
- * own dark glass, and this one stands on the arena, where a trail can sweep
- * underneath it at any moment. A touch target that stays comfortable on a
- * tablet (hub §2) without being large enough to compete with the game.
+/* The mute plate is the same trick with the same one write behind it: one svg
+ * carrying the speaker, its waves and a slash, with aria-pressed choosing which
+ * of the last two shows. js/ui.js sets that attribute and the accessible label
+ * together, so what is drawn and what is announced cannot drift — which an
+ * emoji swapped into textContent could manage neither way round, since no
+ * screen reader announces 🔇 as "muted".
  *
- * INBOARD OF #corner-tools, which owns the corner itself: 12px of edge inset
- * plus the cluster's 96px (two 42px buttons, the 4px between them and 4px of
- * padding each side) plus 8px of air = 116. This pill asks a different question
- * from the two beside it — stop the round, rather than fill the screen or set
- * the volume — and unlike them it only exists while a round is on, so it is the
- * one that gave way. `top` centres its 36px against their 50px, so the three
- * read as one row rather than as two things that happen to share an edge.
+ * Tango, the rider palette's amber, for the muted state. Not the rim light the
+ * fullscreen plate takes when it is on: this one is lit because something is
+ * OFF, and a player scanning the corner should be able to tell those apart
+ * without reading either. */
+.icon-button .icon-slash {
+  display: none;
+}
+#mute-toggle[aria-pressed="true"] .icon-waves {
+  display: none;
+}
+#mute-toggle[aria-pressed="true"] .icon-slash {
+  display: inline;
+}
+#mute-toggle[aria-pressed="true"] {
+  color: #ffa03c;
+}
+
+/*
+ * THE IN-MATCH PAUSE PILL IS GONE, and with it the one thing that ever wanted
+ * this corner at the same time as the cluster. It was a word pill parked
+ * inboard of the icons, existing only while a round was on, opening the panel
+ * the menu plate opens now. A menu is what it always raised, so it is the menu
+ * plate: one control, in the corner, on every screen, instead of two that
+ * looked unrelated and did the same job in different places.
  */
-#pause-open {
-  position: absolute;
-  top: calc(19px + env(safe-area-inset-top, 0px));
-  right: calc(116px + env(safe-area-inset-right, 0px));
-  min-height: 36px;
-  padding: 6px 16px;
-  background: rgba(8, 12, 36, 0.62);
-  border-color: rgba(130, 170, 255, 0.24);
-  color: var(--ink);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-}
-#pause-open:hover {
-  background: rgba(30, 46, 100, 0.72);
-}
 
 /*
  * The scrim behind a genuinely stopped match. Deep enough that the panel is
@@ -584,11 +590,22 @@ button:focus-visible {
   background: rgba(4, 6, 20, 0.5);
 }
 
-/* The pause panel's own note: the sentence that says what this moment is.
- * .hint's bottom margin is written for the paddock, where it sits above the
- * sliders; here it sits under the heading and wants less room. */
+/* The panel's own note: the sentence that says what this moment is — that the
+ * arena is holding still, that a net round is not, or what the two levels under
+ * it actually cover. .hint's bottom margin is written for the paddock, where it
+ * sits above the sliders; here it sits under the heading and wants less room. */
 #pause-note {
   margin: 0 0 12px;
+}
+
+/* The way out of the panel when it is a mixer rather than a pause, and the last
+ * thing in the column when it shows at all. A ghost pill of its own rather than
+ * a .menu-tools cluster of one: the pair above it is the match's, this is the
+ * panel's, and standing it apart is what says so. The min-width stops a
+ * two-word label drawing a pill narrower than the ones it is standing under. */
+#menu-back {
+  margin-top: 14px;
+  min-width: 150px;
 }
 
 /* Which build is serving this session, answered by the service worker. */
@@ -601,10 +618,11 @@ button:focus-visible {
   opacity: 0.55;
 }
 
-.ghost[aria-pressed="false"] {
-  text-decoration: line-through;
-  opacity: 0.7;
-}
+/* A struck-through .ghost[aria-pressed="false"] used to live here: the old
+ * single SOUND ON / SOUND OFF word pill, which the two volume sliders replaced
+ * long before the mute plate arrived. Nothing has carried that attribute on a
+ * .ghost since. Silence is a plate in the corner now (#mute-toggle above), and
+ * it says so with a slash rather than by crossing out its own label. */
 
 /*
  * What is left of the tools row: the way out of the arcade, alone now that
@@ -944,10 +962,9 @@ kbd {
    * THE CORNER STAYS IN THE CORNER SIDEWAYS TOO — 38px plates and a little
    * closer to the edge, and that is the whole of what changes about it. maxgear
    * used to fold its cluster into the sideways grid as a cell of its own, which
-   * fitted the layout and broke the rule; a pair that moves when the phone turns
-   * is not a corner. So it holds its place and the Pause pill holds its station
-   * inboard: 8 of inset + 88 of cluster (two 38s, 4 between them, 4 each side) +
-   * 8 of air = 104.
+   * fitted the layout and broke the rule; a set that moves when the phone turns
+   * is not a corner. So it holds its place, and whatever it lands on gives way
+   * instead — see --corner-bite below.
    */
   #corner-tools {
     top: calc(8px + env(safe-area-inset-top, 0px));
@@ -957,9 +974,40 @@ kbd {
     width: 38px;
     height: 38px;
   }
-  #pause-open {
-    top: calc(12px + env(safe-area-inset-top, 0px));
-    right: calc(104px + env(safe-area-inset-right, 0px));
+
+  /*
+   * HOW FAR THE CLUSTER REACHES INTO A PANEL, derived once and used by everyone
+   * it lands on — here, and by js/net/lobby.js, which draws its own <style> and
+   * has the same corner over the same panel geometry.
+   *
+   * The cluster is 130px wide sideways (three 38s, 4 between each pair, 4 of
+   * padding a side) and sits 8 from the edge, so its left edge is 138 in from
+   * the right. Every panel is `min(640px, 100% - 24px)` centred in #ui, so its
+   * content ends 18 (its own padding) inside its right edge. Call #ui's width U
+   * and the panel's W: the overlap is (W - U) / 2 + 120, which for any U from
+   * 664 up is 440px - U/2 — 108px at the bottom of that range, 0 at 880 and
+   * negative past it, hence the clamp. Below 664 the panel is U - 24 wide and
+   * the answer is a flat 108. One expression covers both.
+   *
+   * U AND NOT 100vw. #ui is inset by the safe areas and the cluster sits inside
+   * them too, so on a notched phone held sideways the viewport is 90-odd pixels
+   * wider than the box any of this is measured in — and the overlap gets BIGGER
+   * as that box gets narrower, not smaller. A bare 50vw would under-taper by
+   * about 47px on exactly the phones most people own.
+   *
+   * It was a flat 66px behind a `max-width: 800px` when the cluster was two
+   * plates. Three made both numbers wrong, and a formula cannot go stale the
+   * way a pair of constants did.
+   *
+   * It is only ever the TOP of a panel that is at risk: the cluster is 46px
+   * tall here and nothing else about it changed.
+   */
+  :root {
+    /* U itself: the box every panel here is centred in. */
+    --ui-width: calc(
+      100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)
+    );
+    --corner-bite: clamp(0px, calc(440px - var(--ui-width) / 2), 108px);
   }
 
   #menu {
@@ -1002,30 +1050,57 @@ kbd {
     margin: 0;
     min-height: 44px;
   }
-  #row-riders {
-    grid-area: riders;
-  }
   /*
    * AND THE ONE ROW THE CORNER WOULD SIT ON GIVES UP THE WIDTH, rather than the
    * panel giving up height it does not have. Sideways the paddock is already as
    * tall as it can be — the note above this block explains why a sixth row
    * would not fit — so buying the cluster its room with a padding-top, the way
    * maxgear did, would push the way out below the fold, which is the thing this
-   * whole block exists to prevent. What the cluster actually covers is small
-   * and known: it reaches 96px in from the right edge and 54px down, and the
-   * only control that high on the right is the top row of the settings column.
-   * So that row alone ends short. The pills stay equal to each other, which is
-   * what the hub's rule asks of a group; they are simply a little narrower than
-   * the four rows below them.
-   *
-   * 66px is the worst case, on the narrowest phone this query fires on: 96 in
-   * from the edge, less the 12 the panel is already inset by there, less its own
-   * 18px of padding. Wider than about 800px the panel's edge has moved in far
-   * enough that the cluster clears it on its own, and the taper stops.
+   * whole block exists to prevent. What the cluster covers is small and known:
+   * 46px down, and --corner-bite in from the right, and the only control that
+   * high on the right is the top row of the settings column. So that row alone
+   * ends short, and it ends exactly as short as it has to. The pills stay equal
+   * to each other, which is what the hub's rule asks of a group; they are
+   * simply a little narrower than the four rows below them.
    */
-  @media (max-width: 800px) {
+  #row-riders {
+    grid-area: riders;
+    padding-right: var(--corner-bite);
+  }
+  /*
+   * AND UNDER ABOUT 660px THE COLUMNS SWAP INSTEAD OF THE ROW GIVING WAY.
+   *
+   * What the taper leaves that row is U/2 - 148 whatever the width (the panel
+   * stops growing at 640 exactly as the bite stops shrinking, so the two
+   * cancel): 184px on a 664px phone, which is a 76px label and two 44px pills
+   * with nothing to spare, and 136px on a 568px one, which is two pills of 21
+   * and not a control any more. Three plates cost 42px more than two and this
+   * is where that lands.
+   *
+   * So on the narrowest phones the settings move to the left and the logo takes
+   * the corner, because art can be covered by three plates and a row of buttons
+   * cannot. Same rows in the same order at the same height — only which side
+   * they are on changes — and the taper goes with the corner onto the logo,
+   * which is capped by its own max-width anyway and simply centres in what is
+   * left.
+   */
+  @media (max-width: 660px) {
+    #menu {
+      grid-template-areas:
+        "riders  logo"
+        "rivals  logo"
+        "arena   logo"
+        "turning update"
+        "target  play"
+        "hint    hint"
+        "tools   tools"
+        "build   build";
+    }
     #row-riders {
-      padding-right: 66px;
+      padding-right: 0;
+    }
+    #title {
+      padding-right: var(--corner-bite);
     }
   }
   #row-rivals {
@@ -1064,11 +1139,17 @@ kbd {
   }
 
   /*
-   * The sound and pause panels are short enough that they need no areas: put
-   * the two slider rows beside each other and let everything else — heading,
-   * note, buttons — keep the full width it was written for.
+   * The menu panel is short enough that it needs no areas: put the two slider
+   * rows beside each other and let everything else — heading, note, buttons —
+   * keep the full width it was written for. It was two selectors here until
+   * v1.9, when #sound and #pause became one panel; the rules did not change,
+   * because the two were already being given the same layout for the same
+   * reason, which was most of the argument for merging them.
+   *
+   * Both faces fit standing up sideways with room over: the pause is a kicker,
+   * a heading, a note, one slider row, Keep riding and the two ways out — about
+   * 230px of the 300 a sideways phone has — and the mixer is shorter still.
    */
-  #sound,
   #pause {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -1076,25 +1157,29 @@ kbd {
     align-content: safe center;
     gap: 8px 20px;
   }
-  #sound > :not(.row),
   #pause > :not(.row) {
     grid-column: 1 / -1;
   }
-  #sound h2,
   #pause h2 {
     margin: 0;
   }
-  #sound .kicker,
   #pause .kicker {
     margin: 0;
   }
-  #sound .hint,
   #pause .hint {
     margin: 0;
   }
-  #pause .primary,
-  #sound .ghost {
+  #pause .primary {
     margin: 0;
+  }
+  /* The two ways out of a match, and the way out of the mixer: the grid's own
+   * row gap is already holding them apart, so their portrait margins are height
+   * this does not have. */
+  #pause .menu-tools {
+    margin: 0;
+  }
+  #menu-back {
+    margin-top: 0;
   }
 
   /* The steering buttons are the one thing that must NOT shrink sideways —

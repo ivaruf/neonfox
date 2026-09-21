@@ -1,6 +1,6 @@
 /*
  * input.js — keyboard + touch buttons -> turn per seat, plus one-shot
- * commands (start / menu), plus the spectator camera's own reads: a
+ * commands (start / menu / mute), plus the spectator camera's own reads: a
  * drag/pinch/wheel accumulator and the up/down zoom keys.
  *
  * THERE IS NO RESTART KEY, and its absence is the design. R used to throw the
@@ -56,12 +56,33 @@ function isInteractive(target) {
   return INTERACTIVE_TAGS.has(target.tagName);
 }
 
+/*
+ * Narrower than isInteractive, and it guards the letter keys rather than
+ * Enter/Space. A letter typed into a field is a letter, not a command: the
+ * multiplayer lobby has a name field, and M as a shortcut would otherwise
+ * silence the game every time somebody typed a name with an M in it. A focused
+ * button or slider is not typing, so it still hears the shortcut — which
+ * matters, because the mute plate itself keeps focus after a click and its own
+ * key must keep working.
+ */
+function isTyping(target) {
+  if (!target) return false;
+  if (target.isContentEditable) return true;
+  if (target.tagName === "TEXTAREA") return true;
+  if (target.tagName !== "INPUT") return false;
+  // Ranges, checkboxes and buttons are controls you press, not fields you
+  // write in; only a text-ish input swallows a letter.
+  return !["range", "checkbox", "radio", "button", "submit"].includes(
+    target.type,
+  );
+}
+
 export class Input {
   constructor() {
     /** @type {Set<string>} currently held KeyboardEvent.code values */
     this.held = new Set();
 
-    /** (name: 'start' | 'menu') => void, set by main.js */
+    /** (name: 'start' | 'menu' | 'mute') => void, set by main.js */
     this.onCommand = null;
 
     // Touch is tracked separately from `held` because a synthetic code
@@ -93,6 +114,12 @@ export class Input {
         if (!isInteractive(event.target)) this.onCommand("start");
       } else if (event.code === "Escape") {
         this.onCommand("menu");
+      } else if (event.code === "KeyM") {
+        // Silence, and nothing else: no panel, no pause, mid-round included.
+        // It is the keyboard's half of the corner's mute plate and main.js
+        // sends both to the same place, so the two cannot come to mean
+        // different things.
+        if (!isTyping(event.target)) this.onCommand("mute");
       }
     });
 
