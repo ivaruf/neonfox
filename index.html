@@ -307,11 +307,19 @@
         round, neither is a setting of the game, and a symbol survives being
         shrunk to a corner where a word does not.
 
-        Shown with the paddock and taken away for a match, because that same
-        corner is where the Pause pill lives once a round is running and two
-        things cannot have one corner. (fishtank keeps its cluster on every
-        screen; doing that here means deciding what the sound icon should do
-        to a match in progress, which is a question for its own turn.)
+        FIXED TO THE PAGE, ON EVERY SCREEN AND MID-MATCH. It used to be shown
+        with the paddock and taken away for a round, because the Pause pill
+        wanted this corner too — and what that cost was a player who, having
+        started riding, could not fill the screen or turn the music down
+        without ending the match first. The pill moved inboard instead: it
+        belongs to a round and only exists while one is on, whereas these two
+        belong to the page. Reading in from the corner: fullscreen, sound,
+        pause.
+
+        The question that was left for its own turn — what the speaker should
+        do to a match in progress — is answered in js/main.js's onSound: it
+        raises the pause panel, which already carries this game's two volume
+        sliders, rather than a second mixer over a round nobody has stopped.
 
         Art carries the meaning, so each button carries a real aria-label and
         a title, and js/screen.js rewrites the fullscreen one as the state
@@ -361,6 +369,9 @@
         which on a tablet is everyone. Without it a touch player could not
         pause, could not reach the volume mid-match, and — the real hole —
         had no way out of a match at all short of losing it.
+        It sits INBOARD of #corner-tools above, which keeps the corner itself:
+        this pill belongs to a round and goes when the round does, while the
+        two icons beside it are there whatever the game is doing.
         It sits before #pause-scrim and #pause in the document, so both paint
         over the top of it; js/ui.js takes it away while the overlay is up in
         any case, because a Pause button beside an open pause menu is a

@@ -462,11 +462,27 @@ button:focus-visible {
  * 42px targets. The hub asks for touch targets that stay comfortable and a
  * tablet is the common case, so these are deliberately larger than the glyph
  * inside them needs.
+ *
+ * FIXED TO THE PAGE, AND IT NEVER GOES ANYWHERE. It used to be shown with the
+ * paddock and taken away for a match, because the Pause pill wanted this corner
+ * and two things cannot have one — which meant a player who had started riding
+ * could not fill the screen or turn the music down without ending the round
+ * first. The pill is the one that moved: it belongs to a match and only exists
+ * while one is on, whereas these two belong to the page. Reading in from the
+ * corner it is fullscreen, sound, pause.
+ *
+ * z-index 30 puts it over every panel (none of which has one), over the pause
+ * scrim, over the scoreboard and over the crash bar at 10. Everything it sits
+ * above is something it outlives, so nothing any of them does may cover it.
+ * `fixed` rather than `absolute` for the same reason: it answers to the
+ * viewport, not to #ui, and it carries its own safe-area insets because a fixed
+ * box does not inherit the padding #ui puts up for a notch.
  */
 #corner-tools {
-  position: absolute;
-  top: 12px;
-  right: 12px;
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  right: calc(12px + env(safe-area-inset-right, 0px));
+  z-index: 30;
   display: flex;
   gap: 4px;
   padding: 4px;
@@ -530,11 +546,19 @@ button:focus-visible {
  * own dark glass, and this one stands on the arena, where a trail can sweep
  * underneath it at any moment. A touch target that stays comfortable on a
  * tablet (hub §2) without being large enough to compete with the game.
+ *
+ * INBOARD OF #corner-tools, which owns the corner itself: 12px of edge inset
+ * plus the cluster's 96px (two 42px buttons, the 4px between them and 4px of
+ * padding each side) plus 8px of air = 116. This pill asks a different question
+ * from the two beside it — stop the round, rather than fill the screen or set
+ * the volume — and unlike them it only exists while a round is on, so it is the
+ * one that gave way. `top` centres its 36px against their 50px, so the three
+ * read as one row rather than as two things that happen to share an edge.
  */
 #pause-open {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: calc(19px + env(safe-area-inset-top, 0px));
+  right: calc(116px + env(safe-area-inset-right, 0px));
   min-height: 36px;
   padding: 6px 16px;
   background: rgba(8, 12, 36, 0.62);
@@ -916,6 +940,28 @@ kbd {
     margin: 0;
   }
 
+  /*
+   * THE CORNER STAYS IN THE CORNER SIDEWAYS TOO — 38px plates and a little
+   * closer to the edge, and that is the whole of what changes about it. maxgear
+   * used to fold its cluster into the sideways grid as a cell of its own, which
+   * fitted the layout and broke the rule; a pair that moves when the phone turns
+   * is not a corner. So it holds its place and the Pause pill holds its station
+   * inboard: 8 of inset + 88 of cluster (two 38s, 4 between them, 4 each side) +
+   * 8 of air = 104.
+   */
+  #corner-tools {
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    right: calc(8px + env(safe-area-inset-right, 0px));
+  }
+  .icon-button {
+    width: 38px;
+    height: 38px;
+  }
+  #pause-open {
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    right: calc(104px + env(safe-area-inset-right, 0px));
+  }
+
   #menu {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -958,6 +1004,29 @@ kbd {
   }
   #row-riders {
     grid-area: riders;
+  }
+  /*
+   * AND THE ONE ROW THE CORNER WOULD SIT ON GIVES UP THE WIDTH, rather than the
+   * panel giving up height it does not have. Sideways the paddock is already as
+   * tall as it can be — the note above this block explains why a sixth row
+   * would not fit — so buying the cluster its room with a padding-top, the way
+   * maxgear did, would push the way out below the fold, which is the thing this
+   * whole block exists to prevent. What the cluster actually covers is small
+   * and known: it reaches 96px in from the right edge and 54px down, and the
+   * only control that high on the right is the top row of the settings column.
+   * So that row alone ends short. The pills stay equal to each other, which is
+   * what the hub's rule asks of a group; they are simply a little narrower than
+   * the four rows below them.
+   *
+   * 66px is the worst case, on the narrowest phone this query fires on: 96 in
+   * from the edge, less the 12 the panel is already inset by there, less its own
+   * 18px of padding. Wider than about 800px the panel's edge has moved in far
+   * enough that the cluster clears it on its own, and the taper stops.
+   */
+  @media (max-width: 800px) {
+    #row-riders {
+      padding-right: 66px;
+    }
   }
   #row-rivals {
     grid-area: rivals;

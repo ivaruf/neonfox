@@ -131,6 +131,7 @@ function boot() {
     onTurn,
     onTogether,
     onSound,
+    onSoundBack,
     onResume: () => setPaused(false),
     onRestart: onPauseRestart,
     onLeave: onPauseLeave,
@@ -571,24 +572,55 @@ function boot() {
       return;
     }
     if (ui.soundOpen) {
-      sfx.click();
-      ui.showMenu();
+      // The panel's own Back button, exactly — not showMenu(), which would put
+      // the player on the paddock even when the mixer was opened over the
+      // multiplayer lobby and would look like being thrown out of the room.
+      onSoundBack();
       return;
     }
     onMenu();
   }
 
   /*
-   * The sound menu opening or closing. ui.js has already decided which panel
-   * is on screen; this is only the noise that press deserves — and the
-   * unlock, because opening the mixer is a genuine user gesture and the
-   * whole point of standing in front of the effects slider is to hear it
-   * move. Doing that here rather than the first time the slider is dragged
-   * means the very first drag makes a sound too.
+   * The corner speaker, which since the cluster became permanent chrome is on
+   * every screen this game has — so this decides WHICH mixer a press means, and
+   * ui.js decides nothing. The unlock is here because opening the mixer is a
+   * genuine user gesture and the whole point of standing in front of the
+   * effects slider is to hear it move; doing it here rather than on the first
+   * drag means the first drag makes a sound too.
+   *
+   * MID-MATCH IT RAISES THE PAUSE PANEL, NOT THE SOUND MENU, and that is the
+   * decision this whole thing turns on. Two reasons, and either would do. The
+   * pause panel already carries this exact pair of volume sliders, so a second
+   * mixer would be a second set of controls for one setting — kept in step by
+   * _paintVolume, but two things on screen that must never be seen to disagree
+   * is a promise worth not making. And the sound menu does not stop anything:
+   * only setPaused does, so opening a mixer over a live round would leave four
+   * riders steering themselves into a wall while the player set the music. The
+   * pause panel is the honest landing for anything that interrupts a round,
+   * which is the same answer maxgear reached from the other direction.
+   *
+   * A net match is the one case where the round genuinely carries on; the panel
+   * says so itself ("Still riding") and its sliders work all the same.
    */
   function onSound() {
     sfx.unlock();
     sfx.click();
+    if (inPlay()) {
+      // Already paused: the mixer is on screen, so put the cursor on it rather
+      // than letting the press do nothing at all.
+      if (paused) ui.focusPause();
+      else setPaused(true);
+      return;
+    }
+    ui.showSound();
+  }
+
+  /* The way back out of the sound menu — its own Back button, and Escape,
+   * through this one function so they can never leave by different doors. */
+  function onSoundBack() {
+    sfx.click();
+    ui.hideSound();
   }
 
   function onMusicVolume(v) {

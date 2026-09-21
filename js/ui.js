@@ -54,6 +54,7 @@ export class UI {
       onSfxVolume,
       onTogether,
       onSound,
+      onSoundBack,
       onResume,
       onRestart,
       onLeave,
@@ -66,13 +67,16 @@ export class UI {
     this.onMusicVolume = onMusicVolume || (() => {});
     this.onSfxVolume = onSfxVolume || (() => {});
     this.onSound = onSound || (() => {});
+    this.onSoundBack = onSoundBack || (() => {});
 
     this.menuEl = root.querySelector("#menu");
     this.soundEl = root.querySelector("#sound");
-    /* Sound and fullscreen, top right. Up whenever the paddock or the sound
-     * menu is, gone for a match — the Pause pill takes that corner once a
-     * round is running, and two things cannot have one corner. */
-    this.cornerEl = root.querySelector("#corner-tools");
+    /* #corner-tools — sound and fullscreen, top right — is deliberately absent
+     * from this file. It is fixed page chrome now: the same two icons in the
+     * same place on the paddock, in the lobby, mid-match and over the pause
+     * panel, so there is nothing here to show or hide. It used to be taken away
+     * for a match and put back afterwards, which is exactly what made fullscreen
+     * unreachable once a round had started. */
     this.pauseEl = root.querySelector("#pause");
     this.pauseScrimEl = root.querySelector("#pause-scrim");
     this.pauseKickerEl = root.querySelector("#pause-kicker");
@@ -150,27 +154,25 @@ export class UI {
 
     /*
      * The door to the sound menu, and the way back out of it. Both hand the
-     * press to main.js before swapping panels: opening the mixer is a real
-     * user gesture, and it is the gesture that lets the glue unlock the
-     * audio context, so by the time the effects slider is on screen dragging
-     * it can actually be heard. Focus follows the panel that appeared —
-     * hiding the element that currently holds focus otherwise drops it on
-     * the body, which strands anyone steering this with a keyboard.
+     * press to main.js and DECIDE NOTHING THEMSELVES, which matters more since
+     * the speaker became permanent chrome: what it should raise depends on what
+     * the game is doing, and mid-match the answer is the pause panel — which
+     * already carries this same pair of sliders — rather than a second mixer
+     * over a round nobody has stopped. That is main.js's call to make, along
+     * with the unlock (opening the mixer is a real user gesture, and it is the
+     * gesture that lets a drag of the effects slider actually be heard).
+     *
+     * The way out is one function shared with Escape, for the same reason: two
+     * ways out that do different things are two bugs waiting.
      */
     this.soundOpenEl = root.querySelector("#sound-open");
+    this._soundFrom = null; // the panel the mixer displaced, if any
     const soundBack = root.querySelector("#sound-back");
     if (this.soundOpenEl) {
-      this.soundOpenEl.addEventListener("click", () => {
-        this.onSound();
-        this.showSound();
-      });
+      this.soundOpenEl.addEventListener("click", () => this.onSound());
     }
     if (soundBack) {
-      soundBack.addEventListener("click", () => {
-        this.onSound();
-        this.showMenu();
-        this.soundOpenEl?.focus();
-      });
+      soundBack.addEventListener("click", () => this.onSoundBack());
     }
 
     /*
@@ -201,9 +203,23 @@ export class UI {
     // button only appears — and only ever gets a click handler — when
     // window.ArcadeExit says it is. Its own verb() picks the label, so the
     // button can never promise something quit() will not actually do.
+    //
+    // AND ONLY WHEN THERE IS SOMEWHERE TO GO, which is not the same question as
+    // whether quit() could do something: in a plain tab it could — the arcade is
+    // a URL and a navigation always works — but somebody who typed this game's
+    // address did not come from the arcade and may never have heard of it. So:
+    // a launcher behind us, or an installed window that can genuinely close.
+    //
+    // ASKED THROUGH framed()/standalone() AND NOT THROUGH exit.js's own
+    // offers(), which says exactly this but is new. The copy of exit.js that
+    // answers may be OLDER than this code — it is fetched from ../arcade/, and a
+    // service worker on this shared origin can hand back a version cached long
+    // before offers() was written — and a guard built on the new name fails
+    // CLOSED there: the way out disappears, inside the arcade, where it is the
+    // one control that matters. These two predicates are as old as the file.
     const quitEl = root.querySelector("#quit");
     const exit = window.ArcadeExit;
-    if (quitEl && exit) {
+    if (quitEl && exit && (exit.framed() || exit.standalone())) {
       quitEl.hidden = false;
       quitEl.textContent = exit.verb({
         arcade: "Back to arcade",
@@ -401,7 +417,7 @@ export class UI {
   showMenu() {
     this.menuEl.hidden = false;
     if (this.soundEl) this.soundEl.hidden = true;
-    if (this.cornerEl) this.cornerEl.hidden = false;
+    this._soundFrom = null;
     // The menu and the in-match overlays are mutually exclusive states.
     this.hidePause();
     this.hideBanner();
@@ -418,15 +434,45 @@ export class UI {
   hideMenu() {
     this.menuEl.hidden = true;
     if (this.soundEl) this.soundEl.hidden = true;
-    if (this.cornerEl) this.cornerEl.hidden = true;
+    this._soundFrom = null;
   }
 
-  /** The sound menu, in the paddock's place. */
+  /**
+   * The sound menu, in the place of whichever panel was standing.
+   *
+   * Usually that is the paddock, and used to be only ever the paddock. The
+   * corner speaker is on every screen now, so the multiplayer lobby — another
+   * .panel in the same middle of the screen, mounted by js/net/lobby.js and
+   * owned by it — can be the one displaced; this only hides it and puts it
+   * back, and the session underneath carries on regardless. Remembering which
+   * one it was is the whole reason this is not just `menuEl.hidden = true`:
+   * coming back to the paddock out of a room you were sitting in would look
+   * like being thrown out of it.
+   *
+   * Focus follows the panel that appeared — hiding the element that holds focus
+   * otherwise drops it on the body, which strands anyone steering by keyboard.
+   */
   showSound() {
-    if (!this.soundEl) return;
-    this.menuEl.hidden = true;
+    if (!this.soundEl || this.soundOpen) return;
+    const standing = [this.menuEl, this.root.querySelector("#lobby")].find(
+      (panel) => panel && !panel.hidden,
+    );
+    this._soundFrom = standing || null;
+    if (standing) standing.hidden = true;
     this.soundEl.hidden = false;
     this.soundEl.focus();
+  }
+
+  /** And back out of it, to whatever it displaced. Both the panel's own Back
+   *  button and Escape come through here — through main.js, which owns the
+   *  noise — so the two cannot leave by different doors. */
+  hideSound() {
+    if (!this.soundEl || this.soundEl.hidden) return;
+    this.soundEl.hidden = true;
+    const back = this._soundFrom || this.menuEl;
+    this._soundFrom = null;
+    if (back) back.hidden = false;
+    this.soundOpenEl?.focus();
   }
 
   /** Whether the sound menu is the panel currently up, so Escape can know
@@ -466,6 +512,14 @@ export class UI {
   hidePause() {
     if (this.pauseEl) this.pauseEl.hidden = true;
     if (this.pauseScrimEl) this.pauseScrimEl.hidden = true;
+  }
+
+  /** Put the cursor back on the pause panel. The corner speaker asks for this
+   *  when the panel it would have raised is already up: mid-match the mixer IS
+   *  the pause panel, and a press that did nothing visible at all would be the
+   *  dead button this whole change exists to get rid of. */
+  focusPause() {
+    if (this.pauseEl && !this.pauseEl.hidden) this.pauseEl.focus();
   }
 
   /*

@@ -115,7 +115,7 @@
 //         lobby prints the room's rules, since a guest cannot see the host's
 //         paddock. The landscape paddock moves its doors up beside Win at to
 //         make room for the fifth row without growing, and drops the kicker.
-const VERSION = "v1.8.1"; // the way out says what it does: back to arcade, or close
+const VERSION = "v1.8.2"; // the corner belongs to the page: sound and fullscreen on every screen and mid-match, and the way out only where there is one
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting
