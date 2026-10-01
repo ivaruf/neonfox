@@ -131,7 +131,12 @@
 //         And the exit-fullscreen glyph's bottom-left corner is fixed — it sat
 //         at (3,15) with its arms the wrong way round while the other three
 //         were inset 9, and five other games copied it out of here.
-const VERSION = "v1.9.0"; // three plates in the corner — menu, mute, fullscreen — one panel with two faces behind the first, and mute that never stops the round
+// v1.9.1  A GAME IS NOT A DOCUMENT. Selection, the long-press callout and
+//         double-tap zoom are off across the page, and js/touch-guard.js — a
+//         classic script, precached below — cancels selectstart and the
+//         context menu outside a text field, so a thumb resting on a steer
+//         button no longer highlights the paddock.
+const VERSION = "v1.9.1"; // a tablet no longer thinks the paddock is a page of text — no selection, no long-press menu
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting
@@ -163,6 +168,7 @@ const ASSETS = [
   "./js/main.js",
   "./js/ui.js",
   "./js/screen.js",
+  "./js/touch-guard.js",
   "./js/update.js",
   // Multiplayer. main.js imports these now, so they belong in the precache
   // like everything else it reaches. vendor/peerjs.js is absent on purpose:

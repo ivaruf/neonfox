@@ -34,6 +34,28 @@ body {
   color: var(--ink);
   font: 15px/1.4 var(--font);
   -webkit-text-size-adjust: 100%;
+  /*
+   * This is a game, not a document. On a tablet a thumb resting on a steer
+   * button is a long press and a drag that starts on a paddock label is a
+   * text selection, so iPad Safari highlights words and offers Copy / Look Up
+   * mid-round. Nothing selects and nothing opens a callout, except a real
+   * text field (below). `manipulation` drops double-tap-to-zoom without
+   * taking pinch away; the arena itself is touch-action: none. js/touch-guard.js
+   * is the second half: CSS alone is not honoured everywhere (hub CLAUDE.md
+   * §2, "a game is not a document").
+   */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 #arena {
