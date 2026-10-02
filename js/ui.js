@@ -128,16 +128,36 @@ export class UI {
 
     /*
      * Two local riders share ONE KEYBOARD (P1 on the arrows, P2 on A/D); the
-     * touch buttons only ever steer seat 0. On a device with no fine pointer
-     * at all — a phone, a tablet — there is no keyboard to share, so 2P is a
-     * choice that cannot work and the row goes. "No fine pointer" rather than
-     * "is touch": a touchscreen laptop, or an iPad with a trackpad keyboard,
-     * still has one and keeps the option. The owner, 2026-10-02: "local
-     * multiplayer on touch screens makes no sense." Sideways the row's grid
-     * slot simply stays empty, which is the slot under the corner plates.
+     * touch buttons only ever steer seat 0. On a phone or tablet there is no
+     * keyboard to share, so 2P is a choice that cannot work and the row goes.
+     * The owner, 2026-10-02: "local multiplayer on touch screens makes no
+     * sense." Sideways the row's grid slot simply stays empty, which is the
+     * slot under the corner plates.
+     *
+     * The test is the PRIMARY pointer being coarse, not "no fine pointer
+     * anywhere". v1.10.1 asked (any-pointer: fine), and an iPad that supports
+     * the Pencil answers yes to that with no Pencil in sight, so the row
+     * stayed exactly where it was meant to go. A touchscreen laptop's primary
+     * pointer is still its trackpad, so it keeps the row either way.
+     *
+     * A keyboard is what 2P actually needs, so a real key press brings the row
+     * back — an iPad with a keyboard attached is the one touch device where two
+     * on one keyboard works. Keys typed into a text field are skipped, because
+     * an on-screen keyboard fires keydown too.
      */
-    this.touchOnly = !!(window.matchMedia && !window.matchMedia("(any-pointer: fine)").matches);
-    if (this.touchOnly) root.querySelector("#row-riders").hidden = true;
+    this.ridersRow = root.querySelector("#row-riders");
+    this.touchOnly = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+    if (this.touchOnly) {
+      this.ridersRow.hidden = true;
+      const onKey = (e) => {
+        const t = e.target;
+        if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+        window.removeEventListener("keydown", onKey, true);
+        this.touchOnly = false;
+        this.ridersRow.hidden = false;
+      };
+      window.addEventListener("keydown", onKey, true);
+    }
     this.aiSeg = root.querySelector('.seg[data-seg="ai"]');
 
     // Selecting a button presses it and un-presses its row-mates; changing
