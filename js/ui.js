@@ -125,6 +125,19 @@ export class UI {
     this.touchButtons = { left, right };
 
     this.humansSeg = root.querySelector('.seg[data-seg="humans"]');
+
+    /*
+     * Two local riders share ONE KEYBOARD (P1 on the arrows, P2 on A/D); the
+     * touch buttons only ever steer seat 0. On a device with no fine pointer
+     * at all — a phone, a tablet — there is no keyboard to share, so 2P is a
+     * choice that cannot work and the row goes. "No fine pointer" rather than
+     * "is touch": a touchscreen laptop, or an iPad with a trackpad keyboard,
+     * still has one and keeps the option. The owner, 2026-10-02: "local
+     * multiplayer on touch screens makes no sense." Sideways the row's grid
+     * slot simply stays empty, which is the slot under the corner plates.
+     */
+    this.touchOnly = !!(window.matchMedia && !window.matchMedia("(any-pointer: fine)").matches);
+    if (this.touchOnly) root.querySelector("#row-riders").hidden = true;
     this.aiSeg = root.querySelector('.seg[data-seg="ai"]');
 
     // Selecting a button presses it and un-presses its row-mates; changing
@@ -355,6 +368,7 @@ export class UI {
   }
 
   get humans() {
+    if (this.touchOnly) return 1;
     return Number(
       this.humansSeg.querySelector('button[aria-pressed="true"]').dataset.v,
     );
