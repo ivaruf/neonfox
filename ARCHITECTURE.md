@@ -263,6 +263,7 @@ export class UI {
   setTouchVisible(visible)   // shows only when matchMedia('(pointer: coarse)') matches
   setSpectate(text, hex)     // caption above the touch buttons: whose ride the camera is on
   hideSpectate()
+  setSkippable(on)           // Skip ahead inside that caption; onSkip() fires on its press
   setVolumes(music, sfx)     // move both sliders and their readouts without firing the callbacks
   // There is ONE pair of volume sliders, in the menu panel, and they fire
   // onMusicVolume(0..1) / onSfxVolume(0..1) on `input`, live while dragging,
@@ -371,6 +372,15 @@ export class Sfx {
   holds. If the followed rider dies the view moves on to the next living one.
   The caption names who you are riding with; roundStart returns to 'play' and
   hides it.
+- **Skip ahead.** In a local match the spectator caption carries a Skip ahead
+  button (and Enter does the same) for when only bots are left.
+  `Match.finishRound()` runs the ordinary `update()` in a loop until the
+  round ends, so the points are exactly what watching would have paid; the
+  World's seeded RNG drives the bots, so it is the same round, sooner. The
+  glue darkens the crashed riders without their bursts or taunts and hands
+  only `roundOver` to the event switch. Not offered in a net match: that
+  round is the host's simulation, in another worker. Backstop: ten minutes
+  of sim, then the round ends with no winner.
 - **Spinning while spectating.** Dragging on the arena orbits the camera:
   horizontal drag is yaw, vertical is pitch, `view.spin(dx * 0.006, -dy * 0.004)`
   per step from `input.takeDrag()`. Holding a steering control for longer than

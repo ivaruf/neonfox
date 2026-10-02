@@ -19,8 +19,17 @@ import {
   COUNTDOWN_SECONDS,
   ROUND_OVER_SECONDS,
   POINTS_PER_RIVAL,
+  TICK,
 } from "../config.js";
 import { aiThink } from "./ai.js";
+
+/*
+ * The most of a round finishRound() will play out before it calls it a draw:
+ * ten minutes of sim. A bots-only round in the largest arena with five bots
+ * measured under 3,000 ticks (about 13 ms in node, 2026-10-02), so this is
+ * only a backstop against bots that somehow never meet a wall.
+ */
+const FINISH_CAP_TICKS = 60 * 60 * 10;
 
 export class Match {
   constructor(world, specs, { attract = false, target = 0 } = {}) {
@@ -101,6 +110,31 @@ export class Match {
 
       default:
         break;
+    }
+  }
+
+  /*
+   * Play the rest of this round out at once, for when every human is out and
+   * nobody wants to watch the bots finish (main.js offers it as Skip ahead).
+   * It is the same update() run in a loop, so the points are exactly the ones
+   * the bots would have earned on screen — nothing is estimated, and the
+   * seeded World makes it the same round, just sooner. Refuses while a human
+   * is still riding, because that round is theirs to finish. Ends in
+   * roundOver like any other round; events gets every crash along the way.
+   */
+  finishRound(events) {
+    if (this.state !== "playing") return;
+    if (this.world.players.some((p) => p.kind === "human" && p.alive)) return;
+    const idle = new Map(); // the humans are out; nobody's steering matters
+    for (let n = 0; this.state === "playing" && n < FINISH_CAP_TICKS; n++) {
+      this.update(TICK, idle, events);
+    }
+    if (this.state === "playing") {
+      // The backstop fired: the survivors keep what they earned and nobody
+      // takes the round.
+      this.state = "roundOver";
+      this.timer = ROUND_OVER_SECONDS;
+      events.push({ type: "roundOver", winnerId: null });
     }
   }
 

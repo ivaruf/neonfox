@@ -63,6 +63,7 @@ export class UI {
       onResume,
       onRestart,
       onLeave,
+      onSkip,
     } = {},
   ) {
     this.root = root;
@@ -186,6 +187,10 @@ export class UI {
     });
     root.querySelector("#to-menu").addEventListener("click", () => {
       if (onMenu) onMenu();
+    });
+    this.skipEl = root.querySelector("#skip");
+    this.skipEl.addEventListener("click", () => {
+      if (onSkip) onSkip();
     });
 
     // The way into multiplayer. index.html may not carry this button yet —
@@ -732,6 +737,12 @@ export class UI {
 
   hideSpectate() {
     this.spectateEl.hidden = true;
+  }
+
+  /** Skip ahead, inside the caption: offered only where the round is this
+   *  page's own to fast-forward (main.js decides). */
+  setSkippable(on) {
+    this.skipEl.hidden = !on;
   }
 
   /** Shown only on a coarse (touch) pointer, and only when the caller wants it. */

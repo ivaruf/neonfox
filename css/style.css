@@ -846,6 +846,26 @@ kbd {
   color: var(--ink-dim);
   font-size: 12px;
 }
+/*
+ * Skip ahead rides in the caption, the one thing on screen while you watch the
+ * bots. The caption lets pointers through to the arena; the button takes them
+ * back. z-index because #touch comes later in the page and its circles carry
+ * an invisible hit margin wide enough to reach under the caption on a phone.
+ */
+#spectate {
+  z-index: 1;
+}
+#skip {
+  pointer-events: auto;
+  margin-left: 12px;
+  min-height: 32px;
+  padding: 4px 14px;
+  color: var(--ink);
+  font-size: 13px;
+}
+#skip kbd {
+  margin-left: 6px;
+}
 @media (max-width: 600px) {
   #spectate {
     bottom: 124px; /* above the touch buttons */
@@ -1268,6 +1288,14 @@ kbd {
     position: absolute;
     inset: -28px;
     border-radius: 50%;
+  }
+  /* Keys a thumb has not got: the caption keeps its width for the button. */
+  #spectate .how,
+  #skip kbd {
+    display: none;
+  }
+  #skip {
+    min-height: 44px;
   }
 }
 @media (pointer: coarse) and (max-width: 600px) {

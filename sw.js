@@ -136,7 +136,7 @@
 //         classic script, precached below — cancels selectstart and the
 //         context menu outside a text field, so a thumb resting on a steer
 //         button no longer highlights the paddock.
-const VERSION = "v1.10.2"; // hide 2P on any touch-first device, Pencil iPads included; a real key brings it back
+const VERSION = "v1.11.0"; // Skip ahead: once only bots are left, play the round out at once
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting

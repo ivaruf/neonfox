@@ -136,6 +136,7 @@ function boot() {
     onResume: () => setPaused(false),
     onRestart: onPauseRestart,
     onLeave: onPauseLeave,
+    onSkip,
   });
 
   // Restore the saved arena size and turning mode before the very first
@@ -709,6 +710,7 @@ function boot() {
   input.onCommand = (name) => {
     if (name === "start") {
       if (mode === "menu") onStart();
+      else if (spectating && mode === "match" && !paused) onSkip();
       else if (match && match.state === "matchOver") {
         // Enter on a finished net match is the host's rematch, and nothing
         // at all for a guest — same rule as the button.
@@ -838,6 +840,9 @@ function boot() {
         spectating = true;
         spectateStop = 1; // the first living rider; stops()[0] is the overview
         view.setMode("follow");
+        // Only a local match can be fast-forwarded: a net round is the host's
+        // simulation, running in somebody else's worker.
+        ui.setSkippable(mode === "match");
       }
     } else {
       crashViewHold = 0;
@@ -928,6 +933,34 @@ function boot() {
       heldDir[1] = 0;
       followId = null;
     }
+  }
+
+  /*
+   * Skip ahead: every human is out, only bots are left, and the round is ours
+   * to finish. Match.finishRound() plays it out to the end in one go, so the
+   * points are the real ones rather than a guess, and the round-over banner
+   * names the real winner. The crashes all happened within a few
+   * milliseconds, though, and replaying their bursts, shakes and taunts would
+   * be a pile-up of noise — so the losers just go dark, and only the result is
+   * told. The finished trails appear all at once, which is the record of what
+   * happened. Then the round-over timer runs as usual into the next round, or
+   * into the match result if that round decided it.
+   */
+  function onSkip() {
+    if (mode !== "match" || paused || !spectating) return;
+    if (match.state !== "playing") return;
+    sfx.click();
+    const events = [];
+    match.finishRound(events);
+    for (const e of events) {
+      if (e.type !== "eliminated") continue;
+      riders.get(e.id)?.setAlive(false);
+      markers.get(e.id)?.setAlive(false);
+    }
+    clearSpectate();
+    view.resetOrbit();
+    view.setMode("play");
+    handleEvents(events.filter((e) => e.type !== "eliminated"));
   }
 
   /*
