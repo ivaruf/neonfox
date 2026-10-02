@@ -136,7 +136,7 @@
 //         classic script, precached below — cancels selectstart and the
 //         context menu outside a text field, so a thumb resting on a steer
 //         button no longer highlights the paddock.
-const VERSION = "v1.9.1"; // a tablet no longer thinks the paddock is a page of text — no selection, no long-press menu
+const VERSION = "v1.10.0"; // foxes in a third fewer draw calls, bigger touch targets, no live blur on touch
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting

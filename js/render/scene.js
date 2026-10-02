@@ -277,7 +277,12 @@ export function createScene(canvas) {
   }
 
   function applyScaling() {
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    // 2 is the hub's ceiling, not a target. A touch device is the common old
+    // device, its arena is a hand's width away, and 2x with MSAA on a tablet
+    // panel is ~3 MP of fill a frame: 1.5 there costs a hair of edge
+    // sharpness nobody holding it will see, and 44% of the pixels.
+    const cap = window.matchMedia && window.matchMedia("(pointer: coarse)").matches ? 1.5 : 2;
+    const dpr = Math.min(cap, window.devicePixelRatio || 1);
     engine.setHardwareScalingLevel(1 / dpr);
   }
 

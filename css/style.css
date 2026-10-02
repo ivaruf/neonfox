@@ -1220,3 +1220,80 @@ kbd {
     bottom: 12px;
   }
 }
+
+
+/* ============ Touch devices: bigger targets, no live blur ============
+ *
+ * Two things a finger needs that a mouse does not, found 2026-10-02.
+ *
+ * TARGETS. The owner: "the buttons need to be bigger on touch devices, they
+ * are easily missed." The steering circles grow, and each also gets an
+ * invisible margin (::before) that counts as the button, so a thumb that
+ * lands near it still steers — the circle is what you see, the margin is
+ * what you hit. Corner plates go to 48px (44px is the usual floor for a
+ * fingertip), and the menu pills grow too, except on a sideways phone where
+ * the extra height would make the paddock scroll (hub §2).
+ *
+ * BLUR. backdrop-filter re-blurs whatever is behind the element every frame,
+ * and behind these is a canvas that redraws every frame — on an old tablet
+ * that is a full-screen blur per panel per frame. The glass goes a little
+ * more opaque instead, so the panel still reads as the same panel.
+ */
+@media (pointer: coarse) {
+  .panel {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(12, 18, 52, 0.86);
+  }
+  #corner-tools {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(8, 12, 36, 0.84);
+  }
+  .icon-button {
+    width: 48px;
+    height: 48px;
+  }
+  #touch button {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    font-size: 40px;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(20, 30, 80, 0.62);
+  }
+  #touch button::before {
+    content: "";
+    position: absolute;
+    inset: -28px;
+    border-radius: 50%;
+  }
+}
+@media (pointer: coarse) and (max-width: 600px) {
+  #touch button {
+    width: 100px;
+    height: 100px;
+  }
+}
+@media (pointer: coarse) and (min-height: 501px) {
+  .seg button {
+    min-height: 46px;
+  }
+}
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+  .icon-button {
+    width: 44px;
+    height: 44px;
+  }
+  /* Sideways the circles grow only a little (76 -> 84px) to leave the arena
+   * its height; the hit margin does the rest of the finding. */
+  #touch button {
+    width: 84px;
+    height: 84px;
+    font-size: 30px;
+  }
+  #touch button::before {
+    inset: -22px;
+  }
+}

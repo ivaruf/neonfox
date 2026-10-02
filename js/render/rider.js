@@ -515,6 +515,8 @@ function buildFox(scene, model, colour) {
     }
   }
 
+  foldFox(fox);
+
   /*
    * The ball, rolled by hand in setPose. startsWith because
    * instantiateModelsToScene renames every clone, and the whole OrbRoot turns
@@ -782,6 +784,91 @@ function mergeUnder(model) {
     // A failed merge costs draw calls and nothing else: the unmerged children
     // are still parented, still tinted, and still look exactly right.
     console.warn('rider: merge failed, keeping the loose meshes', err);
+  }
+}
+
+/*
+ * Fold one fox from ~180 meshes into ~115, without touching how it moves.
+ *
+ * WHY. Six foxes were 2,200 draw calls a frame (the glow layer draws each
+ * mesh twice), and on an old tablet that is the frame gone before the GPU has
+ * done anything — measured 2026-10-02. The fox is 180 meshes but only 17
+ * materials, and most of those meshes are parts that never move on their own.
+ * This fold took six riders from 2,206 draw calls to 1,402 (headless Chrome,
+ * close-ups before and after compared by eye).
+ *
+ * TWO KINDS, NEVER MIXED.
+ *   rigid    117 meshes that hang off an animated node and have no skin of
+ *            their own. Merged per (parent node, material) and put back under
+ *            that parent, so the clip still swings them: 117 -> 50.
+ *   skinned  63 meshes that deform with the two skeletons (legs, toes, wrist
+ *            bands, tail). LEFT ALONE, after two tries on 2026-10-02 that
+ *            both went wrong where it shows. Merging them as they stand
+ *            stretched the legs out below the orb (MergeMeshes bakes each
+ *            world matrix and the skeleton applies it again). Lifting them off
+ *            their parent first — every one sits at an identity transform —
+ *            made the legs vanish instead, for a reason not yet pinned down:
+ *            the loader's skin binding, or the packed bone indices surviving
+ *            the merge. FOLD_SKINNED keeps the second attempt for whoever
+ *            picks this up; it is worth ~57 draw calls a rider and is not
+ *            worth a fox without legs.
+ * This file used to say "the fox is never merged: it is skinned". True of
+ * the skinned parts; the rigid ones were most of the fox.
+ *
+ * Materials are this rider's own clones and are already tinted, and nothing
+ * after this looks a fox mesh up again. A merge that fails leaves the parts
+ * as they were: more draw calls, the same fox.
+ */
+const FOLD_SKINNED = false;
+
+/** True when a node's own transform is the identity, so lifting it off its
+ *  parent leaves its vertices where the skeleton expects them. */
+function atIdentity(node) {
+  const q = node.rotationQuaternion;
+  const still = q ? Math.abs(q.w) > 0.999999 : node.rotation.lengthSquared() < 1e-12;
+  return still && node.position.lengthSquared() < 1e-12 &&
+    Math.abs(node.scaling.x - 1) + Math.abs(node.scaling.y - 1) + Math.abs(node.scaling.z - 1) < 1e-6;
+}
+
+function foldFox(fox) {
+  const B = BABYLON;
+  const groups = new Map();
+  for (const mesh of fox.getChildMeshes(false)) {
+    if (mesh.getClassName() !== 'Mesh' || !mesh.material || mesh.getChildren().length) continue;
+    if (mesh.morphTargetManager || !mesh.getTotalVertices()) continue;
+    if (mesh.skeleton && (!FOLD_SKINNED || !atIdentity(mesh))) continue;
+    const key = [mesh.skeleton ? mesh.skeleton.uniqueId : 'rigid', mesh.parent ? mesh.parent.uniqueId : 'none',
+      mesh.material.uniqueId, mesh.getVerticesDataKinds().slice().sort().join(',')].join('|');
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(mesh);
+  }
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const { parent, material, skeleton } = group[0];
+    try {
+      if (skeleton) {
+        // Lift off the parent: at identity, world == local == nothing, so the
+        // merge bakes nothing and the bones keep the whole say.
+        for (const m of group) { m.parent = null; m.computeWorldMatrix(true); }
+      } else {
+        parent?.computeWorldMatrix(true);
+        for (const m of group) m.computeWorldMatrix(true);
+      }
+      const influencers = Math.max(...group.map((m) => m.numBoneInfluencers || 0));
+      const merged = B.Mesh.MergeMeshes(group, true, true);
+      if (!merged) continue;
+      merged.material = material;
+      merged.isPickable = false;
+      if (skeleton) {
+        merged.skeleton = skeleton;
+        merged.numBoneInfluencers = influencers;
+        merged.parent = parent;          // back at identity, exactly as before
+      } else if (parent) {
+        merged.setParent(parent);
+      }
+    } catch (err) {
+      console.warn('rider: could not fold', group.length, 'fox parts; left as they were', err);
+    }
   }
 }
 
