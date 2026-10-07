@@ -28,13 +28,14 @@ import {
   unpackState,
   unpackTrail,
   cleanName,
+  cleanOutfit,
   cleanSeats,
 } from "./protocol.js";
 import { ShadowWorld, createFeed } from "./shadow.js";
 import { joinRendezvous } from "./rendezvous.js";
 import { parseCode } from "./codes.js";
 
-export async function joinSession({ code, name, seats, coarse }) {
+export async function joinSession({ code, name, seats, coarse, outfit }) {
   const parsed = parseCode(code);
   if (!parsed) throw new Error("That is not a code. Tap three pictures.");
 
@@ -96,6 +97,7 @@ export async function joinSession({ code, name, seats, coarse }) {
         colorIndex: r.colorIndex,
         mine: myIds.includes(r.id),
         seat: myIds.indexOf(r.id),
+        outfit: cleanOutfit(r.outfit),
       })),
     );
     session.onRoster?.(session.roster);
@@ -213,6 +215,7 @@ export async function joinSession({ code, name, seats, coarse }) {
     t: MSG.HELLO,
     v: NET_VERSION,
     name: cleanName(name),
+    outfit: cleanOutfit(outfit),
     seats: session.seats,
     coarse: !!coarse,
   });

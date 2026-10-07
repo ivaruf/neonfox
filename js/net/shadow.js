@@ -36,7 +36,7 @@ export class ShadowWorld {
   }
 
   /*
-   * roster: [{ id, slot, name, colorIndex, mine }] in slot order.
+   * roster: [{ id, slot, name, colorIndex, mine, outfit }] in slot order.
    *
    * `kind` is set to "human" for riders this device steers and "ai" for
    * everyone else — including other people's riders, which are plainly not
@@ -58,6 +58,7 @@ export class ShadowWorld {
       kind: r.mine ? "human" : "ai",
       mine: !!r.mine,
       seat: r.seat ?? -1,
+      outfit: r.outfit ?? [],
       x: 0,
       y: 0,
       heading: 0,

@@ -41,6 +41,11 @@
  * silently clamps it to a heading it is not facing.
  */
 
+/* Not bumped for the outfit field (HELLO and the roster entries gained an
+ * optional `outfit`): a build that predates it ignores the field and a build
+ * that has it treats a missing one as "nothing on", so the two still play the
+ * same match and only the hats go missing. A bump refuses the join outright,
+ * which is the right answer for a disagreement about the game, not the hats. */
 export const NET_VERSION = 1;
 
 /* Reliable lane, JSON. The host is authoritative for every one of these. */
@@ -292,6 +297,20 @@ export function rollName(avoid) {
   let name = pick();
   if (name === avoid) name = pick();
   return name;
+}
+
+/*
+ * What a rider is wearing: item ids from the arcade's dresser (arcade/js/
+ * wardrobe.js, a proof of concept). Checked for shape only, a few short plain
+ * words with no repeats, because the list of real items lives in another
+ * repository and the net code must not depend on it being reachable. The
+ * renderer is the allowlist (main.js puts on only ids the wardrobe knows, one
+ * per slot), and it is cosmetic: a guest who lies about it gains a hat.
+ */
+export function cleanOutfit(outfit) {
+  if (!Array.isArray(outfit)) return [];
+  const ids = outfit.filter((id) => typeof id === "string" && /^[A-Za-z]{1,24}$/.test(id));
+  return [...new Set(ids)].slice(0, 8);
 }
 
 export function cleanName(name) {

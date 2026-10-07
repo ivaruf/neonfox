@@ -284,11 +284,20 @@ function boot() {
       const hex = PALETTE[p.colorIndex].hex;
       const rider = createRider(view.scene, hex);
       riders.set(p.id, rider);
-      // "human" means steered from this device (shadow.js), so this dresses
-      // our own fox and never a rival's — a friend's hat would be roster
-      // data, sent by the host, and this PoC does not send it. Read fresh per
-      // match: the player may have been back to the dresser in between.
-      if (p.kind === "human" && wardrobe) rider.wear(wardrobe, wardrobe.loadOutfit());
+      // "human" means steered from this device (shadow.js): our own foxes
+      // wear what this device picked, read fresh per match because the player
+      // may have been back to the dresser in between. Everyone else's arrive
+      // as roster data in a net match (p.outfit, host-checked for shape) and
+      // are rebuilt through selectAccessory, which is the allowlist: only items
+      // the wardrobe knows go on, one per slot. Bots never have one.
+      if (wardrobe && p.kind === "human") rider.wear(wardrobe, wardrobe.loadOutfit());
+      else if (wardrobe && p.outfit?.length) {
+        const worn = Object.fromEntries(
+          wardrobe.ACCESSORIES.map((item) => [item.id, false]),
+        );
+        for (const id of p.outfit) wardrobe.selectAccessory(worn, id, true);
+        rider.wear(wardrobe, worn);
+      }
       if (p.kind === "human") markers.set(p.id, createMarker(view.scene, hex));
       hexById.set(p.id, hex);
     }
@@ -426,6 +435,15 @@ function boot() {
       // screen. The lobby used to ask a second time in its own words; one
       // number with two controls is one number that can disagree with itself.
       humans: () => ui.humans,
+      // The ids the gopher is wearing, sent to the host when a game is opened
+      // or joined. Empty without the arcade's wardrobe beside this game.
+      outfit: () => {
+        if (!wardrobe) return [];
+        const worn = wardrobe.loadOutfit();
+        return wardrobe.ACCESSORIES.filter((item) => worn[item.id]).map(
+          (item) => item.id,
+        );
+      },
     },
     onPlay: (session) => {
       sfx.unlock();

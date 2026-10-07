@@ -41,6 +41,7 @@ import {
   unpackState,
   unpackTrail,
   cleanName,
+  cleanOutfit,
   cleanSeats,
   cleanTurn,
 } from "./protocol.js";
@@ -56,6 +57,7 @@ export async function hostSession({
   name,
   seats,
   coarse,
+  outfit,
 }) {
   const code = newCode();
   const world = new ShadowWorld();
@@ -93,6 +95,7 @@ export async function hostSession({
    * ends can show one line and it says the same thing on each. */
   session.rules = { arenaName: arena.name, turnName: turn.name, target };
   let hostName = cleanName(name);
+  const hostOutfit = cleanOutfit(outfit);
 
   const say = (text) => session.onStatus?.(text);
 
@@ -111,7 +114,7 @@ export async function hostSession({
    */
   function rebuildRoster() {
     const entries = [];
-    const push = (name, kind, owner, seat) => {
+    const push = (name, kind, owner, seat, outfit = []) => {
       const i = entries.length;
       entries.push({
         id: "p" + i,
@@ -121,6 +124,9 @@ export async function hostSession({
         kind,
         owner,
         seat,
+        // Roster data, sent once per roster rather than in any frame (hub §7):
+        // every seat a device holds wears that device's outfit.
+        outfit,
       });
     };
     myIds.length = 0;
@@ -130,6 +136,7 @@ export async function hostSession({
         "human",
         "me",
         s,
+        hostOutfit,
       );
       myIds.push(entries[entries.length - 1].id);
     }
@@ -142,6 +149,7 @@ export async function hostSession({
           "human",
           peer.key,
           s,
+          peer.outfit,
         );
         peer.ids.push(entries[entries.length - 1].id);
       }
@@ -171,6 +179,7 @@ export async function hostSession({
         name: r.name,
         colorIndex: r.colorIndex,
         kind: r.kind,
+        ...(r.outfit.length ? { outfit: r.outfit } : {}),
       })),
     };
   }
@@ -193,6 +202,7 @@ export async function hostSession({
         colorIndex: r.colorIndex,
         mine: r.owner === "me",
         seat: r.seat,
+        outfit: r.outfit,
       })),
     );
   }
@@ -271,6 +281,7 @@ export async function hostSession({
           "That device is running a different build of NeonFox. Reload both and try again.",
         );
       peer.name = cleanName(value.name);
+      peer.outfit = cleanOutfit(value.outfit);
       peer.hello = true;
       if (session.started) {
         // The cast is fixed once a match begins, so a late arrival watches

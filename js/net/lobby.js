@@ -564,6 +564,9 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
         name: playerName(),
         seats: seats(),
         coarse,
+        // What the gopher is wearing, so everyone else's screen dresses this
+        // fox too; main.js answers it, since only main.js has the wardrobe.
+        outfit: settings.outfit?.() ?? [],
       });
       attach(next);
       paintShared(next.code);
@@ -598,6 +601,9 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
         name: playerName(),
         seats: seats(),
         coarse,
+        // What the gopher is wearing, so everyone else's screen dresses this
+        // fox too; main.js answers it, since only main.js has the wardrobe.
+        outfit: settings.outfit?.() ?? [],
       });
       // The code was right and somebody answered: the same room the host is
       // looking at, minus the button that starts it.
