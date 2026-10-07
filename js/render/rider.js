@@ -186,6 +186,7 @@ export function createRider(scene, hex) {
   let orbRoot = null; // the ball, rolled by hand in setPose
   let rollBase = 0; // whatever tilt the ball was authored with
   let orbMats = null; // the orb material clones, holding the shared seam texture
+  let head = null; // the fox's rigid head frame, where an outfit hangs
   let tier = 0;
 
   // Tier 1: the fox, if preloadRiders() has landed. All three models share the
@@ -201,6 +202,7 @@ export function createRider(scene, hex) {
       orbRoot = fox.orbRoot;
       rollBase = fox.rollBase;
       orbMats = fox.orbMats;
+      head = fox.head;
       bobHeight = 0; // the clip bounces the body itself; two bobs fight
       model.scaling.set(RIDER_SCALE, RIDER_SCALE, RIDER_SCALE);
       tier = 1;
@@ -418,6 +420,19 @@ export function createRider(scene, hex) {
       if (runClip) runClip.stop();
     },
 
+    /*
+     * Put on what the gopher is wearing in the arcade (wardrobe.js, imported
+     * from ../arcade/ by main.js). `wardrobe` is that module; `selection` is
+     * its loadOutfit(). Fox only: the cat and the capsule are fallbacks for a
+     * game that is already degraded, and a hat floating over the wrong head
+     * would be worse than none. Built once, before the rider is first drawn;
+     * the meshes and materials are this rider's and go with root.dispose().
+     */
+    wear(wardrobe, selection) {
+      if (!head || !Object.values(selection).some(Boolean)) return;
+      dress(scene, head, wardrobe, selection);
+    },
+
     celebrate(times = 1) {
       // No clip, no flip: the cat, the primitives and the gliding fox all take
       // this call and do nothing, which is what keeps the caller free of tiers.
@@ -553,6 +568,15 @@ function buildFox(scene, model, colour) {
    */
   const riderRoot =
     fox.getDescendants(false, (node) => node.name.startsWith('RiderRoot'))[0] || null;
+
+  /*
+   * Where a hat goes. The fox's head is not a bone: the skull, eyes, muzzle
+   * and nose are rigid meshes hung straight off CruiseMotion, which the gait
+   * sways and the backflip carries through RiderRoot. Anything parented here
+   * rides along with both for free. See wear().
+   */
+  const head =
+    fox.getDescendants(false, (node) => node.name.startsWith('CruiseMotion'))[0] || null;
   const riderPose = riderRoot
     ? {
         position: riderRoot.position.clone(),
@@ -599,7 +623,60 @@ function buildFox(scene, model, colour) {
     orbRoot,
     rollBase,
     orbMats,
+    head,
   };
+}
+
+/*
+ * The gopher's items on the fox's head.
+ *
+ * wardrobe.js authors every item on the GOPHER's head: head-local, facing +Z,
+ * eyes at (+-0.127, 0.25, 0.307). The fox also faces +Z inside its model, so
+ * one uniform transform maps gopher-head space into CruiseMotion space, chosen
+ * so the gopher's eye line lands on the fox's (+-0.239, 0.302, 0.797 in the
+ * GLB). That alone gets the glasses and the monocle right. The fox is not a
+ * scaled gopher, though — a long snout, a flat broad skull, ears set high —
+ * so the items that sit anywhere but the eye line get a nudge of their own,
+ * in gopher units, set by eye against a render of the fox wearing them.
+ */
+const HEAD_FIT = { scale: 1.88, x: 0, y: -0.168, z: 0.22 };
+const ITEM_FIT = {
+  // The fox's eyes bulge further than the gopher's: without this they poke
+  // through the lenses and the sunglasses read as empty frames.
+  sunglasses: { z: 0.06 },
+  monocle: { z: 0.05 },
+  topHat: { y: -0.02, z: -0.16, scale: 0.85 },
+  antennae: { y: -0.02, z: -0.16 },
+  clownNose: { y: 0.02, z: 0.05 },
+  mustache: { y: 0.0, z: -0.02 },
+  bowTie: { y: 0.0, z: -0.05 },
+};
+
+function dress(scene, head, wardrobe, selection) {
+  const B = BABYLON;
+  const anchor = new B.TransformNode('rider-outfit', scene);
+  anchor.parent = head;
+  anchor.position.set(HEAD_FIT.x, HEAD_FIT.y, HEAD_FIT.z);
+  anchor.scaling.setAll(HEAD_FIT.scale);
+  const outfit = wardrobe.makeAccessories(anchor, scene, null);
+  outfit.set(selection);
+  // Nothing in this game changes outfit mid-match, so what is not on is not
+  // kept. But the items SHARE materials (the hat's felt is the mustache's), so
+  // the meshes go first and only then the materials nothing worn still uses —
+  // disposing them together left every worn mesh on a dead material, drawn white.
+  const materials = new Set(anchor.getChildMeshes(false).map((m) => m.material));
+  for (const [id, node] of Object.entries(outfit.nodes)) {
+    if (!selection[id]) node.dispose(false, false);
+  }
+  for (const m of anchor.getChildMeshes(false)) materials.delete(m.material);
+  for (const m of materials) m?.dispose();
+  for (const [id, node] of Object.entries(outfit.nodes)) {
+    if (!selection[id]) continue;
+    const fit = ITEM_FIT[id];
+    if (!fit) continue;
+    node.position.set(fit.x || 0, fit.y || 0, fit.z || 0);
+    if (fit.scale) node.scaling.setAll(fit.scale);
+  }
 }
 
 /* Clone names gain a suffix, so a clip is matched by its opening words. */

@@ -110,6 +110,28 @@ function boot() {
   );
 
   /*
+   * The outfit the gopher wears in the arcade, worn by this device's own fox
+   * (PROOF OF CONCEPT, 2026-10-07; the why is in arcade/js/wardrobe.js). The
+   * module lives in the arcade's repo, so it is a dynamic import: a game
+   * served without the arcade beside it, offline before the arcade was ever
+   * visited, or behind a blocker gets a rejected promise here and a plain fox,
+   * never a module graph that failed to load. Static `import` would be the
+   * opposite trade — one 404 in another repo blanking this whole game.
+   *
+   * Only riders spawned after it lands are dressed; the menu's attract match
+   * has no humans in it, so in practice nobody sees the gap.
+   */
+  let wardrobe = null;
+  import(new URL("../../arcade/js/wardrobe.js", import.meta.url).href).then(
+    (module) => {
+      wardrobe = module;
+    },
+    () => {
+      console.info("neonfox: no arcade wardrobe beside this game; riders go undressed");
+    },
+  );
+
+  /*
    * The real simulation, which solo and attract play step here in the page.
    * In a net match `world` is repointed at the session's ShadowWorld — the
    * same shape, fed from the wire instead of from physics (js/net/shadow.js)
@@ -260,7 +282,13 @@ function boot() {
     const hexById = new Map();
     for (const p of world.players) {
       const hex = PALETTE[p.colorIndex].hex;
-      riders.set(p.id, createRider(view.scene, hex));
+      const rider = createRider(view.scene, hex);
+      riders.set(p.id, rider);
+      // "human" means steered from this device (shadow.js), so this dresses
+      // our own fox and never a rival's — a friend's hat would be roster
+      // data, sent by the host, and this PoC does not send it. Read fresh per
+      // match: the player may have been back to the dresser in between.
+      if (p.kind === "human" && wardrobe) rider.wear(wardrobe, wardrobe.loadOutfit());
       if (p.kind === "human") markers.set(p.id, createMarker(view.scene, hex));
       hexById.set(p.id, hex);
     }

@@ -136,7 +136,7 @@
 //         classic script, precached below — cancels selectstart and the
 //         context menu outside a text field, so a thumb resting on a steer
 //         button no longer highlights the paddock.
-const VERSION = "v1.11.0"; // Skip ahead: once only bots are left, play the round out at once
+const VERSION = "v1.12.0"; // Your fox wears what the gopher wears in the arcade (PoC)
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting
@@ -246,6 +246,13 @@ self.addEventListener("fetch", (event) => {
   // better at immutable CDN bytes than we would be.
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  // So is a neighbour's file. The arcade's wardrobe.js (the outfit PoC, see
+  // js/main.js) is the arcade's to version, and caching it cache-first here
+  // would freeze it at whatever build this release first happened to see —
+  // a new item in the arcade would never reach the fox until NeonFox shipped.
+  // Left to the network, the worst case is offline and undressed.
+  if (!request.url.startsWith(self.registration.scope)) return;
 
   // A Range request wants a slice. Answering one with a whole cached body is
   // how media playback breaks in ways nobody connects back to the worker, so
