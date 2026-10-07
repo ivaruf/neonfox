@@ -650,6 +650,19 @@ const ITEM_FIT = {
   clownNose: { y: 0.02, z: 0.05 },
   mustache: { y: 0.0, z: -0.02 },
   bowTie: { y: 0.0, z: -0.05 },
+  // The second rack (2026-10-07) starts from the nudge of the item that sits
+  // in the same place, masks where the glasses go. Not the hats: they are
+  // narrower than the top hat's brim, so they fit between the ears and need
+  // far less of its push back.
+  crown: { y: -0.02, z: -0.06, scale: 0.85 },
+  vikingHelmet: { y: -0.02, z: -0.06, scale: 0.85 },
+  propellerCap: { y: -0.02, z: -0.06, scale: 0.85 },
+  snorkel: { z: 0.06 },
+  eyePatch: { z: 0.06 },
+  bubbleGum: { y: 0.0, z: -0.02 },
+  pigSnout: { y: 0.02, z: 0.05 },
+  necktie: { y: 0.0, z: -0.05 },
+  medal: { y: 0.0, z: -0.05 },
 };
 
 function dress(scene, head, wardrobe, selection) {

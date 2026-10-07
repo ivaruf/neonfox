@@ -136,7 +136,7 @@
 //         classic script, precached below — cancels selectstart and the
 //         context menu outside a text field, so a thumb resting on a steer
 //         button no longer highlights the paddock.
-const VERSION = "v1.12.0"; // Your fox wears what the gopher wears in the arcade (PoC)
+const VERSION = "v1.13.0"; // Ten more things to wear from the dresser fit the fox
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting
