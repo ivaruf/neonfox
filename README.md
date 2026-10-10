@@ -33,7 +33,7 @@ you are offline.
 | Rider one steers                | `←` `→`                      | the two on-screen buttons   |
 | Rider two steers (two on one keyboard) | `A` `D` or `Q` `E`    | —                           |
 | Aim before the round starts     | steer during the countdown   | same                        |
-| Start / rematch                 | `Enter` or `Space`           | Blaze! / Rematch            |
+| Start / rematch                 | `Enter` or `Space`           | Play / Rematch              |
 | Menu / pause (and the way out)  | `Esc`                        | the menu plate, top right   |
 | Mute everything                 | `M`                          | the mute plate, top right   |
 | Restart the match               | on the menu panel            | same                        |
@@ -46,9 +46,10 @@ the overview.
 
 The top right corner carries three plates, on every screen and mid-match:
 menu, mute, fullscreen. `Esc` and the menu plate open the same panel, and what
-is in it answers where you were — mid-match the volumes, restart and the way
-back to the paddock; anywhere else just the volumes and the way back to
-whatever it displaced. A local match genuinely stops behind it. A game played
+is in it answers where you were — mid-match the volumes, the language,
+restart and the way back to the start screen; anywhere else the volumes, the
+language and the way back to whatever it displaced. The game speaks bokmål
+first and English on one tap of the language row, live, mid-round included. A local match genuinely stops behind it. A game played
 together does not — it is the host's simulation and cannot be held from one
 screen, so the panel says so and your fox keeps riding, and steering, while it
 is up.
@@ -172,6 +173,6 @@ playing it.
   unmediated, because silencing the room is a different question from setting
   a mix and a menu in front of it would be a menu in the way.
 - **Multiplayer has no host migration and no TURN.** Both doors out of the
-  paddock — Blaze! and Multiplayer — are the same size, but the peer-to-peer
+  start screen — Play and Multiplayer — are the same size, but the peer-to-peer
   one carries the honest limits `docs/P2P.md` writes down: the host closing
   its tab ends the game, and a network pair that needs a relay never connects.

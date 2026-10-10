@@ -25,6 +25,8 @@
  * this game you can die on.
  */
 
+import { said } from "../i18n.js";
+
 const ICE = {
   // One public STUN server, and no TURN. STUN only tells a peer its own
   // public address; no game traffic passes through it. TURN would relay the
@@ -267,10 +269,7 @@ export async function joinOverWebRTC(signalling, { timeout = 15000 } = {}) {
         setTimeout(
           () =>
             reject(
-              new Error(
-                "The host never answered. Check the code — and that there is " +
-                  "no TURN here, so a few networks simply cannot reach each other.",
-              ),
+              said("err.rtcNoAnswer"),
             ),
           timeout,
         ),

@@ -181,14 +181,14 @@ button:focus-visible {
 }
 /*
  * One gutter for every row, so every control in the menu starts at the same x
- * (hub CLAUDE.md §2). 76px rather than 60 since "Local players" arrived: the
- * longest word in it, PLAYERS, is about 64px at this size and tracking, so the
- * label wraps to two lines and still fits inside the gutter instead of pushing
- * its row out of line with the others. Two short lines are shorter than the
- * 40px control beside them, so the row does not grow either.
+ * (hub CLAUDE.md §2). 84px since the game learned bokmål (2026-10-10): the
+ * longest single words are now EFFEKTER, SPILLERE and LANGUAGE, about 74px at
+ * this size and tracking, and a word cannot wrap — it would run out of its
+ * gutter and push its control out of line with the rest. Two-word captions
+ * ("Spill til", "Win at") wrap to two short lines inside it as before.
  */
 .label {
-  flex: 0 0 76px;
+  flex: 0 0 84px;
   color: var(--ink-dim);
   font-size: 12px;
   letter-spacing: 0.14em;
@@ -237,6 +237,35 @@ button:focus-visible {
 .seg button:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+/*
+ * The language row: the same segmented pills, each carrying its flag beside
+ * its own name (hub §2, "Two languages"). The flags are the hub's two SVGs and
+ * keep their own colours; a thin rim keeps the white of each off the glass.
+ * Padding comes in a little so "English" and its flag fit a half-column on a
+ * sideways phone without the pill growing a second line.
+ */
+.seg.lang button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 6px 8px;
+  font-size: 14px;
+}
+.seg.lang .flag {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 15px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(234, 242, 255, 0.35);
+}
+.seg.lang button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /*
@@ -926,7 +955,7 @@ kbd {
     padding: 20px 18px 16px;
   }
   .label {
-    flex-basis: 68px;
+    flex-basis: 76px;
   }
   .chip {
     font-size: 12px;
@@ -1205,8 +1234,17 @@ kbd {
   #pause h2 {
     margin: 0;
   }
+  /* The kicker goes sideways, as the start screen's does: the heading and
+   * the note under it already say what this moment is, and the language row
+   * (2026-10-10) needed the 24px. */
   #pause .kicker {
-    margin: 0;
+    display: none;
+  }
+  /* The language row takes the full width under the two sliders by default —
+   * on the narrowest sideways phones a half-column cannot hold a caption and
+   * two flagged pills. See just below for where there is room. */
+  #row-lang {
+    grid-column: 1 / -1;
   }
   #pause .hint {
     margin: 0;
@@ -1222,6 +1260,20 @@ kbd {
   }
   #menu-back {
     margin-top: 0;
+  }
+  /* WHERE THERE IS WIDTH, the language row and Resume share a line: the row
+   * in the left column, the big pill in the right. That is the line the row
+   * would otherwise have cost, which keeps the pause face as tall as it was
+   * before languages arrived. 700px is where a half-column (292px) still fits
+   * the 84px caption and two flagged pills of about 95px each. Outside a match
+   * Resume is hidden and the row simply sits on the left. */
+  @media (min-width: 700px) {
+    #row-lang {
+      grid-column: 1;
+    }
+    #pause #resume {
+      grid-column: 2;
+    }
   }
 
   /* The steering buttons are the one thing that must NOT shrink sideways —

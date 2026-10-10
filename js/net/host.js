@@ -90,14 +90,18 @@ export async function hostSession({
     ARENA_SIZES[Math.max(0, Math.min(ARENA_SIZES.length - 1, arenaIndex))];
   const turn =
     TURN_MODES[Math.max(0, Math.min(TURN_MODES.length - 1, turnIndex))];
-  /* What this room plays by, in words, for the lobby to print. The same
-   * three settings travel to guests by name in every roster message, so both
-   * ends can show one line and it says the same thing on each. */
-  session.rules = { arenaName: arena.name, turnName: turn.name, target };
+  /* What this room plays by, for the lobby to print. The same three settings
+   * travel to guests in every roster message — as INDICES, not names, so each
+   * device names them in its own language (hub §2: the language stays home). */
+  const arenaAt = ARENA_SIZES.indexOf(arena);
+  const turnAt = TURN_MODES.indexOf(turn);
+  session.rules = { arena: arenaAt, turn: turnAt, target };
   let hostName = cleanName(name);
   const hostOutfit = cleanOutfit(outfit);
 
-  const say = (text) => session.onStatus?.(text);
+  /* A status for this device's own lobby: a key and its arguments, which the
+   * lobby says in this device's language. */
+  const say = (key, ...args) => session.onStatus?.(key, ...args);
 
   /* ------------------------------------------------------------ roster --- */
 
@@ -169,8 +173,8 @@ export async function hostSession({
       t: MSG.ROSTER,
       v: rosterVersion,
       arenaHalf: arena.half,
-      arenaName: arena.name,
-      turnName: turn.name,
+      arena: arenaAt,
+      turn: turnAt,
       target,
       you: peer ? peer.ids : myIds,
       roster: session.roster.map((r) => ({
@@ -245,9 +249,12 @@ export async function hostSession({
       for (const id of peer.ids)
         worker?.postMessage({ type: "INPUT", id, turn: 0 });
     }
-    say(peer.name ? `${peer.name} left.` : "Someone dropped out.");
+    if (peer.name) say("status.left", peer.name);
+    else say("status.dropped");
   }
 
+  /* `why` is a reason CODE — "version" or "full" — never a sentence: the
+   * guest says it in its own language (js/net/guest.js). */
   function refuse(peer, why) {
     peer.channel.send({ t: MSG.REFUSED, why });
     setTimeout(() => peer.channel.close(), 250); // let the message actually go
@@ -276,10 +283,7 @@ export async function hostSession({
     if (value.t === MSG.HELLO) {
       if (peer.hello) return; // one hello per peer; the rest is noise
       if (value.v !== NET_VERSION)
-        return refuse(
-          peer,
-          "That device is running a different build of NeonFox. Reload both and try again.",
-        );
+        return refuse(peer, "version");
       peer.name = cleanName(value.name);
       peer.outfit = cleanOutfit(value.outfit);
       peer.hello = true;
@@ -296,16 +300,13 @@ export async function hostSession({
           seats: 0,
         });
         worker?.postMessage({ type: "CATCH_UP", peer: peer.key });
-        say(`${peer.name} is watching.`);
+        say("status.watching", peer.name);
         return;
       }
       const wanted = cleanSeats(value.seats, value.coarse);
       const room = freeSeats();
       if (room <= 0)
-        return refuse(
-          peer,
-          "This game is full — six riders is the most the arena holds.",
-        );
+        return refuse(peer, "full");
       peer.seats = Math.min(wanted, room);
       rebuildRoster();
       applyRosterLocally();
@@ -315,11 +316,8 @@ export async function hostSession({
         seats: peer.seats,
       });
       publishRoster();
-      say(
-        peer.seats < wanted
-          ? `${peer.name} joined, with room for ${peer.seats} of their riders.`
-          : `${peer.name} joined.`,
-      );
+      if (peer.seats < wanted) say("status.joinedSome", peer.name, peer.seats);
+      else say("status.joined", peer.name);
       return;
     }
     if (value.t === MSG.BYE) dropPeer(peer.key);
@@ -452,7 +450,8 @@ export async function hostSession({
     session.startMatch();
   };
 
-  session.leave = (why = "The host left, so the game is over.") => {
+  // A reason code, like refuse(): "hostLeft" is the only one sent today.
+  session.leave = (why = "hostLeft") => {
     broadcast({ t: MSG.BYE, why }, false);
     for (const peer of peers.values()) peer.channel.close();
     peers.clear();

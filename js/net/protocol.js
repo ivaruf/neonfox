@@ -46,7 +46,11 @@
  * that has it treats a missing one as "nothing on", so the two still play the
  * same match and only the hats go missing. A bump refuses the join outright,
  * which is the right answer for a disagreement about the game, not the hats. */
-export const NET_VERSION = 1;
+// 2 since 2026-10-10: refusals and goodbyes carry a reason code instead of an
+// English sentence, and the room's rules carry arena/turn indices instead of
+// names, so each device says them in its own language. A v1 device would print
+// the codes raw, so it is turned away as a different build instead.
+export const NET_VERSION = 2;
 
 /* Reliable lane, JSON. The host is authoritative for every one of these. */
 export const MSG = Object.freeze({

@@ -34,10 +34,16 @@ import {
 import { ShadowWorld, createFeed } from "./shadow.js";
 import { joinRendezvous } from "./rendezvous.js";
 import { parseCode } from "./codes.js";
+import { ARENA_SIZES, TURN_MODES } from "../config.js";
+import { said } from "../i18n.js";
+
+/* The refusal codes a host sends (js/net/host.js refuse()), and the key each
+ * is said with here. Language never travels; reasons do. */
+const REFUSALS = { version: "why.version", full: "why.full" };
 
 export async function joinSession({ code, name, seats, coarse, outfit }) {
   const parsed = parseCode(code);
-  if (!parsed) throw new Error("That is not a code. Tap three pictures.");
+  if (!parsed) throw said("err.notCode");
 
   const world = new ShadowWorld();
   const feed = createFeed(world);
@@ -53,7 +59,7 @@ export async function joinSession({ code, name, seats, coarse, outfit }) {
     spectator: false,
     started: false,
     match: { state: "idle", round: 0, scores: {}, target: 0 },
-    rules: null, // { arenaName, turnName, target } once the host has said
+    rules: null, // { arena, turn, target } (indices, not names) once the host has said
     onRoster: null,
     onStatus: null,
     onBegin: null,
@@ -81,11 +87,14 @@ export async function joinSession({ code, name, seats, coarse, outfit }) {
     session.match.target = value.target ?? session.match.target;
     // The room's rules, for the lobby to say out loud: a guest cannot see the
     // host's paddock, and a Hairpin game is a surprise worth being warned
-    // about before the first corner. Names only — the guest simulates
-    // nothing, so it has no use for the rate itself.
+    // about before the first corner. Indices only — the guest simulates
+    // nothing, so it has no use for the rate itself, and it names them in its
+    // own language rather than the host's. Clamped, because they came over a
+    // wire: an index the list does not have would print a raw key.
+    const index = (v, n) => Math.max(0, Math.min(n - 1, Math.floor(Number(v)) || 0));
     session.rules = {
-      arenaName: value.arenaName ?? "",
-      turnName: value.turnName ?? "",
+      arena: index(value.arena, ARENA_SIZES.length),
+      turn: index(value.turn, TURN_MODES.length),
       target: session.match.target,
     };
     world.setArena(value.arenaHalf ?? world.half);
@@ -107,7 +116,7 @@ export async function joinSession({ code, name, seats, coarse, outfit }) {
     // No host migration: guests only ever hold a connection to the host, so
     // there is nobody left to promote. Say so plainly rather than leaving a
     // frozen arena that looks like a bug (docs/P2P.md, "what we accept").
-    session.onClosed?.("The host left, so the game is over.");
+    session.onClosed?.("why.hostLeft");
   };
 
   channel.onMessage = (value) => {
@@ -124,11 +133,7 @@ export async function joinSession({ code, name, seats, coarse, outfit }) {
         session.spectator = !!value.spectator;
         session.seats = value.seats ?? session.seats;
         takeRoster(value);
-        session.onStatus?.(
-          session.spectator
-            ? "A match is already running — you are watching this one."
-            : "You are in. Waiting for the host to start.",
-        );
+        session.onStatus?.(session.spectator ? "status.spectator" : "status.in");
         // A spectator arrives mid-round, so the host is about to catch it up
         // and the match is already begun as far as this device is concerned.
         if (session.spectator && !session.started) {
@@ -152,10 +157,13 @@ export async function joinSession({ code, name, seats, coarse, outfit }) {
         for (const e of value.events ?? []) feed.pushEvent(e);
         break;
       case MSG.REFUSED:
-        session.onClosed?.(value.why || "The host turned this device away.");
+        // A reason CODE from the host, said here in this device's language.
+        // Anything unknown — an older host still sending a sentence — gets
+        // the plain refusal rather than being printed as it arrived.
+        session.onClosed?.(REFUSALS[value.why] ?? "why.refused");
         break;
       case MSG.BYE:
-        session.onClosed?.(value.why || "The host left, so the game is over.");
+        session.onClosed?.("why.hostLeft");
         break;
       default:
         break;

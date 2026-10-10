@@ -34,12 +34,37 @@ const button = document.getElementById("update");
 const buildLine = document.getElementById("build");
 
 /*
+ * ITS OWN WORDS, in both languages, because it imports nothing — js/i18n.js
+ * included. It reads <html lang> (set in index.html's head before first paint)
+ * and repaints on the `arcade:lang` that js/i18n.js announces, so the pill and
+ * the build line follow a switch made in the menu panel.
+ */
+const WORDS = {
+  nb: { title: "Ny versjon klar", sub: "Trykk for å hente den", taking: "Henter den nye versjonen …", build: "Versjon" },
+  en: { title: "Update ready", sub: "Tap to take it", taking: "Taking the new build…", build: "Build" },
+};
+const words = () => WORDS[document.documentElement.lang] || WORDS.nb;
+let buildVersion = "";
+
+function paint() {
+  const w = words();
+  const title = button && button.querySelector(".update-title");
+  const sub = button && button.querySelector(".update-sub");
+  if (title) title.textContent = w.title;
+  if (sub) sub.textContent = accepted ? w.taking : w.sub;
+  if (buildLine && buildVersion) buildLine.textContent = `${w.build} ${buildVersion}`;
+}
+document.addEventListener("arcade:lang", paint);
+
+/*
  * Did WE ask for the takeover? `controllerchange` also fires for reasons that
  * are none of our business — another tab of the same game accepting the update,
  * most obviously — and reloading on those would be exactly the mid-run reload
  * the waiting worker exists to prevent. Only our own tap sets this.
  */
 let accepted = false;
+// The markup is in bokmål; an English player's pill is put right before it can show.
+paint();
 
 /** Show the button, wired to the specific worker that is waiting. */
 function offer(worker) {
@@ -48,8 +73,7 @@ function offer(worker) {
   button.onclick = () => {
     accepted = true;
     button.disabled = true;
-    const sub = button.querySelector(".update-sub");
-    if (sub) sub.textContent = "Taking the new build…";
+    paint();
     worker.postMessage({ type: "SKIP_WAITING" });
   };
 }
@@ -99,7 +123,8 @@ function showBuild() {
     channel.port1.onmessage = (event) => {
       const version = event.data && event.data.version;
       if (!version) return;
-      buildLine.textContent = `Build ${version}`;
+      buildVersion = version;
+      paint();
       buildLine.hidden = false;
     };
     worker.postMessage({ type: "GET_VERSION" }, [channel.port2]);

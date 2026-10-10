@@ -403,11 +403,20 @@ export class Sfx {
 | marker | js/render/marker.js                     |
 | rider  | js/render/blue-cat.js, js/render/rider.js|
 | trails | js/render/trails.js                     |
-| dom    | js/input.js, js/ui.js, js/audio.js, js/screen.js |
+| dom    | js/input.js, js/ui.js, js/audio.js, js/screen.js, js/i18n.js |
 | glue   | js/main.js, tools/sim-smoke.mjs         |
 
 One file, one owner. A lane that needs something from another lane asks for
 a contract change here rather than editing the other file.
+
+**Words are js/i18n.js's** (hub CLAUDE.md §2, "Two languages, Norwegian
+first"). Every lane that shows a player text asks `t(key, ...args)` for it,
+in bokmål by default or English once chosen (`arcade.lang.v1`, shared by the
+whole arcade). A switch is live, so whatever writes words from state keeps
+them as a function and says them again on `arcade:lang` — ui.js and
+net/lobby.js both do. js/screen.js and js/update.js import nothing and keep
+their own small tables. The net lane sends keys, reason codes and indices,
+never a sentence: each device renders them in its own language.
 
 ## The net lane (js/net/)
 

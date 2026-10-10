@@ -34,13 +34,23 @@
  * #together button this file adopts it; if it does not, it inserts one after
  * #start, so the feature works either way and the markup can catch up later.
  *
- * Language is the game's: you open a game rather than create a session, and
- * the button that starts it says Blaze! like the one next door.
+ * Its words are plain (hub §2, "Menus speak plainly"): the screen is called
+ * Multiplayer, the button that starts a match says Play like the one next
+ * door, and every back button says what it does. It used to say Together and
+ * Blaze!, which were the game talking where a player was looking for a handle.
+ *
+ * TWO LANGUAGES, LIVE. Static labels carry data-i18n and js/i18n.js repaints
+ * them; everything this file writes from state goes through write(), which
+ * keeps the words as a function and says them again on `arcade:lang`. What
+ * the host and the net code report arrives as KEYS and arguments (a refusal
+ * reason, a peer's name) and is rendered here, on this device, in this
+ * device's language — never a sentence off the wire.
  */
 
 import { SYMBOLS, CODE_LENGTH, codeIcons, parseCode } from "./codes.js";
 import { MAX_NAME, rollName } from "./protocol.js";
 import { PALETTE } from "../config.js";
+import { t, paintStatic } from "../i18n.js";
 
 const NAME_KEY = "neonfox.netname.v1";
 
@@ -191,6 +201,34 @@ const el = (tag, className, text) => {
   return node;
 };
 
+/* A node made with data-i18n carries its key and gets its words now; the
+ * repaint on a language switch is js/i18n.js's paintStatic. */
+const label = (tag, className, key) => {
+  const node = el(tag, className, t(key));
+  node.dataset.i18n = key;
+  return node;
+};
+
+/*
+ * Write words that depend on state, and keep them: `words` is a function (or
+ * a plain string, for something that is not language at all, like a player's
+ * name), and every node written this way is said again when the language
+ * changes. `cls`, when given, replaces the node's class in the same breath.
+ */
+const written = new Set();
+function write(node, words, cls) {
+  node._words = words;
+  written.add(node);
+  node.textContent = typeof words === "function" ? words() : (words ?? "");
+  if (cls) node.className = cls;
+}
+
+/* What a failure means, as words: an error the net code raised with a key
+ * (i18n.js said()) is said in whatever language is current, anything else
+ * falls back to the plain sentence for that step. */
+const meaning = (error, fallback) => () =>
+  error?.key ? t(error.key, ...(error.args ?? [])) : t(fallback);
+
 /* The same question ui.js asks before it shows the touch buttons: is this a
  * device steered by fingers? One answer, asked the same way, so the seat cap
  * below and the controls a player actually gets can never disagree. */
@@ -207,17 +245,13 @@ export function isCoarsePointer() {
  * be read in one place rather than reconstructed from four assignments. */
 const STEPS = {
   choose: {
-    kicker: "Ride with a friend",
-    heading: "Together",
-    back: "Back",
+    kicker: "lobby.choose.kicker",
+    heading: "lobby.choose.title",
+    back: "back",
   },
-  pad: { kicker: "Find a game", heading: "Their code", back: "Back" },
-  host: {
-    kicker: "Read these out to your friend",
-    heading: null,
-    back: "Close this game",
-  },
-  guest: { kicker: "You are in", heading: null, back: "Leave this game" },
+  pad: { kicker: "lobby.pad.kicker", heading: "lobby.pad.title", back: "back" },
+  host: { kicker: "lobby.host.kicker", heading: null, back: "lobby.host.back" },
+  guest: { kicker: "lobby.guest.kicker", heading: null, back: "lobby.guest.back" },
 };
 
 /*
@@ -238,7 +272,8 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   const panel = el("section", "panel");
   panel.id = "lobby";
   panel.hidden = true;
-  panel.setAttribute("aria-label", "Multiplayer");
+  panel.dataset.i18nLabel = "multiplayer";
+  panel.setAttribute("aria-label", t("multiplayer"));
 
   const kicker = el("p", "kicker");
   const heading = el("h1");
@@ -261,7 +296,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
    * control.
    */
   const nameRow = el("div", "row");
-  const nameLabel = el("label", "label", "You are");
+  const nameLabel = label("label", "label", "lobby.name");
   nameLabel.htmlFor = "lobby-name";
   const nameField = el("div", "slider"); // the same label + control geometry as a row
   const nameInput = el("input", "nameField");
@@ -278,8 +313,9 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   }
   const reroll = el("button", "reroll");
   reroll.type = "button";
-  reroll.setAttribute("aria-label", "Roll another name");
-  reroll.title = "Roll another name";
+  reroll.dataset.i18nLabel = "lobby.reroll";
+  reroll.setAttribute("aria-label", t("lobby.reroll"));
+  reroll.title = t("lobby.reroll");
   reroll.innerHTML =
     '<svg viewBox="0 0 24 24" aria-hidden="true">' +
     '<rect x="4" y="4" width="16" height="16" rx="4.5" />' +
@@ -304,9 +340,9 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   chooseView.append(seatNote);
 
   const choices = el("div", "choices");
-  const hostBtn = el("button", "primary", "Host game");
+  const hostBtn = label("button", "primary", "lobby.host");
   hostBtn.type = "button";
-  const joinBtn = el("button", "primary together", "Join game");
+  const joinBtn = label("button", "primary together", "lobby.join");
   joinBtn.type = "button";
   choices.append(hostBtn, joinBtn);
   chooseView.append(choices);
@@ -317,11 +353,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   const padView = el("div");
   padView.id = "lobby-pad";
   padView.hidden = true;
-  const padNote = el(
-    "p",
-    "note",
-    "Tap the three pictures your friend reads out:",
-  );
+  const padNote = label("p", "note", "lobby.padNote");
   padNote.id = "pad-note";
   padView.append(padNote);
   const slotRow = el("div", "code-row");
@@ -332,7 +364,9 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   for (const symbol of SYMBOLS) {
     const b = el("button", null, symbol.icon);
     b.type = "button";
-    b.setAttribute("aria-label", symbol.name);
+    // The picture's name in this language; the wire still carries its id.
+    b.dataset.i18nLabel = `sym.${symbol.name}`;
+    b.setAttribute("aria-label", t(`sym.${symbol.name}`));
     b.addEventListener("click", () => {
       if (entered.length >= CODE_LENGTH) entered = [];
       entered.push(symbol.name);
@@ -341,7 +375,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
     pad.append(b);
   }
   padView.append(pad);
-  const clear = el("button", "ghost", "Start the code again");
+  const clear = label("button", "ghost", "lobby.clear");
   clear.id = "pad-clear";
   clear.type = "button";
   clear.addEventListener("click", () => {
@@ -349,7 +383,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
     paintCode();
   });
   padView.append(clear);
-  const joinGo = el("button", "primary", "Join the game");
+  const joinGo = label("button", "primary", "lobby.go");
   joinGo.id = "pad-go";
   joinGo.type = "button";
   joinGo.disabled = true;
@@ -387,7 +421,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   lobbyView.append(rosterList);
   // Only the host's. Starting is the host's call and nobody else's, so a
   // guest gets no button rather than one that does nothing.
-  const blaze = el("button", "primary", "Blaze!");
+  const blaze = label("button", "primary", "play");
   blaze.id = "lobby-blaze";
   blaze.type = "button";
   blaze.disabled = true;
@@ -418,10 +452,10 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   function showStep(next) {
     step = next;
     const words = STEPS[next];
-    kicker.textContent = words.kicker;
-    heading.textContent = words.heading ?? "";
+    write(kicker, () => t(words.kicker));
+    write(heading, () => (words.heading ? t(words.heading) : ""));
     heading.hidden = !words.heading;
-    back.textContent = words.back;
+    write(back, () => t(words.back));
     chooseView.hidden = next !== "choose";
     padView.hidden = next !== "pad";
     lobbyView.hidden = next !== "host" && next !== "guest";
@@ -432,10 +466,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   function paintSeatNote() {
     const clamped = coarse && settings.humans() > 1;
     seatNote.hidden = !clamped;
-    if (clamped) {
-      seatNote.textContent =
-        "Touch device, so it brings one rider: one pair of buttons, one pair of hands. The second seat needs a keyboard.";
-    }
+    if (clamped) write(seatNote, () => t("lobby.seats"));
   }
 
   function paintSlots(row, icons, empties) {
@@ -458,16 +489,21 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
       true,
     );
     joinGo.disabled = entered.length !== CODE_LENGTH;
-    padStatus.textContent =
-      entered.length === CODE_LENGTH ? entered.join(" · ") : "";
-    padStatus.className = "note";
+    const picked = [...entered];
+    write(
+      padStatus,
+      () => (picked.length === CODE_LENGTH ? picked.map((n) => t(`sym.${n}`)).join(" · ") : ""),
+      "note",
+    );
   }
 
   /* The three pictures and the words under them, for whichever code this
    * device is holding — the one it opened, or the one it just got right. */
   function paintShared(code) {
     paintSlots(codeRow, code ? codeIcons(code) : [], true);
-    codeWords.textContent = code ? code.replace(/-/g, " · ") : "";
+    write(codeWords, () =>
+      code ? code.split("-").map((n) => t(`sym.${n}`)).join(" · ") : "",
+    );
   }
 
   function paintRoster() {
@@ -479,7 +515,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
       const name = el("span", "name", r.name);
       // "bot", matching the paddock's own row. It said "rival" here and
       // "Rivals" there right up until the paddock was renamed.
-      const kind = el("span", "pts", r.kind === "ai" ? "bot" : "rider");
+      const kind = label("span", "pts", r.kind === "ai" ? "roster.bot" : "roster.rider");
       li.append(dot, name, kind);
       rosterList.append(li);
     }
@@ -490,7 +526,11 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
     const rules = session?.rules;
     rulesLine.hidden = !rules;
     if (!rules) return;
-    rulesLine.textContent = `${rules.arenaName} arena · ${rules.turnName} turning · first to ${rules.target}`;
+    // By index, from either end of the wire, so each device names the arena
+    // and the turning in its own language.
+    write(rulesLine, () =>
+      t("rules", t(`arena.${rules.arena}`), t(`turn.${rules.turn}`), rules.target),
+    );
   }
 
   nameInput.addEventListener("change", () => {
@@ -513,10 +553,9 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   function attach(next) {
     session = next;
     session.onRoster = paintRoster;
-    session.onStatus = (text) => {
-      const line = statusLine();
-      line.textContent = text;
-      line.className = "note live";
+    // A key and its arguments, from host.js or guest.js — said here.
+    session.onStatus = (key, ...args) => {
+      write(statusLine(), () => t(key, ...args), "note live");
     };
     session.onBegin = () => {
       panel.hidden = true;
@@ -537,22 +576,20 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
       // — so it goes back to the keypad, where the code is still entered and
       // trying again is one tap.
       if (step === "guest") showStep("pad");
-      if (why) fail(why);
+      if (why) fail(() => t(why));
     };
   }
 
-  function fail(text) {
-    const line = statusLine();
-    line.textContent = text;
-    line.className = "note warn";
+  /* `words` is a function, so a failure still on screen follows a switch. */
+  function fail(words) {
+    write(statusLine(), words, "note warn");
   }
 
   async function openGame() {
     showStep("host");
     paintShared(null);
     paintRoster();
-    lobbyStatus.textContent = "Opening a game…";
-    lobbyStatus.className = "note live";
+    write(lobbyStatus, () => t("status.opening"), "note live");
     blaze.disabled = true;
     try {
       const { hostSession } = await import("./host.js");
@@ -572,19 +609,19 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
       paintShared(next.code);
       blaze.disabled = false;
       paintRoster();
-      lobbyStatus.textContent =
+      const why = meaning(next.why, "err.brokerLoad");
+      write(lobbyStatus, () =>
         next.mode === "tabs"
-          ? `Only other tabs in this browser can reach you: ${next.detail}`
-          : next.mode === "relay"
-            ? "Your own relay is carrying the introductions."
-            : "Waiting for someone to join. Keep this screen awake.";
+          ? t("status.tabs", why())
+          : t(next.mode === "relay" ? "status.relay" : "status.waiting"),
+      );
       // The broker drops a peer whose heartbeat stops, so report whether the
       // code is actually live rather than assuming it stayed live.
       unwatch = next.watch?.((health) => {
-        if (!health.reachable) fail(health.note);
+        if (!health.reachable) fail(() => t(health.note, ...(health.args ?? [])));
       });
     } catch (error) {
-      fail(error.message || "Could not open a game.");
+      fail(meaning(error, "status.openFail"));
     }
   }
 
@@ -592,8 +629,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
     const code = parseCode(entered.join("-"));
     if (!code) return;
     joinGo.disabled = true;
-    padStatus.textContent = "Looking for the game…";
-    padStatus.className = "note live";
+    write(padStatus, () => t("status.looking"), "note live");
     try {
       const { joinSession } = await import("./guest.js");
       const next = await joinSession({
@@ -611,11 +647,10 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
       showStep("guest");
       paintShared(code);
       paintRoster();
-      lobbyStatus.textContent = "Waiting for the host to start.";
-      lobbyStatus.className = "note live";
+      write(lobbyStatus, () => t("status.waitHost"), "note live");
     } catch (error) {
       joinGo.disabled = false;
-      fail(error.message || "Could not reach that game.");
+      fail(meaning(error, "status.reachFail"));
     }
   }
 
@@ -654,6 +689,18 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   paintCode();
   paintShared(null);
   showStep("choose");
+
+  /* A language switch while this screen is up: every data-i18n here is
+   * js/i18n.js's to repaint (it walks the whole document, and this panel is
+   * in it), and everything write() wrote is said again. No step changes and
+   * no session is touched. */
+  document.addEventListener("arcade:lang", () => {
+    for (const node of written) {
+      const words = node._words;
+      node.textContent = typeof words === "function" ? words() : (words ?? "");
+    }
+  });
+  paintStatic(panel);
 
   return {
     open() {
@@ -695,7 +742,8 @@ export function mountEntry(onClick) {
   // weight; #start sits inside the .play row, so inserting after it lands
   // this in that row and the pair shares its width evenly either way.
   button.className = "primary together";
-  button.textContent = "Multiplayer";
+  button.dataset.i18n = "multiplayer";
+  button.textContent = t("multiplayer");
   start.insertAdjacentElement("afterend", button);
   button.addEventListener("click", onClick);
   return button;

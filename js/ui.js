@@ -36,6 +36,14 @@
  * constructor callbacks. showMenuPanel() takes `inPlay`, `live` and
  * `canRestart` as arguments for exactly that reason — this file is TOLD that
  * a net match cannot be stopped, it does not work it out.
+ *
+ * EVERY WORD IT WRITES IT CAN WRITE AGAIN (hub §2, "Two languages"). The
+ * language switches live, mid-match included, so nothing here writes a
+ * sentence and forgets it: what main.js hands over is either a plain string
+ * (a player's typed name) or a FUNCTION that returns the words, and the last
+ * one of each — banner, caption, scoreboard, panel face — is kept and called
+ * again on `arcade:lang`. Words that never change shape live as data-i18n in
+ * index.html and js/i18n.js repaints those itself.
  */
 
 import { MAX_PLAYERS, ARENA_SIZES, TURN_MODES } from "./config.js";
@@ -44,6 +52,10 @@ import { MAX_PLAYERS, ARENA_SIZES, TURN_MODES } from "./config.js";
 // at" slider's suggested value in step with the roster. Keep this import to
 // that one function.
 import { defaultTarget } from "./sim/match.js";
+import { t, getLang, setLang } from "./i18n.js";
+
+/* A word main.js handed over: a string as it is, or a function asked now. */
+const say = (words) => (typeof words === "function" ? words() : words);
 
 export class UI {
   constructor(
@@ -274,23 +286,42 @@ export class UI {
     // one control that matters. These two predicates are as old as the file.
     const quitEl = root.querySelector("#quit");
     const exit = window.ArcadeExit;
+    // verb() takes its words from the game, so it is asked again in the new
+    // language whenever the language changes (_paintQuit, from relang).
+    this.quitEl = null;
+    this._quitRefused = false;
     if (quitEl && exit && (exit.framed() || exit.standalone())) {
+      this.quitEl = quitEl;
       quitEl.hidden = false;
-      quitEl.textContent = exit.verb({
-        arcade: "Back to arcade",
-        app: "Close",
-      });
+      this._paintQuit();
       quitEl.addEventListener("click", () => {
         exit.quit().then((how) => {
           // 'refused': the browser declined to close a window it did not
           // open (an installed app on iOS, mostly). The game is still
           // running, so say so here rather than leave a dead button.
           if (how !== "refused") return;
-          quitEl.textContent = "Close this tab yourself";
+          this._quitRefused = true;
+          this._paintQuit();
           quitEl.disabled = true;
         });
       });
     }
+
+    /*
+     * THE LANGUAGE ROW, in the menu panel. Norsk and English, one pressed.
+     * Pressing one changes nothing but the words: the panel stays open, a
+     * paused round stays paused and a running net round keeps running, which
+     * is why this only calls setLang and then repaints (hub §2, "Live").
+     * setLang repaints the data-i18n markup and announces arcade:lang; this
+     * file, the lobby, screen.js and update.js each answer it for the words
+     * they wrote themselves.
+     */
+    this.langButtons = [...root.querySelectorAll("#row-lang [data-lang]")];
+    for (const button of this.langButtons) {
+      button.addEventListener("click", () => setLang(button.dataset.lang));
+    }
+    document.addEventListener("arcade:lang", () => this.relang());
+    this._paintLang();
 
     // Two events on purpose: "input" fires on every tick of the drag, so the
     // label keeps up with the thumb; "change" fires once, when it is
@@ -318,7 +349,7 @@ export class UI {
     // _recomputeTarget).
     this.targetSliderEl.addEventListener("input", () => {
       this._targetTouched = true;
-      this.targetOutEl.textContent = `${this.target} pts`;
+      this.targetOutEl.textContent = t("pts", this.target);
     });
 
     // Volume, unlike the arena size, is only ever "input": a level you
@@ -419,7 +450,9 @@ export class UI {
   }
 
   _paintArenaLabel(i) {
-    const name = ARENA_SIZES[i].name;
+    // By index, never by config.js's English name, so the label follows the
+    // language (that name is a code-side handle the player never reads now).
+    const name = t(`arena.${i}`);
     this.arenaNameEl.textContent = name;
     this.arenaSizeEl.setAttribute("aria-valuetext", name);
   }
@@ -439,7 +472,7 @@ export class UI {
   }
 
   _paintTurnLabel(i) {
-    const name = TURN_MODES[i].name;
+    const name = t(`turn.${i}`);
     this.turnNameEl.textContent = name;
     this.turnModeEl.setAttribute("aria-valuetext", name);
   }
@@ -461,7 +494,7 @@ export class UI {
     const max = Number(this.targetSliderEl.max);
     const clamped = Math.max(min, Math.min(max, suggested));
     this.targetSliderEl.value = String(clamped);
-    this.targetOutEl.textContent = `${clamped} pts`;
+    this.targetOutEl.textContent = t("pts", clamped);
   }
 
   showMenu() {
@@ -535,7 +568,8 @@ export class UI {
       this._panelFrom = standing || null;
       if (standing) standing.hidden = true;
     }
-    this._paintPanel({ inPlay, live, canRestart });
+    this._face = { inPlay, live, canRestart };
+    this._paintPanel(this._face);
     this.pauseEl.hidden = false;
     this.pauseEl.focus();
   }
@@ -544,33 +578,30 @@ export class UI {
    *  asked for. Nothing here is built twice: the two levels, the heading and
    *  the way out are the same nodes either way. */
   _paintPanel({ inPlay, live, canRestart }) {
+    /* Three faces, each titled plainly (hub §2): Paused for a round that has
+     * stopped, Menu for a net round that has not — it was "Still riding",
+     * which was true and was a joke in a heading — and Settings outside a
+     * match, since the panel holds the language as well as the sound now.
+     * The kicker and the note keep the game's voice; they are what this
+     * moment is, not what the panel is called. */
     if (inPlay) {
-      this.pauseKickerEl.textContent = live
-        ? "The round carries on without you"
-        : "Nothing moves until you say so";
-      this.pauseTitleEl.textContent = live ? "Still riding" : "Paused";
-      this.pauseNoteEl.textContent = live
-        ? "A game on two screens cannot be stopped from one of them. Your fox is still out there, and the arrows still steer it."
-        : "The arena is holding still. Pick up where you left off, or don't.";
+      const face = live ? "live" : "pause";
+      this.pauseKickerEl.textContent = t(`${face}.kicker`);
+      this.pauseTitleEl.textContent = t(`${face}.title`);
+      this.pauseNoteEl.textContent = t(`${face}.note`);
     } else {
-      this.pauseKickerEl.textContent = "How loud is the arena";
-      this.pauseTitleEl.textContent = "Sound";
+      this.pauseKickerEl.textContent = t("settings.kicker");
+      this.pauseTitleEl.textContent = t("settings.title");
       this.pauseNoteEl.textContent = this._mixerNote();
     }
     if (this.resumeEl) this.resumeEl.hidden = !inPlay;
     // The two ways to throw a match away only exist while there is one.
     if (this.pauseToolsEl) this.pauseToolsEl.hidden = !inPlay;
     if (this.pauseRestartEl) this.pauseRestartEl.hidden = !canRestart;
-    if (this.menuBackEl) {
-      this.menuBackEl.hidden = inPlay;
-      // Named for the room it actually goes back to. "Back" alone was true and
-      // said nothing; a player who opened this from the lobby is going back to
-      // a room they are still sitting in, and the label may as well say so.
-      this.menuBackEl.textContent =
-        this._panelFrom && this._panelFrom !== this.menuEl
-          ? "Back to the room"
-          : "Back to the paddock";
-    }
+    // Back, and only Back (hub §2). It used to name the room behind it —
+    // "Back to the paddock", "Back to the room" — which is the place-name the
+    // owner asked to be rid of; its words are data-i18n in index.html now.
+    if (this.menuBackEl) this.menuBackEl.hidden = inPlay;
     // Only a genuinely stopped match gets the scrim.
     if (this.pauseScrimEl) this.pauseScrimEl.hidden = !(inPlay && !live);
   }
@@ -579,9 +610,7 @@ export class UI {
    *  live-looking sliders deserves to be told why nothing is coming out of
    *  them, and where the switch is. */
   _mixerNote() {
-    return this._muted
-      ? "Everything is muted — tap the speaker in the corner, or move a slider, and the arena comes back."
-      : "The theme rides under the whole match. Effects are the yips, the crashes and the fanfare — drag that one and you will hear it.";
+    return t(this._muted ? "settings.muted" : "settings.note");
   }
 
   /** Take the panel down and put back whatever it displaced. Both the panel's
@@ -631,7 +660,7 @@ export class UI {
   setMuted(muted) {
     this._muted = !!muted;
     if (!this.muteEl) return;
-    const label = this._muted ? "Unmute" : "Mute";
+    const label = t(this._muted ? "unmute" : "mute");
     this.muteEl.setAttribute("aria-pressed", String(this._muted));
     this.muteEl.setAttribute("aria-label", label);
     this.muteEl.title = `${label} (M)`;
@@ -644,8 +673,12 @@ export class UI {
     }
   }
 
-  /** players: [{ id, name, hex }]; rebuilds the chip list from scratch. */
+  /** players: [{ id, name, hex }]; rebuilds the chip list from scratch. A
+   *  name may be a function — "You" is a word, not a name, and is said again
+   *  in the new language on a switch; a typed name is a string and is not. */
   showHud(players, target) {
+    this._hudNames = players.map((p) => p.name);
+    this._hudTarget = target;
     this.scoresEl.innerHTML = "";
     for (const player of players) {
       const li = document.createElement("li");
@@ -658,7 +691,7 @@ export class UI {
 
       const name = document.createElement("span");
       name.className = "name";
-      name.textContent = player.name;
+      name.textContent = say(player.name);
 
       const pts = document.createElement("span");
       pts.className = "pts";
@@ -667,7 +700,7 @@ export class UI {
       li.append(dot, name, pts);
       this.scoresEl.appendChild(li);
     }
-    this.targetEl.textContent = `First to ${target}`;
+    this.targetEl.textContent = t("hud.first", target);
     this.hudEl.hidden = false;
   }
 
@@ -695,8 +728,10 @@ export class UI {
    * no button at all.
    */
   banner(text, { sub = "", hex = "", actions = false, rematch = true } = {}) {
-    this.bannerTextEl.textContent = text;
-    this.bannerSubEl.textContent = sub;
+    // Kept, so a language switch can say it again (relang) without the pop.
+    this._banner = { text, sub };
+    this.bannerTextEl.textContent = say(text);
+    this.bannerSubEl.textContent = say(sub);
     if (hex) this.bannerEl.style.setProperty("--c", hex);
     else this.bannerEl.style.removeProperty("--c");
     this.bannerActionsEl.hidden = !actions;
@@ -729,7 +764,8 @@ export class UI {
    *  caption to the followed rider's colour via --c; an empty hex (the
    *  overview stop) clears the property instead of leaving a stale colour. */
   setSpectate(text, hex) {
-    this.spectateTextEl.textContent = text;
+    this._spectate = text;
+    this.spectateTextEl.textContent = say(text);
     if (hex) this.spectateEl.style.setProperty("--c", hex);
     else this.spectateEl.style.removeProperty("--c");
     this.spectateEl.hidden = false;
@@ -743,6 +779,54 @@ export class UI {
    *  page's own to fast-forward (main.js decides). */
   setSkippable(on) {
     this.skipEl.hidden = !on;
+  }
+
+  /**
+   * The language changed. js/i18n.js has already repainted every data-i18n in
+   * the page; this says again everything this file wrote itself, from what it
+   * kept, and touches nothing else — no panel opens or closes, no focus moves,
+   * no banner replays its pop and nothing about the round changes.
+   */
+  relang() {
+    this._paintLang();
+    this._paintArenaLabel(this.arena);
+    this._paintTurnLabel(this.turn);
+    this.targetOutEl.textContent = t("pts", this.target);
+    this._paintQuit();
+    this.setMuted(this._muted);
+    if (this.menuPanelOpen && this._face) this._paintPanel(this._face);
+    if (this._hudNames) {
+      [...this.scoresEl.children].forEach((li, i) => {
+        const name = li.querySelector(".name");
+        if (name && i < this._hudNames.length) name.textContent = say(this._hudNames[i]);
+      });
+      this.targetEl.textContent = t("hud.first", this._hudTarget);
+    }
+    if (this._banner) {
+      this.bannerTextEl.textContent = say(this._banner.text);
+      this.bannerSubEl.textContent = say(this._banner.sub);
+    }
+    if (this._spectate !== undefined) this.spectateTextEl.textContent = say(this._spectate);
+  }
+
+  /** The menu plate's words and the language row's pressed state. */
+  _paintLang() {
+    const lang = getLang();
+    for (const button of this.langButtons) {
+      button.setAttribute("aria-pressed", String(button.dataset.lang === lang));
+    }
+    if (this.menuOpenEl) {
+      this.menuOpenEl.setAttribute("aria-label", t("menu"));
+      this.menuOpenEl.title = t("menu.title");
+    }
+  }
+
+  /** The way out of the arcade, in ArcadeExit's case-by-case words. */
+  _paintQuit() {
+    if (!this.quitEl) return;
+    this.quitEl.textContent = this._quitRefused
+      ? t("exit.refused")
+      : window.ArcadeExit.verb({ arcade: t("exit.arcade"), app: t("exit.close") });
   }
 
   /** Shown only on a coarse (touch) pointer, and only when the caller wants it. */

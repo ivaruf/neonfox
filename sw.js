@@ -136,7 +136,12 @@
 //         classic script, precached below — cancels selectstart and the
 //         context menu outside a text field, so a thumb resting on a steer
 //         button no longer highlights the paddock.
-const VERSION = "v1.14.0"; // Everyone in a net match sees what everyone else is wearing
+// v1.15.0 NORSK FØRST. The game speaks bokmål by default and English on one
+//         tap, live, from a language row in the menu panel; js/i18n.js joins
+//         the precache. Menus use the hub's plain words — Spill, Fortsett,
+//         Tilbake — and the paddock is just the start screen. Net messages
+//         carry keys and indices instead of sentences, so NET_VERSION is 2.
+const VERSION = "v1.15.0"; // Norwegian first, English on a tap, and plain words in every menu
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting
@@ -164,6 +169,7 @@ const ASSETS = [
   //
   "./js/audio.js",
   "./js/config.js",
+  "./js/i18n.js",
   "./js/input.js",
   "./js/main.js",
   "./js/ui.js",

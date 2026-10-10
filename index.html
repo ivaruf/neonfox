@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="nb">
   <head>
     <meta charset="utf-8" />
     <meta
@@ -7,6 +7,23 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <title>NeonFox</title>
+    <!--
+      Which language the page speaks, settled before anything paints (hub
+      CLAUDE.md §2, "Two languages, Norwegian first"). Bokmål unless the
+      player has chosen English somewhere in the arcade; arcade.lang.v1 is one
+      key for every game on the origin. js/i18n.js reads the same key and
+      agrees with this; it only runs later, as a module, which is why this
+      tiny classic copy exists at all. The markup below is written in bokmål
+      for the same reason, so the common case never flashes.
+    -->
+    <script>
+      try {
+        if (localStorage.getItem("arcade.lang.v1") === "en")
+          document.documentElement.lang = "en";
+      } catch (e) {
+        /* No storage: bokmål, which is what the markup already says. */
+      }
+    </script>
     <meta
       name="description"
       content="Foxes running on glowing orbs, leaving neon trails in a small arena. Touch a trail or the wall and you are out; the last one riding takes the round. A 3D take on Achtung, die Kurve."
@@ -83,10 +100,10 @@
       two touch buttons); the canvas carries everything that moves. See
       README.md for the architecture.
     -->
-    <canvas id="arena" aria-label="NeonFox arena"></canvas>
+    <canvas id="arena" data-i18n-label="arena.label" aria-label="NeonFox-arenaen"></canvas>
 
     <div id="ui">
-      <!-- Title / paddock. Sits over the live attract-mode arena. -->
+      <!-- The start screen. Sits over the live attract-mode arena. -->
       <section id="menu" class="panel" aria-labelledby="title">
         <!--
           The logo carries the name, so the heading keeps the text for a
@@ -103,7 +120,7 @@
             decoding="async"
           />
         </h1>
-        <p class="kicker">Neon Kurve for orb riders</p>
+        <p class="kicker" data-i18n="kicker">Neon-Kurve for kuleryttere</p>
 
         <!--
           UPDATE READY. Hidden until a new service worker has installed and is
@@ -114,28 +131,30 @@
           to end by js/update.js, which nothing else imports.
         -->
         <button type="button" id="update" hidden>
-          <span class="update-title">New build ready</span>
-          <span class="update-sub">Tap to take it</span>
+          <!-- js/update.js writes both lines, in the current language. -->
+          <span class="update-title">Ny versjon klar</span>
+          <span class="update-sub">Trykk for å hente den</span>
         </button>
 
         <!-- data-seg="humans" is untouched by the rename: that string is the
              contract js/ui.js reads, not something the player ever sees. -->
         <div class="row" id="row-riders">
-          <span class="label">Local players</span>
+          <span class="label" data-i18n="row.players">Spillere</span>
           <div
             class="seg"
             data-seg="humans"
             role="group"
-            aria-label="Local players"
+            data-i18n-label="row.players"
+            aria-label="Spillere"
           >
-            <button type="button" data-v="1" aria-pressed="true">1P</button>
-            <button type="button" data-v="2">2P</button>
+            <button type="button" data-v="1" aria-pressed="true" data-i18n="mode.solo">Alene</button>
+            <button type="button" data-v="2" data-i18n="mode.two">To spillere</button>
           </div>
         </div>
 
         <div class="row" id="row-rivals">
-          <span class="label">Bots</span>
-          <div class="seg" data-seg="ai" role="group" aria-label="Bots">
+          <span class="label" data-i18n="row.bots">Roboter</span>
+          <div class="seg" data-seg="ai" role="group" data-i18n-label="row.bots" aria-label="Roboter">
             <button type="button" data-v="1">1</button>
             <button type="button" data-v="2">2</button>
             <button type="button" data-v="3" aria-pressed="true">3</button>
@@ -145,7 +164,7 @@
         </div>
 
         <div class="row" id="row-arena">
-          <label class="label" for="arena-size">Arena</label>
+          <label class="label" for="arena-size" data-i18n="row.arena">Arena</label>
           <div class="slider">
             <input
               type="range"
@@ -154,9 +173,9 @@
               max="4"
               step="1"
               value="2"
-              aria-valuetext="Classic"
+              aria-valuetext="Klassisk"
             />
-            <output id="arena-name" for="arena-size">Classic</output>
+            <output id="arena-name" for="arena-size">Klassisk</output>
           </div>
         </div>
 
@@ -168,7 +187,7 @@
           rider, and in a net game the host's choice travels with the roster.
         -->
         <div class="row" id="row-turn">
-          <label class="label" for="turn-mode">Turning</label>
+          <label class="label" for="turn-mode" data-i18n="row.turn">Svinger</label>
           <div class="slider">
             <input
               type="range"
@@ -177,14 +196,14 @@
               max="3"
               step="1"
               value="1"
-              aria-valuetext="Classic"
+              aria-valuetext="Klassisk"
             />
-            <output id="turn-name" for="turn-mode">Classic</output>
+            <output id="turn-name" for="turn-mode">Klassisk</output>
           </div>
         </div>
 
         <div class="row" id="row-target">
-          <label class="label" for="target">Win at</label>
+          <label class="label" for="target" data-i18n="row.target">Spill til</label>
           <div class="slider">
             <input
               type="range"
@@ -194,29 +213,30 @@
               step="5"
               value="15"
             />
-            <output id="target-out" for="target">15 pts</output>
+            <output id="target-out" for="target">15 poeng</output>
           </div>
         </div>
 
         <!--
-          The paddock's two doors, and they are the same size on purpose.
-          Blaze! used to be a full-width gradient with the multiplayer door as
+          The start screen's two doors, and they are the same size on purpose.
+          They are named plainly, Play and Multiplayer, since 2026-10-10: the
+          owner wanted no cute words in a menu (hub §2), so "Blaze!" went.
+          The way in to a local match used to be a full-width gradient with the multiplayer door as
           a thin ghost pill beneath it, which read as the game plus a footnote.
           Riding against a friend on another screen is the same kind of
           choice as riding against the rivals, so it gets the same pill; only
           the gradient differs, and both are mixed from the rider palette.
         -->
         <div class="play">
-          <button type="button" id="start" class="primary">Blaze!</button>
-          <button type="button" id="together" class="primary together">
-            Multiplayer
-          </button>
+          <button type="button" id="start" class="primary" data-i18n="play">Spill</button>
+          <button type="button" id="together" class="primary together" data-i18n="multiplayer">Flerspiller</button>
         </div>
 
         <p class="hint">
-          <kbd>←</kbd><kbd>→</kbd> steer · rider two on <kbd>A</kbd
-          ><kbd>D</kbd> · <kbd>Esc</kbd> pauses · steer while the round loads to
-          aim
+          <kbd>←</kbd><kbd>→</kbd> <span data-i18n="hint.steer">styrer</span> ·
+          <span data-i18n="hint.two">spiller to på</span> <kbd>A</kbd
+          ><kbd>D</kbd> · <kbd>Esc</kbd> <span data-i18n="hint.pause">pause</span> ·
+          <span data-i18n="hint.aim">styr mens runden starter for å sikte</span>
         </p>
 
         <!--
@@ -231,8 +251,9 @@
           nothing.
         -->
         <div class="menu-tools">
+          <!-- js/ui.js writes the words, through ArcadeExit.verb(). -->
           <button type="button" id="quit" class="ghost" hidden>
-            Back to arcade
+            Tilbake til arkaden
           </button>
         </div>
 
@@ -292,8 +313,8 @@
           type="button"
           id="menu-open"
           class="icon-button"
-          aria-label="Menu"
-          title="Menu (Esc)"
+          aria-label="Meny"
+          title="Meny (Esc)"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M4 7h16M4 12h16M4 17h16" />
@@ -313,8 +334,8 @@
           id="mute-toggle"
           class="icon-button"
           aria-pressed="false"
-          aria-label="Mute"
-          title="Mute (M)"
+          aria-label="Lyd av"
+          title="Lyd av (M)"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M11 5 6 9H3v6h3l5 4Z" />
@@ -335,8 +356,8 @@
           id="screen-toggle"
           class="icon-button"
           aria-pressed="false"
-          aria-label="Fullscreen"
-          title="Fullscreen"
+          aria-label="Fullskjerm"
+          title="Fullskjerm"
           hidden
         >
           <!-- Four corners pushing out, and the same four pulled in for the
@@ -410,8 +431,9 @@
         tabindex="-1"
         hidden
       >
-        <p class="kicker" id="pause-kicker">Nothing moves until you say so</p>
-        <h2 id="pause-title">Paused</h2>
+        <!-- All three lines are written by js/ui.js for the face it opens with. -->
+        <p class="kicker" id="pause-kicker"></p>
+        <h2 id="pause-title">Meny</h2>
         <p class="hint" id="pause-note"></p>
 
         <!--
@@ -420,7 +442,7 @@
           is what went, so nothing that reads a level had to learn a new name.
         -->
         <div class="row">
-          <label class="label" for="music-vol">Music</label>
+          <label class="label" for="music-vol" data-i18n="row.music">Musikk</label>
           <div class="slider">
             <input
               type="range"
@@ -435,7 +457,7 @@
         </div>
 
         <div class="row">
-          <label class="label" for="sfx-vol">Effects</label>
+          <label class="label" for="sfx-vol" data-i18n="row.sfx">Effekter</label>
           <div class="slider">
             <input
               type="range"
@@ -449,32 +471,77 @@
           </div>
         </div>
 
-        <button type="button" id="resume" class="primary">Keep riding</button>
+        <!--
+          THE LANGUAGE ROW (hub §2, "Two languages, Norwegian first"). It
+          lives here, behind the three-bar plate, because that plate is on
+          every screen: from the start screen it opens this panel as Settings,
+          before a run has begun, which is when a stranger who cannot read
+          the Norwegian the game opened in needs it most. Two equal pills,
+          Norsk first, each with its flag and its own name in its own
+          language — lang="nb" / lang="en" so a screen reader says it right.
+          js/ui.js wires it and keeps aria-pressed on the chosen one.
+
+          The flags are kitchens/index.html's two SVGs, drawn the same in every
+          game. The Union Jack's clipPath ids are page-global, so they carry a
+          neonfox prefix rather than kitchens' bare uk-clip — a second copy
+          anywhere on this page must take ids of its own too.
+        -->
+        <div class="row" id="row-lang">
+          <span class="label" data-i18n="lang.label">Språk</span>
+          <div
+            class="seg lang"
+            role="group"
+            data-i18n-label="lang.label"
+            aria-label="Språk"
+          >
+            <button type="button" data-lang="nb" lang="nb" aria-pressed="true">
+              <svg class="flag" viewBox="0 0 22 16" aria-hidden="true">
+                <rect width="22" height="16" fill="#ba0c2f"/>
+                <path d="M6 0h4v16H6zM0 6h22v4H0z" fill="#fff"/>
+                <path d="M7 0h2v16H7zM0 7h22v2H0z" fill="#00205b"/>
+              </svg>
+              <span>Norsk</span>
+            </button>
+            <button type="button" data-lang="en" lang="en" aria-pressed="false">
+              <svg class="flag" viewBox="0 0 60 30" aria-hidden="true">
+                <clipPath id="nf-uk-clip"><path d="M0 0v30h60V0z"/></clipPath>
+                <clipPath id="nf-uk-diag"><path d="M30 15h30v15zv15H0zH0V0zV0h30z"/></clipPath>
+                <g clip-path="url(#nf-uk-clip)">
+                  <path d="M0 0v30h60V0z" fill="#012169"/>
+                  <path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/>
+                  <path d="M0 0l60 30m0-30L0 30" clip-path="url(#nf-uk-diag)" stroke="#c8102e" stroke-width="4"/>
+                  <path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>
+                  <path d="M30 0v30M0 15h60" stroke="#c8102e" stroke-width="6"/>
+                </g>
+              </svg>
+              <span>English</span>
+            </button>
+          </div>
+        </div>
+
+        <button type="button" id="resume" class="primary" data-i18n="resume">Fortsett</button>
 
         <!--
           The two ways out, both of which throw the match away, both kept
-          deliberately quiet next to Keep riding. #pause-restart is hidden by
+          deliberately quiet next to Resume. #pause-restart is hidden by
           js/ui.js for a guest in a net match, where calling for another match
           is the host's alone and this button would do nothing. The pair goes
           altogether when there is no match: outside one they would both be
           lies, and js/ui.js hides the row by its id.
         -->
         <div class="menu-tools" id="pause-tools">
-          <button type="button" id="pause-restart" class="ghost">
-            Restart the match
-          </button>
-          <button type="button" id="pause-leave" class="ghost">
-            Back to the paddock
-          </button>
+          <button type="button" id="pause-restart" class="ghost" data-i18n="restart">Start på nytt</button>
+          <button type="button" id="pause-leave" class="ghost" data-i18n="quit.match">Avslutt kampen</button>
         </div>
 
         <!--
           The way out when this is a mixer rather than a pause — there is no
-          Keep riding to serve as one. js/ui.js writes the label from the panel
-          it displaced, so it names the room a player is actually going back
-          to, and Escape leaves through the same function.
+          Resume to serve as one. It says Back and nothing more, whichever
+          panel it returns to (hub §2: a panel's back button says "Back", not
+          the name of the screen behind it), and Escape leaves through the
+          same function.
         -->
-        <button type="button" id="menu-back" class="ghost">Back</button>
+        <button type="button" id="menu-back" class="ghost" data-i18n="back">Tilbake</button>
       </section>
 
       <!-- Live scoreboard during a match. -->
@@ -488,27 +555,25 @@
         <p id="banner-sub"></p>
         <p id="banner-text"></p>
         <div id="banner-actions" hidden>
-          <button type="button" id="rematch" class="primary">Rematch</button>
-          <button type="button" id="to-menu" class="ghost">
-            Back to the paddock
-          </button>
+          <button type="button" id="rematch" class="primary" data-i18n="rematch">Spill igjen</button>
+          <button type="button" id="to-menu" class="ghost" data-i18n="to.menu">Tilbake til menyen</button>
         </div>
       </div>
 
       <!-- Spectator caption: whose ride the camera is on once you are out. -->
       <p id="spectate" hidden>
         <span id="spectate-text"></span>
-        <span class="how"><kbd>◀</kbd><kbd>▶</kbd> switch view</span>
+        <span class="how"><kbd>◀</kbd><kbd>▶</kbd> <span data-i18n="spectate.switch">bytt visning</span></span>
         <!-- Only bots left: play the round out at once (js/main.js onSkip). -->
         <button type="button" id="skip" class="ghost" hidden>
-          Skip ahead <kbd>Enter</kbd>
+          <span data-i18n="skip">Hopp fram</span> <kbd>Enter</kbd>
         </button>
       </p>
 
       <!-- Touch steering for rider one. Shown on coarse pointers only. -->
       <div id="touch" hidden>
-        <button type="button" id="turn-left" aria-label="Turn left">◀</button>
-        <button type="button" id="turn-right" aria-label="Turn right">▶</button>
+        <button type="button" id="turn-left" data-i18n-label="turn.left" aria-label="Sving til venstre">◀</button>
+        <button type="button" id="turn-right" data-i18n-label="turn.right" aria-label="Sving til høyre">▶</button>
       </div>
     </div>
 
@@ -548,9 +613,14 @@
         document.write('<script src="vendor/loaders.js"><\/script>');
     </script>
     <script>
-      // Surface load-time failures instead of a silent dark canvas.
+      // Surface load-time failures instead of a silent dark canvas. Classic
+      // and self-contained, so it cannot share js/i18n.js: it keeps its own
+      // two sentences and reads <html lang>, which the head already set.
       (function () {
         var bar = document.getElementById("crash");
+        var nb = function () {
+          return document.documentElement.lang !== "en";
+        };
         function show(msg) {
           bar.textContent = msg;
           bar.hidden = false;
@@ -568,19 +638,26 @@
               return;
             if (t && t.tagName === "SCRIPT") {
               show(
-                "A script failed to load: " +
-                  t.src +
-                  " (if this is js/main.js, the real culprit may be one of its imports)",
+                nb()
+                  ? "Et skript kunne ikke lastes: " +
+                      t.src +
+                      " (står det js/main.js, kan den egentlige synderen være en av filene den importerer)"
+                  : "A script failed to load: " +
+                      t.src +
+                      " (if this is js/main.js, the real culprit may be one of its imports)",
               );
               return;
             }
-            show("Something broke: " + (e.message || e.type));
+            show(
+              (nb() ? "Noe gikk i stykker: " : "Something broke: ") +
+                (e.message || e.type),
+            );
           },
           true,
         );
         window.addEventListener("unhandledrejection", function (e) {
           show(
-            "Something broke: " +
+            (nb() ? "Noe gikk i stykker: " : "Something broke: ") +
               (e.reason && e.reason.message ? e.reason.message : e.reason),
           );
         });

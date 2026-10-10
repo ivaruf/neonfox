@@ -49,6 +49,7 @@ import { Input } from "./input.js";
 import { UI } from "./ui.js";
 import { Sfx } from "./audio.js";
 import { createLobby, mountEntry } from "./net/lobby.js";
+import { t } from "./i18n.js";
 
 /*
  * index.html loads Babylon from a pinned CDN with vendor/babylon.js behind
@@ -60,9 +61,7 @@ import { createLobby, mountEntry } from "./net/lobby.js";
 if (!window.BABYLON) {
   const bar = document.getElementById("crash");
   if (bar) {
-    bar.textContent =
-      "Babylon.js could not load — both the CDN copy and vendor/babylon.js were blocked. " +
-      "Check your content blocker's request log for babylon.js.";
+    bar.textContent = t("crash.babylon");
     bar.hidden = false;
   }
 } else {
@@ -231,7 +230,7 @@ function boot() {
   let spectating = false;
   let crashViewHold = 0;
   let spectateStop = 0;
-  let lastSpectateCaption = null; // last text handed to ui.setSpectate, so a step where nothing changed writes to the DOM zero times instead of sixty a second
+  let lastSpectateCaption = null; // the stop last captioned ("overview" or a rider id) — not its words, which ui.js can say again in either language — so a step where nothing changed writes to the DOM zero times instead of sixty a second
   let lastResolvedStop; // last value read from stops()[spectateStop]; deliberately starts undefined, which never equals a real stop (null or an id), so the very first resolve always counts as a change
   let followId = null; // id of the player the chase camera should be posed on this frame, or null (overview / not spectating); step() decides who, render() poses the camera so it uses the same interpolated coordinates as the rider model
   const holdTime = [0, 0]; // seconds seat 0/1's steering control has been held continuously, while spectating
@@ -396,7 +395,7 @@ function boot() {
     ui.showHud(
       world.players.map((p) => ({
         id: p.id,
-        name: p.name,
+        name: () => nameOf(p),
         hex: PALETTE[p.colorIndex].hex,
       })),
       match.target,
@@ -466,8 +465,9 @@ function boot() {
       if (mode !== "net") return;
       ui.setTouchVisible(false);
       ui.hideSpectate();
-      ui.banner(why || "The game ended.", {
-        sub: "no host, no game",
+      // `why` is a key (js/net/guest.js), never a sentence off the wire.
+      ui.banner(() => t(why || "net.ended"), {
+        sub: () => t("net.endedSub"),
         actions: true,
         rematch: false,
       });
@@ -511,7 +511,7 @@ function boot() {
     ui.showHud(
       world.players.map((p) => ({
         id: p.id,
-        name: p.name,
+        name: () => nameOf(p),
         hex: PALETTE[p.colorIndex].hex,
       })),
       match.target,
@@ -804,10 +804,22 @@ function boot() {
     const solo =
       player.kind === "human" &&
       world.players.filter((p) => p.kind === "human").length === 1;
-    if (solo) return match ? "You win the match!" : "You win!";
-    return match
-      ? `${player.name} wins the match!`
-      : `${player.name} takes the round`;
+    if (solo) return t(match ? "win.youMatch" : "win.you");
+    return t(match ? "win.match" : "win.round", nameOf(player));
+  }
+
+  /*
+   * What a rider is called on screen. Typed names and the bots' names are
+   * names and stay as they are; the lone local human is "You", which is a
+   * WORD, so it is looked up each time it is shown and follows the language.
+   * Only in a local game: in a net game every human has a name they chose.
+   */
+  function nameOf(p) {
+    const solo =
+      mode !== "net" &&
+      p.kind === "human" &&
+      world.players.filter((q) => q.kind === "human").length === 1;
+    return solo ? t("name.you") : p.name;
   }
 
   /*
@@ -950,9 +962,9 @@ function boot() {
       if (stop === null) {
         view.setMode("play");
         followId = null;
-        if (lastSpectateCaption !== "Overview") {
-          lastSpectateCaption = "Overview";
-          ui.setSpectate("Overview", "");
+        if (lastSpectateCaption !== "overview") {
+          lastSpectateCaption = "overview";
+          ui.setSpectate(() => t("spectate.overview"), "");
         }
       } else {
         const p = world.byId(stop);
@@ -961,10 +973,9 @@ function boot() {
         // once a frame, on that player's interpolated position so the
         // camera and the rider model it is chasing never visibly disagree.
         followId = p.id;
-        const caption = "Riding with " + p.name;
-        if (lastSpectateCaption !== caption) {
-          lastSpectateCaption = caption;
-          ui.setSpectate(caption, PALETTE[p.colorIndex].hex);
+        if (lastSpectateCaption !== p.id) {
+          lastSpectateCaption = p.id;
+          ui.setSpectate(() => t("spectate.with", nameOf(p)), PALETTE[p.colorIndex].hex);
         }
       }
     } else {
@@ -1082,7 +1093,10 @@ function boot() {
             // Attract mode is left alone, since its camera is the menu orbit.
             view.setMode("play");
             ui.setScores(match.scores, aliveMap());
-            ui.banner("Steer to aim", { sub: "Round " + e.round });
+            const round = e.round;
+            ui.banner(() => t("banner.steer"), {
+              sub: () => t("banner.round", round),
+            });
             sfx.ready();
             // "Steer to aim" is the instruction; the ring is what says which
             // rider it is addressed to. Up for the whole countdown, which is
@@ -1096,7 +1110,7 @@ function boot() {
         case "go": {
           // Attract mode plays silently behind the menu, like every other cue.
           if (inMatch) {
-            ui.banner("Go!", { sub: "" });
+            ui.banner(() => t("banner.go"), { sub: "" });
             goTimer = GO_FLASH_SECONDS;
             sfx.go();
             // Released rather than switched off: marker.js swells and dims it
@@ -1148,7 +1162,7 @@ function boot() {
             goTimer = 0; // a pending "Go!" hide must not wipe this banner
             const winner = e.winnerId ? world.byId(e.winnerId) : null;
             if (winner) {
-              ui.banner(winnerPhrase(winner), {
+              ui.banner(() => winnerPhrase(winner), {
                 hex: PALETTE[winner.colorIndex].hex,
               });
               // Two taunts under the two flips: the clip is 1.133 s, so the
@@ -1156,7 +1170,7 @@ function boot() {
               sfx.taunt(winner.colorIndex);
               sfx.taunt(winner.colorIndex, 1.13);
             } else {
-              ui.banner("Everyone crashed", { sub: "no winner this round" });
+              ui.banner(() => t("crash.all"), { sub: () => t("crash.sub") });
             }
             sfx.roundWin();
             ui.setScores(match.scores, aliveMap());
@@ -1168,13 +1182,14 @@ function boot() {
           if (inMatch) {
             goTimer = 0;
             const winner = world.byId(e.winnerId);
-            ui.banner(winnerPhrase(winner, { match: true }), {
+            const target = match.target;
+            ui.banner(() => winnerPhrase(winner, { match: true }), {
               hex: PALETTE[winner.colorIndex].hex,
               actions: true,
               // Only a host may call for another match, so a guest gets the
               // way back to the paddock and no button that does nothing.
               rematch: mode !== "net" || !!net?.rematch,
-              sub: "first to " + match.target,
+              sub: () => t("match.first", target),
             });
             sfx.matchWin();
             // The delay lets the fanfare open first; the fox answers it.
