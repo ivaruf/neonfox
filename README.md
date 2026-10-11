@@ -34,7 +34,7 @@ you are offline.
 | Rider two steers (two on one keyboard) | `A` `D` or `Q` `E`    | —                           |
 | Aim before the round starts     | steer during the countdown   | same                        |
 | Start / rematch                 | `Enter` or `Space`           | Play / Rematch              |
-| Menu / pause (and the way out)  | `Esc`                        | the menu plate, top right   |
+| Menu / pause, one step back     | `Esc`                        | the menu plate, top right   |
 | Mute everything                 | `M`                          | the mute plate, top right   |
 | Restart the match               | on the menu panel            | same                        |
 | Out of the round: switch view   | `←` `→` cycle survivors and overview | the same two buttons |
@@ -47,8 +47,12 @@ the overview.
 The top right corner carries three plates, on every screen and mid-match:
 menu, mute, fullscreen. `Esc` and the menu plate open the same panel, and what
 is in it answers where you were — mid-match the volumes, the language,
-restart and the way back to the start screen; anywhere else the volumes, the
-language and the way back to whatever it displaced. The game speaks bokmål
+restart, the way back to the start screen and, last, **Back to arcade**;
+anywhere else the volumes, the language and the way back to whatever it
+displaced. The start screen carries Back to arcade as its last row too. `Esc`
+always goes one step back: it closes the panel or the lobby step you are on,
+raises the menu mid-match, and on the bare start screen it is the Back to
+arcade button (only when that button is shown). The game speaks bokmål
 first and English on one tap of the language row, live, mid-round included. A local match genuinely stops behind it. A game played
 together does not — it is the host's simulation and cannot be held from one
 screen, so the panel says so and your fox keeps riding, and steering, while it

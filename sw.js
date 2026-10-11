@@ -141,7 +141,13 @@
 //         the precache. Menus use the hub's plain words — Spill, Fortsett,
 //         Tilbake — and the paddock is just the start screen. Net messages
 //         carry keys and indices instead of sentences, so NET_VERSION is 2.
-const VERSION = "v1.15.0"; // Norwegian first, English on a tap, and plain words in every menu
+// v1.16.0 ONE WAY OUT. Back to arcade is the hub's one button — back arrow,
+//         sentence case, last and full width — on the paddock and now at the
+//         foot of the in-match menu too. Escape walks one step back: the
+//         lobby's own Back, the panel closed, the menu raised mid-match, and
+//         from the bare paddock the arcade. Sideways, the way out joins the
+//         doors' column and the paddock stops scrolling.
+const VERSION = "v1.16.0"; // One way out, the same in every cabinet, and Escape walks toward it
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting

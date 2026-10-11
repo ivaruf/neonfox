@@ -250,10 +250,19 @@
           context that cannot do the thing never shows a button that would do
           nothing.
         -->
+        <!--
+          ONE BUTTON IN EVERY CABINET (hub §2, 2026-10-11): the same back
+          arrow, the same sentence-case words and the same place — last in the
+          column, its full width, a little further off than the rows above —
+          in every game, so a player crossing from one to the next finds the
+          way out without reading for it. js/ui.js writes the words into the
+          span, through ArcadeExit.verb(), so the drawing survives a language
+          switch.
+        -->
         <div class="menu-tools">
-          <!-- js/ui.js writes the words, through ArcadeExit.verb(). -->
-          <button type="button" id="quit" class="ghost" hidden>
-            Tilbake til arkaden
+          <button type="button" id="quit" class="ghost exit" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg>
+            <span class="exit-label">Tilbake til arkaden</span>
           </button>
         </div>
 
@@ -542,6 +551,20 @@
           same function.
         -->
         <button type="button" id="menu-back" class="ghost" data-i18n="back">Tilbake</button>
+
+        <!--
+          The way out of the ARCADE, at the top level of the in-match menu and
+          last in it, rather than one screen further on behind Quit match and
+          the paddock. Shown by js/ui.js only on the pause face — on the
+          paddock's Settings face this is a second panel and the way out is on
+          the paddock itself, where it belongs — and only when
+          window.ArcadeExit says there is somewhere to go. The same button as
+          #quit in every respect but its id.
+        -->
+        <button type="button" id="pause-quit" class="ghost exit" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg>
+          <span class="exit-label">Tilbake til arkaden</span>
+        </button>
       </section>
 
       <!-- Live scoreboard during a match. -->

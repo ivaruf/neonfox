@@ -602,18 +602,35 @@ function boot() {
   }
 
   /*
-   * Escape, which used to abandon the match outright — the same one-keypress
-   * hazard R was, and worse for sitting on the key a player reaches for to
-   * get OUT of things. It is the menu panel now, opened and closed, and it
-   * no longer destroys anything at all; leaving is a button on the panel.
-   * That is also why a finished match is not a special case here: there is
-   * nothing left to protect it from, and the panel is a perfectly good place
-   * to turn the music down after the fanfare.
+   * ESCAPE GOES ONE STEP BACK, and from the paddock that step is the arcade
+   * (hub §2, 2026-10-11). It used to abandon the match outright — the same
+   * one-keypress hazard R was, and worse for sitting on the key a player
+   * reaches for to get OUT of things — and it no longer destroys anything:
    *
-   * Outside a match it backs out of whatever is sitting over the paddock: the
-   * menu panel, or the lobby (which enterMenu closes). In the bare paddock it
-   * restarts the attract match, which is what it has always done and is
-   * harmless.
+   *   in a match         raises the menu panel, or lowers it again. setPaused
+   *                      only stops a local match; a net one carries on under
+   *                      the panel and says so. A finished match is not a
+   *                      special case: there is nothing left to protect, and
+   *                      the panel is a fine place to turn the music down
+   *                      after the fanfare.
+   *   the panel is up    its own way out, exactly — not showMenu(), which
+   *   over the paddock   would put the player on the paddock even when the
+   *                      panel was opened over the multiplayer lobby and would
+   *                      look like being thrown out of the room.
+   *   the lobby is up    the lobby's own Back, whatever step it is on: out of
+   *                      a room to the chooser, from the keypad to the
+   *                      chooser, from the chooser to the paddock. It used to
+   *                      tear the whole screen down from any step, which is
+   *                      two Backs in one press.
+   *   the bare paddock   the Back to arcade button, the same press exactly,
+   *                      and only when that button is shown. It used to
+   *                      restart the attract match, which was harmless and
+   *                      meant nothing; with no way out on screen it now does
+   *                      nothing at all.
+   *
+   * js/input.js has already called preventDefault() and kept the press away
+   * from every other command, and a text field takes its Escape as "leave
+   * the field" before any of this is asked.
    */
   function onEscape() {
     if (inPlay()) {
@@ -622,13 +639,15 @@ function boot() {
       return;
     }
     if (ui.menuPanelOpen) {
-      // The panel's own way out, exactly — not showMenu(), which would put the
-      // player on the paddock even when the panel was opened over the
-      // multiplayer lobby and would look like being thrown out of the room.
       onCloseMenu();
       return;
     }
-    onMenu();
+    if (lobby.isOpen) {
+      sfx.click();
+      lobby.back();
+      return;
+    }
+    ui.quit();
   }
 
   /*

@@ -284,27 +284,37 @@ export class UI {
     // before offers() was written — and a guard built on the new name fails
     // CLOSED there: the way out disappears, inside the arcade, where it is the
     // one control that matters. These two predicates are as old as the file.
-    const quitEl = root.querySelector("#quit");
+    //
+    // TWO DOORS, ONE WAY OUT: #quit on the paddock and #pause-quit at the foot
+    // of the in-match menu (hub §2: the way out sits at the top level of the
+    // start screen AND of the in-play menu, never a panel further in). They
+    // are wired and labelled together so they cannot come to say different
+    // things; _paintPanel decides when the second one shows.
     const exit = window.ArcadeExit;
     // verb() takes its words from the game, so it is asked again in the new
     // language whenever the language changes (_paintQuit, from relang).
     this.quitEl = null;
+    this.pauseQuitEl = null;
     this._quitRefused = false;
-    if (quitEl && exit && (exit.framed() || exit.standalone())) {
-      this.quitEl = quitEl;
-      quitEl.hidden = false;
+    if (exit && (exit.framed() || exit.standalone())) {
+      this.quitEl = root.querySelector("#quit");
+      this.pauseQuitEl = root.querySelector("#pause-quit");
+      if (this.quitEl) this.quitEl.hidden = false;
       this._paintQuit();
-      quitEl.addEventListener("click", () => {
-        exit.quit().then((how) => {
-          // 'refused': the browser declined to close a window it did not
-          // open (an installed app on iOS, mostly). The game is still
-          // running, so say so here rather than leave a dead button.
-          if (how !== "refused") return;
-          this._quitRefused = true;
-          this._paintQuit();
-          quitEl.disabled = true;
+      for (const door of [this.quitEl, this.pauseQuitEl]) {
+        door?.addEventListener("click", () => {
+          exit.quit().then((how) => {
+            // 'refused': the browser declined to close a window it did not
+            // open (an installed app on iOS, mostly). The game is still
+            // running, so say so here rather than leave a dead button.
+            if (how !== "refused") return;
+            this._quitRefused = true;
+            this._paintQuit();
+            for (const d of [this.quitEl, this.pauseQuitEl])
+              if (d) d.disabled = true;
+          });
         });
-      });
+      }
     }
 
     /*
@@ -602,6 +612,10 @@ export class UI {
     // "Back to the paddock", "Back to the room" — which is the place-name the
     // owner asked to be rid of; its words are data-i18n in index.html now.
     if (this.menuBackEl) this.menuBackEl.hidden = inPlay;
+    // The way out of the arcade, last, on the in-match face only: the
+    // paddock's Settings face is a second panel, and the paddock under it has
+    // its own. Only ever set when ArcadeExit offered one at all.
+    if (this.pauseQuitEl) this.pauseQuitEl.hidden = !inPlay;
     // Only a genuinely stopped match gets the scrim.
     if (this.pauseScrimEl) this.pauseScrimEl.hidden = !(inPlay && !live);
   }
@@ -821,12 +835,29 @@ export class UI {
     }
   }
 
-  /** The way out of the arcade, in ArcadeExit's case-by-case words. */
+  /** The way out of the arcade, in ArcadeExit's case-by-case words — into
+   *  each door's label span, so the back arrow beside the words stays put. */
   _paintQuit() {
-    if (!this.quitEl) return;
-    this.quitEl.textContent = this._quitRefused
+    const words = this._quitRefused
       ? t("exit.refused")
-      : window.ArcadeExit.verb({ arcade: t("exit.arcade"), app: t("exit.close") });
+      : window.ArcadeExit?.verb({ arcade: t("exit.arcade"), app: t("exit.close") });
+    for (const door of [this.quitEl, this.pauseQuitEl]) {
+      const label = door?.querySelector(".exit-label");
+      if (label) label.textContent = words;
+    }
+  }
+
+  /**
+   * Escape on the bare paddock: exactly a press of #quit, and nothing at all
+   * when there is no #quit to press (hub §2 — Escape from the start screen
+   * is the Back to arcade button, only when that button is shown). Returns
+   * whether it went.
+   */
+  quit() {
+    const door = this.quitEl;
+    if (!door || door.hidden || door.disabled) return false;
+    door.click();
+    return true;
   }
 
   /** Shown only on a coarse (touch) pointer, and only when the caller wants it. */

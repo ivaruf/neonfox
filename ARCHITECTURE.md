@@ -320,8 +320,10 @@ export class Sfx {
   included. Restored at boot with `ui.setMuted(sfx.muted)`.
 - Modes: `menu` runs an attract match (4 AI, `attract: true`) behind the
   panel with the camera in `orbit`; `match` runs the chosen field with the
-  camera in `play`. Enter or Space starts from the menu; Escape and the
-  corner's menu plate raise the menu panel, and mid-match that is the pause —
+  camera in `play`. Enter or Space starts from the menu; Escape (one step
+  back: lobby's Back, panel closed, and from the bare paddock `ui.quit()`,
+  the Back to arcade button) and the corner's menu plate raise the menu
+  panel mid-match, and that is the pause —
   but only for a game this page owns. A net match is the host's simulation:
   the panel opens over a round that carries on, says so, keeps the scrim down
   and leaves the arrows steering.

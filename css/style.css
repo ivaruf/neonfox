@@ -659,6 +659,49 @@ button:focus-visible {
   min-width: 150px;
 }
 
+/*
+ * THE WAY BACK TO THE ARCADE — one button in every cabinet (hub §2,
+ * 2026-10-11). #quit on the paddock and #pause-quit at the foot of the
+ * in-match menu are the same object: last in the column and its full width,
+ * a little more room above it than between the rows it follows, the ghost
+ * pill's outline in the panel's own ink rather than a rider gradient —
+ * leaving is never the recommended action — and the shared back arrow,
+ * stroked like the corner plates, before sentence-case words.
+ */
+.exit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 42px;
+  font-size: 14px;
+}
+.exit svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* On the paddock it sits in what is left of the tools row, whose equal-pill
+ * rule caps a lone survivor at 190px; the way out is not a pill in a cluster
+ * but the column's last row, so it takes the whole width. */
+.menu-tools > .exit {
+  max-width: none;
+  font-size: 14px;
+  padding: 6px 16px;
+}
+#menu .menu-tools {
+  margin-top: 20px;
+}
+#pause-quit {
+  margin-top: 20px;
+}
+
 /* Which build is serving this session, answered by the service worker. */
 #build {
   margin: 14px 0 0;
@@ -1088,11 +1131,9 @@ kbd {
       "logo   riders"
       "logo   rivals"
       "logo   arena"
-      "update turning"
-      "play   target"
-      "hint   hint"
-      "tools  tools"
-      "build  build";
+      "play   turning"
+      "tools  target"
+      "hint   hint";
     align-content: center;
     align-content: safe center;
     gap: 6px 20px;
@@ -1116,10 +1157,32 @@ kbd {
   #menu .kicker {
     display: none;
   }
+  /*
+   * THE WAY OUT JOINED THE DOORS' COLUMN on 2026-10-11, and the update pill
+   * gave up its own row to make room. The hub's one Back to arcade button is
+   * the last thing in the menu column; sideways, the column that holds the
+   * menu's doors is the logo's, so it stands right under Play and
+   * Multiplayer, its full width, in the row beside Win at. As a full-width
+   * row of its own it was 50px this screen did not have — the paddock already
+   * scrolled by a few pixels before it — and the way out is precisely the
+   * thing that runs off the bottom when a column is too tall.
+   *
+   * The update pill, which used to own the cell above Play, now stands in the
+   * hint's row when it shows, and the keyboard hint yields to it: the pill is
+   * rare, transient and the more important of the two, and the hint is a line
+   * of keys a phone does not have. One row either way, so an update waiting
+   * cannot push the way out off the screen either.
+   */
   #update {
-    grid-area: update;
+    grid-area: hint;
+    justify-self: center;
+    width: min(100%, 340px);
     margin: 0;
-    min-height: 44px;
+    min-height: 38px;
+    padding: 4px 18px;
+  }
+  #menu:has(#update:not([hidden])) .hint {
+    display: none;
   }
   /*
    * AND THE ONE ROW THE CORNER WOULD SIT ON GIVES UP THE WIDTH, rather than the
@@ -1161,11 +1224,9 @@ kbd {
         "riders  logo"
         "rivals  logo"
         "arena   logo"
-        "turning update"
-        "target  play"
-        "hint    hint"
-        "tools   tools"
-        "build   build";
+        "turning play"
+        "target  tools"
+        "hint    hint";
     }
     #row-riders {
       padding-right: 0;
@@ -1197,16 +1258,23 @@ kbd {
   }
   #menu .menu-tools {
     grid-area: tools;
-    margin: 0;
+    align-self: end;
+    margin: 4px 0 0;
   }
-  /* The hint and the tools run the full width rather than sharing a row with
-   * something: at half a panel the hint wraps to three lines and the three
-   * tool pills get narrower than their own labels. Across the whole panel the
-   * hint is one line and the pills sit at their 190px cap, centred. */
+  /* The hint runs the full width rather than sharing a row with something: at
+   * half a panel it wraps to three lines. Across the whole panel it is one. */
+  /* The build line leaves the grid for the panel's bottom padding, where it
+   * sits under the hint without costing a row and its gap. It is a number for
+   * whoever is debugging a release, not a control. */
   #build {
-    grid-area: build;
-    margin: 2px 0 0;
-    font-size: 10px;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 1px;
+    margin: 0;
+    font-size: 9px;
+    line-height: 1;
+    text-align: center;
   }
 
   /*
@@ -1260,6 +1328,11 @@ kbd {
   }
   #menu-back {
     margin-top: 0;
+  }
+  /* A little apart from the row above it, as standing up; the grid gap is
+   * already most of that. */
+  #pause-quit {
+    margin-top: 4px;
   }
   /* WHERE THERE IS WIDTH, the language row and Resume share a line: the row
    * in the left column, the big pill in the right. That is the line the row

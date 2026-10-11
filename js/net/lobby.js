@@ -666,7 +666,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   /* One button, three meanings, and it says which one it is: out of the
    * multiplayer screen altogether from the chooser, back one step from the
    * keypad, and out of a room that actually exists from the lobby. */
-  back.addEventListener("click", () => {
+  function goBack() {
     if (step === "choose") {
       tearDown();
       panel.hidden = true;
@@ -675,7 +675,8 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
     }
     tearDown();
     showStep("choose");
-  });
+  }
+  back.addEventListener("click", goBack);
 
   function tearDown() {
     unwatch?.();
@@ -716,6 +717,12 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
     close() {
       tearDown();
       panel.hidden = true;
+    },
+    /* Escape, when this screen is up: the same Back the button gives, from
+     * whichever step it is on (js/main.js onEscape). */
+    back: goBack,
+    get isOpen() {
+      return !panel.hidden;
     },
     get coarse() {
       return coarse;

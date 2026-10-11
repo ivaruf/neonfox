@@ -113,7 +113,13 @@ export class Input {
       if (event.code === "Enter" || event.code === "Space") {
         if (!isInteractive(event.target)) this.onCommand("start");
       } else if (event.code === "Escape") {
-        this.onCommand("menu");
+        // One key, one action (hub §2): nothing else hears this press, and
+        // the browser does not either. In a text field — the lobby's name —
+        // it only leaves the field, because on the paddock Escape is the way
+        // out of the game and dismissing an autocomplete must not be.
+        event.preventDefault();
+        if (isTyping(event.target)) event.target.blur();
+        else this.onCommand("menu");
       } else if (event.code === "KeyM") {
         // Silence, and nothing else: no panel, no pause, mid-round included.
         // It is the keyboard's half of the corner's mute plate and main.js
