@@ -259,52 +259,6 @@
           span, through ArcadeExit.verb(), so the drawing survives a language
           switch.
         -->
-        <!--
-          THE LANGUAGE ROW ON THE START SCREEN ITSELF (hub §2, "Two
-          languages", the Where clause as of 2026-10-11). It also lives in
-          the menu panel behind the three-bar plate, but a stranger who
-          cannot read the Norwegian the game opened in should not have to
-          guess that a corner icon hides it — the owner could not find it in
-          two other cabinets when it lived only there. So it is a visible row
-          here, above the way out, which stays last. The same pills as the
-          panel's copy, wired by the same code in js/ui.js (it collects every
-          .seg.lang button on the page). The Union Jack's clipPath ids are
-          page-global, so this copy carries a -start suffix: with the panel's
-          ids the second flag would silently clip against the first.
-        -->
-        <div class="row" id="row-lang-start">
-          <span class="label" data-i18n="lang.label">Språk</span>
-          <div
-            class="seg lang"
-            role="group"
-            data-i18n-label="lang.label"
-            aria-label="Språk"
-          >
-            <button type="button" data-lang="nb" lang="nb" aria-pressed="true">
-              <svg class="flag" viewBox="0 0 22 16" aria-hidden="true">
-                <rect width="22" height="16" fill="#ba0c2f"/>
-                <path d="M6 0h4v16H6zM0 6h22v4H0z" fill="#fff"/>
-                <path d="M7 0h2v16H7zM0 7h22v2H0z" fill="#00205b"/>
-              </svg>
-              <span>Norsk</span>
-            </button>
-            <button type="button" data-lang="en" lang="en" aria-pressed="false">
-              <svg class="flag" viewBox="0 0 60 30" aria-hidden="true">
-                <clipPath id="nf-uk-clip-start"><path d="M0 0v30h60V0z"/></clipPath>
-                <clipPath id="nf-uk-diag-start"><path d="M30 15h30v15zv15H0zH0V0zV0h30z"/></clipPath>
-                <g clip-path="url(#nf-uk-clip-start)">
-                  <path d="M0 0v30h60V0z" fill="#012169"/>
-                  <path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/>
-                  <path d="M0 0l60 30m0-30L0 30" clip-path="url(#nf-uk-diag-start)" stroke="#c8102e" stroke-width="4"/>
-                  <path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>
-                  <path d="M30 0v30M0 15h60" stroke="#c8102e" stroke-width="6"/>
-                </g>
-              </svg>
-              <span>English</span>
-            </button>
-          </div>
-        </div>
-
         <div class="menu-tools">
           <button type="button" id="quit" class="ghost exit" hidden>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg>
@@ -538,8 +492,12 @@
 
           The flags are kitchens/index.html's two SVGs, drawn the same in every
           game. The Union Jack's clipPath ids are page-global, so they carry a
-          neonfox prefix rather than kitchens' bare uk-clip, and the start
-          screen's copy adds -start to its own.
+          neonfox prefix rather than kitchens' bare uk-clip — a second copy
+          anywhere on this page must take ids of its own too. The row lives
+          here and nowhere else (hub §2, "Two languages", Where, as of
+          2026-10-11): the start screen reaches it through the three-bar
+          plate in its corner and spends its own room on the doors and the
+          way out.
         -->
         <div class="row" id="row-lang">
           <span class="label" data-i18n="lang.label">Språk</span>

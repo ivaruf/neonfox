@@ -153,7 +153,12 @@
 //         fitted to its cell, the columns swap below 820px instead of 660 so
 //         the riders row is never crushed, and the round banner steps aside
 //         while the menu is open.
-const VERSION = "v1.17.1"; // precache reads past the browser's HTTP cache, so an update can never mix old and new files
+// v1.17.1 The precache reads past the browser's HTTP cache.
+// v1.17.2 LANGUAGE BACK BEHIND THE MENU. The start screen's language row is
+//         gone again (hub §2, 2026-10-11: language and sound live behind the
+//         three bars); the menu panel keeps the only copy. Sideways the logo
+//         has its three rows back and the doors sit beside Turning again.
+const VERSION = "v1.17.2"; // The language lives in the menu panel only
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting
