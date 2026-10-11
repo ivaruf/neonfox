@@ -318,7 +318,7 @@ export class UI {
     }
 
     /*
-     * THE LANGUAGE ROW, in the menu panel. Norsk and English, one pressed.
+     * THE LANGUAGE ROW, on the start screen and in the menu panel. Norsk and English, one pressed.
      * Pressing one changes nothing but the words: the panel stays open, a
      * paused round stays paused and a running net round keeps running, which
      * is why this only calls setLang and then repaints (hub §2, "Live").
@@ -326,7 +326,9 @@ export class UI {
      * file, the lobby, screen.js and update.js each answer it for the words
      * they wrote themselves.
      */
-    this.langButtons = [...root.querySelectorAll("#row-lang [data-lang]")];
+    // Both copies of the row: the start screen's and the panel's. They are
+    // the same control twice, so one list and one painter keep them agreeing.
+    this.langButtons = [...root.querySelectorAll(".seg.lang [data-lang]")];
     for (const button of this.langButtons) {
       button.addEventListener("click", () => setLang(button.dataset.lang));
     }

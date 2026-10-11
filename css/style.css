@@ -829,6 +829,13 @@ kbd {
 
 /* ---------- Banners ---------- */
 
+/* The round's big words ("Steer to aim", "Round 2") step aside while the menu
+ * is open. They used to paint straight through it — a pause taken during the
+ * aiming countdown put the banner across the panel's heading. They are still
+ * there, unchanged, the moment the menu closes. */
+#pause:not([hidden]) ~ #banner {
+  visibility: hidden;
+}
 #banner {
   position: absolute;
   left: 50%;
@@ -1130,8 +1137,8 @@ kbd {
     grid-template-areas:
       "logo   riders"
       "logo   rivals"
-      "logo   arena"
-      "play   turning"
+      "play   arena"
+      "lang   turning"
       "tools  target"
       "hint   hint";
     align-content: center;
@@ -1141,16 +1148,28 @@ kbd {
   #title {
     grid-area: logo;
     margin: 0;
-    align-self: center;
+    position: relative;
+    align-self: stretch;
+    min-height: 0;
   }
   /* The art is trimmed to its own glow and portrait pulls it in with negative
-   * margins; here it is height that is scarce, so it is capped against the
-   * three rows beside it and centred in whatever width that leaves. */
+   * margins; here it is height that is scarce, so the art takes NO height of
+   * its own: it is lifted out of flow and fitted (object-fit: contain) into
+   * whatever the rows beside it add up to. Since the language row arrived
+   * that is two rows rather than three, and an in-flow image capped at
+   * max-height: 100% of a grid area sized by its own content was circular —
+   * the logo inflated both rows beside it and the paddock scrolled by 12px.
+   * --logo-bite is the corner's share of the cell on the narrowest phones
+   * (see the max-width: 820px block below). */
   #title img {
-    width: auto;
-    max-width: 100%;
-    max-height: 100%;
-    margin: 0 auto;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: calc(100% - var(--logo-bite, 0px));
+    height: 100%;
+    max-width: none;
+    margin: 0;
+    object-fit: contain;
   }
   /* The logo beside it already says the name, and its row is the one the
    * column gave up when Turning arrived. Portrait keeps it. */
@@ -1202,7 +1221,7 @@ kbd {
     padding-right: var(--corner-bite);
   }
   /*
-   * AND UNDER ABOUT 660px THE COLUMNS SWAP INSTEAD OF THE ROW GIVING WAY.
+   * AND UNDER 820px THE COLUMNS SWAP INSTEAD OF THE ROW GIVING WAY.
    *
    * What the taper leaves that row is U/2 - 148 whatever the width (the panel
    * stops growing at 640 exactly as the bite stops shrinking, so the two
@@ -1211,20 +1230,26 @@ kbd {
    * and not a control any more. Three plates cost 42px more than two and this
    * is where that lands.
    *
+   * The cut was 660 until 2026-10-11, and that sum was done for the English
+   * of the day: the 84px gutter bokmål needs and "To spillere" / "Two
+   * players" each wanting about 80px of pill make the row's real floor about
+   * 262px, which U/2 - 148 reaches at 820. Between 660 and 820 the riders row
+   * was crushed to two overlapping slivers (seen at 667, an iPhone 8 on its
+   * side). 844 — most current phones — still keeps the logo on the left.
+   *
    * So on the narrowest phones the settings move to the left and the logo takes
    * the corner, because art can be covered by three plates and a row of buttons
    * cannot. Same rows in the same order at the same height — only which side
    * they are on changes — and the taper goes with the corner onto the logo,
-   * which is capped by its own max-width anyway and simply centres in what is
-   * left.
+   * which is fitted into its cell anyway and simply centres in what is left.
    */
-  @media (max-width: 660px) {
+  @media (max-width: 820px) {
     #menu {
       grid-template-areas:
         "riders  logo"
         "rivals  logo"
-        "arena   logo"
-        "turning play"
+        "arena   play"
+        "turning lang"
         "target  tools"
         "hint    hint";
     }
@@ -1232,8 +1257,40 @@ kbd {
       padding-right: 0;
     }
     #title {
-      padding-right: var(--corner-bite);
+      --logo-bite: var(--corner-bite);
     }
+  }
+  /*
+   * THE LANGUAGE ROW CAME TO THE START SCREEN on 2026-10-11 (hub §2: visible
+   * on the start screen itself, above the way out), and it cost the logo a
+   * row rather than the paddock a row. The doors move up beside Arena, the
+   * language sits under them beside Turning and the way out stays last in
+   * that column beside Win at — so the left column reads logo, doors,
+   * language, way out, which is the portrait order, and the paddock is
+   * exactly as tall as before. The logo is capped against the two rows
+   * beside it now instead of three, which art can afford and a row of
+   * buttons could not.
+   */
+  #row-lang-start {
+    grid-area: lang;
+    gap: 10px;
+  }
+  /* Its caption shares a column with no other caption here — the doors above
+   * and the way out below have none — so the 84px gutter that lines it up in
+   * portrait is width this half-column cannot spare: at 844 it left English
+   * truncated. It takes its own width instead, and the pills tighten a touch. */
+  #row-lang-start .label {
+    flex: 0 0 auto;
+  }
+  #row-lang-start .seg.lang button {
+    gap: 5px;
+    padding: 6px 5px;
+  }
+  /* MULTIPLAYER at the portrait size and tracking ran a few pixels past its
+   * pill in a half-column; the doors give up a little letter-spacing. */
+  .play .primary {
+    font-size: 15px;
+    letter-spacing: 0.04em;
   }
   #row-rivals {
     grid-area: rivals;

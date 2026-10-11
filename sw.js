@@ -147,7 +147,13 @@
 //         lobby's own Back, the panel closed, the menu raised mid-match, and
 //         from the bare paddock the arcade. Sideways, the way out joins the
 //         doors' column and the paddock stops scrolling.
-const VERSION = "v1.16.0"; // One way out, the same in every cabinet, and Escape walks toward it
+// v1.17.0 LANGUAGE ON THE START SCREEN. The Norsk / English row is a
+//         visible row on the start screen itself, above the way out, as well
+//         as in the menu panel. Sideways the logo gives up a row for it and is
+//         fitted to its cell, the columns swap below 820px instead of 660 so
+//         the riders row is never crushed, and the round banner steps aside
+//         while the menu is open.
+const VERSION = "v1.17.0"; // The language row stands on the start screen itself
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting
