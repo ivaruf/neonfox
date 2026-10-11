@@ -153,7 +153,7 @@
 //         fitted to its cell, the columns swap below 820px instead of 660 so
 //         the riders row is never crushed, and the round banner steps aside
 //         while the menu is open.
-const VERSION = "v1.17.0"; // The language row stands on the start screen itself
+const VERSION = "v1.17.1"; // precache reads past the browser's HTTP cache, so an update can never mix old and new files
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting
@@ -221,11 +221,18 @@ const ASSETS = [
   "./icons/icon-maskable-512.png",
 ];
 
+// `cache: 'reload'` on everything the install stores. Without it the precache
+// reads through the browser's HTTP cache, which may still hold yesterday's copy
+// of a file, so a new version could be filed with some of the old files in it —
+// on 2026-10-11 dam_break ran a new screens.js against a stale sound.js and the
+// menu never wired up. The arcade learned this first (arcade/sw.js, `fresh`).
+const fresh = (url) => new Request(url, { cache: "reload" });
+
 self.addEventListener("install", (event) => {
   // No skipWaiting() here. After precaching, the new worker stays WAITING until
   // the player accepts it from the menu. This is the whole "respect the
   // session" rule: nothing a deploy does may interrupt a round in progress.
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS.map(fresh))));
 });
 
 self.addEventListener("message", (event) => {
