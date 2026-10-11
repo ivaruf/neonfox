@@ -158,7 +158,7 @@
 //         gone again (hub §2, 2026-10-11: language and sound live behind the
 //         three bars); the menu panel keeps the only copy. Sideways the logo
 //         has its three rows back and the doors sit beside Turning again.
-const VERSION = "v1.17.3"; // Back to arcade on the Settings face of the menu too, as on every cabinet
+const VERSION = "v1.17.4"; // the update button always lands: a reload follows the tap even when controllerchange never comes
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting
