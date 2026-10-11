@@ -612,10 +612,11 @@ export class UI {
     // "Back to the paddock", "Back to the room" — which is the place-name the
     // owner asked to be rid of; its words are data-i18n in index.html now.
     if (this.menuBackEl) this.menuBackEl.hidden = inPlay;
-    // The way out of the arcade, last, on the in-match face only: the
-    // paddock's Settings face is a second panel, and the paddock under it has
-    // its own. Only ever set when ArcadeExit offered one at all.
-    if (this.pauseQuitEl) this.pauseQuitEl.hidden = !inPlay;
+    // The way out of the arcade, last, on BOTH faces: the corner's menu panel
+    // is top level wherever it is opened (hub §2, ratified 2026-10-11), so the
+    // Settings face carries it as well. Only ever set when ArcadeExit offered
+    // one at all.
+    if (this.pauseQuitEl) this.pauseQuitEl.hidden = false;
     // Only a genuinely stopped match gets the scrim.
     if (this.pauseScrimEl) this.pauseScrimEl.hidden = !(inPlay && !live);
   }
