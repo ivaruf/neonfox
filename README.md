@@ -176,7 +176,8 @@ playing it.
   front of a player who came here to ride. Mute is the plate beside it,
   unmediated, because silencing the room is a different question from setting
   a mix and a menu in front of it would be a menu in the way.
-- **Multiplayer has no host migration and no TURN.** Both doors out of the
-  start screen — Play and Multiplayer — are the same size, but the peer-to-peer
-  one carries the honest limits `docs/P2P.md` writes down: the host closing
-  its tab ends the game, and a network pair that needs a relay never connects.
+- **Multiplayer has no host migration.** Both doors out of the start screen —
+  Play and Multiplayer — are the same size, but the peer-to-peer one carries
+  the honest limits `docs/P2P.md` writes down: the host closing its tab ends
+  the game, and a network pair that needs a relay goes through Cloudflare's
+  TURN, which sees those players' IP addresses but never game data.

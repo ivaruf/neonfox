@@ -203,10 +203,17 @@ That is a cheaper guarantee than validating one away.
 
 ## What we accept
 
-- **No TURN.** Roughly a connection in ten will not establish, and there is no
-  free way around it: a relay costs bandwidth by the gigabyte, which is what
-  this whole exercise avoids. The join failure says so rather than blaming the
-  code the player typed.
+- **TURN through Cloudflare, and a third party for the pairs that need it.**
+  Roughly a connection in ten cannot go direct. Since 2026-10-15 those are
+  relayed by Cloudflare's TURN service, with credentials handed out an hour at
+  a time by a small Worker (`gopher-cloud-turn`) that holds the key, so no
+  secret sits in this repo. The trade: Cloudflare sees the IP addresses of the
+  relayed players and how much they send, never game data (it forwards
+  ciphertext). The first 1,000 GB a month are free and a match uses
+  megabytes. If the Worker cannot be reached, `webrtc.js` falls back to STUN
+  alone — the game as it was — and those few pairs still fail, which the join
+  failure says rather than blaming the code the player typed. `?relay` in the
+  URL forces every connection through TURN, for testing the relay itself.
 - **No host migration.** A guest only ever holds a connection to the host, so
   when the host closes the tab there is nobody to promote. The arena freezes
   where it is and a banner says why, with the way back to the paddock under

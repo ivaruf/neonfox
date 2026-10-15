@@ -30,7 +30,8 @@
  *   - a third party with no promises. Down means no new games; games already
  *     connected are untouched, because it carries no game traffic.
  *   - it sees room codes and connection metadata. It never sees game data.
- *   - no TURN, so a minority of network situations fail to connect at all.
+ *   - it offers no TURN. That comes from Cloudflare instead, with its own
+ *     trade written down at the top of webrtc.js.
  * Against that, it needs nothing running and nothing paid for.
  */
 

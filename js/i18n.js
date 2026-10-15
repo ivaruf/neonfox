@@ -402,7 +402,7 @@ const STRINGS = {
     "err.noReach": (type) => `Could not reach the game (${type}).`,
     "err.noAnswer": "The host did not answer.",
     "err.rtcNoAnswer":
-      "The host never answered. Check the code — and that there is no TURN here, so a few networks simply cannot reach each other.",
+      "The host never answered. Check the code — a few networks simply cannot reach each other.",
     "sym.fox": "fox",
     "sym.duck": "duck",
     "sym.bee": "bee",
