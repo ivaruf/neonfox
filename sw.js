@@ -158,7 +158,7 @@
 //         gone again (hub §2, 2026-10-11: language and sound live behind the
 //         three bars); the menu panel keeps the only copy. Sideways the logo
 //         has its three rows back and the doors sit beside Turning again.
-const VERSION = "v1.18.0"; // TURN through Cloudflare: the one pair in ten that cannot go direct now connects through a relay
+const VERSION = "v1.18.1"; // the PeerJS signalling pipe uses our TURN too, so a pair that needs a relay can open it
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting

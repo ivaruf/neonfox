@@ -212,8 +212,11 @@ That is a cheaper guarantee than validating one away.
   ciphertext). The first 1,000 GB a month are free and a match uses
   megabytes. If the Worker cannot be reached, `webrtc.js` falls back to STUN
   alone — the game as it was — and those few pairs still fail, which the join
-  failure says rather than blaming the code the player typed. `?relay` in the
-  URL forces every connection through TURN, for testing the relay itself.
+  failure says rather than blaming the code the player typed. On the broker
+  path the PeerJS signalling pipe is a WebRTC connection too, and it gets the
+  same config — otherwise a pair that needs a relay would depend on PeerJS's
+  own public one before ours was ever asked. `?relay` in the URL forces both
+  through TURN, for testing the relay itself.
 - **No host migration.** A guest only ever holds a connection to the host, so
   when the host closes the tab there is nobody to promote. The arena freezes
   where it is and a banner says why, with the way back to the paddock under

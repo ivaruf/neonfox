@@ -55,6 +55,10 @@ import { said } from "../i18n.js";
  *
  * `?relay` in the URL forces every connection through TURN, for testing
  * that the relay itself works (chrome://webrtc-internals shows "relay").
+ *
+ * Exported because rendezvous.js hands the same config to PeerJS: on the
+ * broker path the signalling pipe is itself a WebRTC connection, and a pair
+ * that cannot reach each other directly cannot open that pipe either.
  */
 const STUN = { urls: ["stun:stun.l.google.com:19302"] };
 const TURN_URL = "https://gopher-cloud-turn.ivar-fredriksen.workers.dev";
@@ -72,7 +76,7 @@ const forceRelay = (() => {
 
 let turnCache = null; // { at, servers }
 
-async function iceConfig() {
+export async function iceConfig() {
   if (!turnCache || Date.now() - turnCache.at > TURN_REUSE_MS) {
     try {
       const response = await fetch(TURN_URL, {

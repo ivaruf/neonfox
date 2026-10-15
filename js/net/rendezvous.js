@@ -40,6 +40,7 @@ import {
   relaySignalling,
   hostOverWebRTC,
   joinOverWebRTC,
+  iceConfig,
 } from "./webrtc.js";
 // Failures are raised with a key (said), so the lobby can say them in either
 // language and say them again if the player switches while one is showing.
@@ -211,7 +212,12 @@ export async function hostRendezvous(code, onPeer) {
   }
   try {
     const Peer = await loadBroker();
-    const peer = new Peer(brokerId(code));
+    // The pipe is a WebRTC connection of its own, so it gets our TURN too;
+    // left alone, PeerJS falls back on its own public relay, and a pair that
+    // needs one would depend on that before ours was ever asked. PeerJS reads
+    // this once, so a lobby left open past the credentials' hour relays new
+    // pipes no longer — direct ones are unaffected, and hosting again fixes it.
+    const peer = new Peer(brokerId(code), { config: await iceConfig() });
     await waitFor(
       peer,
       20000,
@@ -314,7 +320,8 @@ export async function joinRendezvous(code) {
       why: error,
     };
   }
-  const peer = new Peer();
+  // Our TURN for the pipe as well as the game; see hostRendezvous.
+  const peer = new Peer({ config: await iceConfig() });
   await waitFor(
     peer,
     20000,
