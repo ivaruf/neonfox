@@ -145,9 +145,25 @@ frame to a rider on screen rather than two that can drift apart.
 
 ## Signalling
 
-Three tiers, tried in order: an explicit `<meta name="signal-url">` relay, then
+Four tiers, tried in order: an explicit `<meta name="signal-url">` relay, then
 PeerJS's public broker with codes namespaced `neonfox-v1-<code>`, then
-`BroadcastChannel` for tabs in one browser.
+**nearby** through Gopher Connect, then `BroadcastChannel` for tabs in one
+browser.
+
+**Nearby** (`js/net/nearby.js`, since v1.19.0) is for flight mode, and it is
+the one tier that is not signalling. With no network up, Chrome gathers no ICE
+candidates at all (measured on an S23, 2026-10-08), so there is nothing for
+WebRTC to negotiate over. Instead the page talks to Gopher Connect, an Android
+companion app on `ws://127.0.0.1:47321/link`, which carries the game's frames
+to the other phone over Bluetooth LE. Its channels have exactly `wrap()`'s
+shape, so host.js and guest.js cannot tell the difference. The game's own room
+code pairs the phones, and the lanes keep their meaning: nothing reliable is
+dropped, and on the fast lane only the newest pending frame survives. It is
+tried only when the broker cannot be reached and only on Host or Join, never
+on page load, and without the app it answers nothing at once, so online play
+and players without the app see exactly what they saw before. The app, its
+protocol and its measurements (S23 and Nokia 8: full rate, 50–60 ms ping) are
+in the `direct_gopher_connect` repo's DESIGN.md.
 
 PeerJS here carries **signalling only**. fishtank uses its data connection as
 the game connection and pays with a single reliable lane on the broker path;
@@ -236,7 +252,8 @@ That is a cheaper guarantee than validating one away.
 js/net/protocol.js     message types, the binary codecs, and every validator
 js/net/codes.js        three-picture room codes
 js/net/webrtc.js       RTCPeerConnection, the two lanes, two signalling transports
-js/net/rendezvous.js   the three tiers, and PeerJS as a signalling pipe
+js/net/rendezvous.js   the four tiers, and PeerJS as a signalling pipe
+js/net/nearby.js       flight mode: the same channels, through Gopher Connect
 js/net/host-worker.js  World + Match, off the page
 js/net/host.js         seats, roster, validation, fan-out
 js/net/guest.js        steering out, frames in

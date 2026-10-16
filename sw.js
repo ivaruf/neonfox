@@ -158,7 +158,12 @@
 //         gone again (hub §2, 2026-10-11: language and sound live behind the
 //         three bars); the menu panel keeps the only copy. Sideways the logo
 //         has its three rows back and the doors sit beside Turning again.
-const VERSION = "v1.18.1"; // the PeerJS signalling pipe uses our TURN too, so a pair that needs a relay can open it
+// v1.18.1 The PeerJS signalling pipe uses our TURN too.
+// v1.19.0 NEARBY, WITH NO NETWORK. js/net/nearby.js joins the precache: when
+//         the broker cannot be reached, Host and Join try Gopher Connect, the
+//         Android companion app, on 127.0.0.1 and play over Bluetooth. Online
+//         nothing changes, and without the app nothing is shown.
+const VERSION = "v1.19.0"; // flight-mode multiplayer through Gopher Connect
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting
@@ -202,6 +207,7 @@ const ASSETS = [
   "./js/net/host-worker.js",
   "./js/net/lobby.js",
   "./js/net/protocol.js",
+  "./js/net/nearby.js",
   "./js/net/rendezvous.js",
   "./js/net/shadow.js",
   "./js/net/webrtc.js",

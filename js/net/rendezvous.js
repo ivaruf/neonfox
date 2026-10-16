@@ -5,11 +5,17 @@
  * up, peers talk directly and none of it is involved again — which is also
  * why a broker being down only stops *new* games from starting.
  *
- * Three ways, tried in this order (hub CLAUDE.md §8):
+ * Four ways, tried in this order (hub CLAUDE.md §8):
  *
  *   relay    an explicit meta[name="signal-url"], if you want to run your own.
  *   broker   PeerJS's public broker. Nothing of ours runs anywhere, which is
  *            the whole point on GitHub Pages: there is no server to wake.
+ *   nearby   Gopher Connect, the Android companion app, over Bluetooth
+ *            (nearby.js). Only when the broker cannot be reached, which in
+ *            practice means flight mode. Unlike the others it is not
+ *            signalling: with no network, WebRTC has nothing to run on, so the
+ *            app carries the game's frames itself. Without the app it answers
+ *            nothing, at once, and the next tier runs as it always did.
  *   tabs     BroadcastChannel. Reaches other tabs in this browser and nothing
  *            else, so it is a last resort and the lobby says so rather than
  *            looking broken.
@@ -45,6 +51,7 @@ import {
 // Failures are raised with a key (said), so the lobby can say them in either
 // language and say them again if the player switches while one is showing.
 import { said } from "../i18n.js";
+import { hostNearby, joinNearby } from "./nearby.js";
 
 /*
  * Pinned to an exact version with an integrity hash, with a byte-identical
@@ -287,8 +294,12 @@ export async function hostRendezvous(code, onPeer) {
       },
     };
   } catch (error) {
-    // Offline or blocked: still useful for two tabs on this device, and the
-    // lobby says exactly that rather than failing silently.
+    // Offline or blocked. Another phone may still be in reach over
+    // Bluetooth, if Gopher Connect is running; null means it is not.
+    const nearby = await hostNearby(code, onPeer).catch(() => null);
+    if (nearby) return { mode: "nearby", detail: "Gopher Connect", close: nearby.close };
+    // Still useful for two tabs on this device, and the lobby says exactly
+    // that rather than failing silently.
     const signalling = broadcastSignalling(code);
     const rtc = hostOverWebRTC(signalling, onPeer);
     return { mode: "tabs", detail: error.message, why: error, close: rtc.close };
@@ -308,8 +319,11 @@ export async function joinRendezvous(code) {
   try {
     Peer = await loadBroker();
   } catch (error) {
-    // No broker at all: the other tab in this browser is still reachable,
-    // which is exactly the case a parent testing on one laptop is in.
+    // No broker at all. A phone nearby first, through Gopher Connect if it
+    // is running, then the other tab in this browser, which is exactly the
+    // case a parent testing on one laptop is in.
+    const nearby = await joinNearby(code);
+    if (nearby) return { mode: "nearby", channel: nearby.channel, close: nearby.close };
     const signalling = broadcastSignalling(code);
     const channel = await joinOverWebRTC(signalling);
     return {
@@ -322,11 +336,22 @@ export async function joinRendezvous(code) {
   }
   // Our TURN for the pipe as well as the game; see hostRendezvous.
   const peer = new Peer({ config: await iceConfig() });
-  await waitFor(
-    peer,
-    20000,
-    (error) => said("err.matchFailed", error.type),
-  );
+  try {
+    await waitFor(
+      peer,
+      20000,
+      (error) => said("err.matchFailed", error.type),
+    );
+  } catch (error) {
+    // The broker library loaded (it is precached, so it does offline too)
+    // but the broker itself is out of reach. That is flight mode, and the
+    // one place a guest can still find a host is nearby. No app, and the
+    // player hears the broker's own failure, exactly as before.
+    peer.destroy();
+    const nearby = await joinNearby(code);
+    if (nearby) return { mode: "nearby", channel: nearby.channel, close: nearby.close };
+    throw error;
+  }
   const pipe = peer.connect(brokerId(code), { reliable: true });
   await new Promise((resolve, reject) => {
     pipe.on("open", resolve);

@@ -220,6 +220,7 @@ const STRINGS = {
     "status.opening": "Lager et spill …",
     "status.tabs": (why) => `Bare andre faner i denne nettleseren kan nå deg: ${why}`,
     "status.relay": "Ditt eget relé tar seg av introduksjonene.",
+    "status.nearby": "Uten nett: Gopher Connect leter etter telefoner i nærheten over Bluetooth.",
     "status.waiting": "Venter på at noen blir med. Ikke la skjermen sovne.",
     "status.openFail": "Fikk ikke laget et spill.",
     "status.looking": "Leter etter spillet …",
@@ -251,6 +252,10 @@ const STRINGS = {
       `Fant ikke noe spill med koden ${codeWords(code)}. Sjekk koden, og at vennen din fortsatt har spillet åpent og skjermen våken.`,
     "err.noReach": (type) => `Fikk ikke kontakt med spillet (${type}).`,
     "err.noAnswer": "Verten svarte ikke.",
+    "err.nearbyRefused": (why) => `Gopher Connect sa nei: ${why}`,
+    "err.nearbyGone": "Gopher Connect stoppet. Åpne appen og prøv igjen.",
+    "err.nearbyNoHost": (code) =>
+      `Fant ingen telefon i nærheten med koden ${codeWords(code)}. Sjekk koden, at Bluetooth er på, og at Gopher Connect kjører på begge telefonene.`,
     "err.rtcNoAnswer":
       "Verten svarte aldri. Sjekk koden – noen nettverk når rett og slett ikke hverandre.",
     "sym.fox": "rev",
@@ -370,6 +375,7 @@ const STRINGS = {
     "status.opening": "Opening a game…",
     "status.tabs": (why) => `Only other tabs in this browser can reach you: ${why}`,
     "status.relay": "Your own relay is carrying the introductions.",
+    "status.nearby": "No network: Gopher Connect is looking for phones nearby over Bluetooth.",
     "status.waiting": "Waiting for someone to join. Keep this screen awake.",
     "status.openFail": "Could not open a game.",
     "status.looking": "Looking for the game…",
@@ -401,6 +407,10 @@ const STRINGS = {
       `No game found with code ${codeWords(code)}. Check the code, and that your friend still has the lobby open with their screen awake.`,
     "err.noReach": (type) => `Could not reach the game (${type}).`,
     "err.noAnswer": "The host did not answer.",
+    "err.nearbyRefused": (why) => `Gopher Connect said no: ${why}`,
+    "err.nearbyGone": "Gopher Connect stopped. Open the app and try again.",
+    "err.nearbyNoHost": (code) =>
+      `No phone nearby with code ${codeWords(code)}. Check the code, that Bluetooth is on, and that Gopher Connect is running on both phones.`,
     "err.rtcNoAnswer":
       "The host never answered. Check the code — a few networks simply cannot reach each other.",
     "sym.fox": "fox",

@@ -613,7 +613,13 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
       write(lobbyStatus, () =>
         next.mode === "tabs"
           ? t("status.tabs", why())
-          : t(next.mode === "relay" ? "status.relay" : "status.waiting"),
+          : t(
+              next.mode === "relay"
+                ? "status.relay"
+                : next.mode === "nearby"
+                  ? "status.nearby"
+                  : "status.waiting",
+            ),
       );
       // The broker drops a peer whose heartbeat stops, so report whether the
       // code is actually live rather than assuming it stayed live.
