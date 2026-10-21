@@ -27,6 +27,7 @@ js/render/           reads the sim, draws it with Babylon
   effects.js         elimination burst
   marker.js          "this one is you": the arrow over your own rider, and the
                      ring that pulses around it through the countdown
+js/intro.js          the opening sting; classic, self-contained, skippable
 js/input.js          keyboard + touch buttons -> turn per seat, commands
 js/ui.js             menu, scoreboard, banners, touch button visibility
 js/audio.js          WebAudio blips and the looping theme, lazily created on first gesture

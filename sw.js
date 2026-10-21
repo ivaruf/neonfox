@@ -163,7 +163,7 @@
 //         the broker cannot be reached, Host and Join try Gopher Connect, the
 //         Android companion app, on 127.0.0.1 and play over Bluetooth. Online
 //         nothing changes, and without the app nothing is shown.
-const VERSION = "v1.19.0"; // flight-mode multiplayer through Gopher Connect
+const VERSION = "v1.20.0"; // an opening sting: trails, a flash, the logo lands
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting
@@ -193,6 +193,7 @@ const ASSETS = [
   "./js/config.js",
   "./js/i18n.js",
   "./js/input.js",
+  "./js/intro.js",
   "./js/main.js",
   "./js/ui.js",
   "./js/screen.js",
