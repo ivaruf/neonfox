@@ -12,9 +12,9 @@
  *   - Cost anyone a run (hub §1). It only ever plays at page load, over the
  *     start screen, and any tap or key skips straight to the hand-off.
  *   - Let the skipping press through. A key is swallowed in the capture
- *     phase on window — this script is a deferred classic one in the head,
- *     so its listener is registered before js/ui.js's and js/input.js's and
- *     runs first — because the press that skips must not also be the
+ *     phase on window — this script runs async from the top of <body>, long
+ *     before the module graph, so its listener is registered before
+ *     js/ui.js's and js/input.js's and runs first — because the press that skips must not also be the
  *     start screen's Escape (which is the way out to the arcade) or Enter.
  *     A tap lands on the curtain itself, which covers every button.
  *   - Delay the game. It is a curtain over the page, not a gate in front of
@@ -134,6 +134,10 @@
   function findTarget() {
     realLogo = document.querySelector("#title img");
     if (!realLogo) return null;
+    // The real logo steps aside so the flying one lands on an empty spot; it
+    // is given back the moment the curtain goes. Not hidden any earlier,
+    // because this script runs before the menu has been parsed.
+    realLogo.style.visibility = "hidden";
     var b = realLogo.getBoundingClientRect();
     if (b.width < 2 || b.height < 2) return null;
     var aspect = 576 / 880;
@@ -319,15 +323,12 @@
       skip();
     });
     document.body.appendChild(canvas);
-    // The real logo waits under the curtain so the flying one can land on an
-    // empty spot; it is given back the moment the curtain goes.
-    realLogo = document.querySelector("#title img");
-    if (realLogo) realLogo.style.visibility = "hidden";
     raf = requestAnimationFrame(frame);
     // Whatever happens to the frame loop, the curtain does not outstay this.
     setTimeout(finish, 6000);
   }
 
-  // Deferred, so the body is parsed by now.
+  // Loaded from the top of <body>, so the body exists even though the rest
+  // of the page may not have been parsed yet.
   start();
 })();
