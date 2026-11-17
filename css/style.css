@@ -372,6 +372,13 @@ button:focus-visible {
     0 0 36px rgba(70, 230, 255, 0.75),
     0 8px 24px rgba(0, 0, 0, 0.4);
 }
+/* Join waits for all three pictures (hub §8); it has to look like it waits. */
+.primary:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+  transform: none;
+  cursor: default;
+}
 .primary:active {
   transform: scale(0.98);
 }
@@ -1068,6 +1075,11 @@ kbd {
  * for a viewport shorter than anything measured here, not the plan.
  */
 @media (orientation: landscape) and (max-height: 500px) {
+  /* The pause card sets two sliders side by side here and only ever shows
+   * 0–100, so the start screen's room for "60 poeng" is not wanted. */
+  #pause .slider output {
+    min-width: 3ch;
+  }
   /*
    * Narrower than the screen on purpose. 760 was "as wide as a landscape
    * phone will allow", which is not the same as "as wide as this wants to
