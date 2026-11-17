@@ -112,6 +112,14 @@ export async function joinSession({ code, name, seats, coarse, outfit }) {
     session.onRoster?.(session.roster);
   }
 
+  // Refused or told goodbye: let go of the connection and the broker peer too,
+  // without the close then reporting "host left" a second time.
+  const drop = () => {
+    channel.onClose = null;
+    channel.close();
+    joined.close?.();
+  };
+
   channel.onClose = () => {
     // No host migration: guests only ever hold a connection to the host, so
     // there is nobody left to promote. Say so plainly rather than leaving a
@@ -161,9 +169,11 @@ export async function joinSession({ code, name, seats, coarse, outfit }) {
         // Anything unknown — an older host still sending a sentence — gets
         // the plain refusal rather than being printed as it arrived.
         session.onClosed?.(REFUSALS[value.why] ?? "why.refused");
+        drop();
         break;
       case MSG.BYE:
         session.onClosed?.("why.hostLeft");
+        drop();
         break;
       default:
         break;

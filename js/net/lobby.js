@@ -266,6 +266,8 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   const coarse = isCoarsePointer();
   let session = null;
   let unwatch = null;
+  // Bumped by tearDown, so a host or join still in flight knows it was abandoned.
+  let attempt = 0;
   let entered = []; // symbol names tapped on the join keypad
   let step = "choose"; // 'choose' | 'pad' | 'host' | 'guest'
 
@@ -390,6 +392,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   padView.append(joinGo);
   const padStatus = el("p", "note");
   padStatus.id = "pad-status";
+  padStatus.setAttribute("role", "status"); // read aloud when it changes
   padView.append(padStatus);
   panel.append(padView);
 
@@ -406,6 +409,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   lobbyView.append(codeWords);
   const lobbyStatus = el("p", "note live");
   lobbyStatus.id = "lobby-status";
+  lobbyStatus.setAttribute("role", "status");
   lobbyView.append(lobbyStatus);
   // The rules of this room — arena, turning, win at — which the host set in
   // the paddock and a guest has no other way of seeing. One line, in the
@@ -591,6 +595,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
     paintRoster();
     write(lobbyStatus, () => t("status.opening"), "note live");
     blaze.disabled = true;
+    const mine = attempt;
     try {
       const { hostSession } = await import("./host.js");
       const next = await hostSession({
@@ -605,6 +610,10 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
         // fox too; main.js answers it, since only main.js has the wardrobe.
         outfit: settings.outfit?.() ?? [],
       });
+      if (mine !== attempt) {
+        next.leave();
+        return;
+      }
       attach(next);
       paintShared(next.code);
       blaze.disabled = false;
@@ -627,6 +636,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
         if (!health.reachable) fail(() => t(health.note, ...(health.args ?? [])));
       });
     } catch (error) {
+      if (mine !== attempt) return;
       fail(meaning(error, "status.openFail"));
     }
   }
@@ -636,6 +646,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
     if (!code) return;
     joinGo.disabled = true;
     write(padStatus, () => t("status.looking"), "note live");
+    const mine = attempt;
     try {
       const { joinSession } = await import("./guest.js");
       const next = await joinSession({
@@ -647,6 +658,10 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
         // fox too; main.js answers it, since only main.js has the wardrobe.
         outfit: settings.outfit?.() ?? [],
       });
+      if (mine !== attempt) {
+        next.leave();
+        return;
+      }
       // The code was right and somebody answered: the same room the host is
       // looking at, minus the button that starts it.
       attach(next);
@@ -655,6 +670,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
       paintRoster();
       write(lobbyStatus, () => t("status.waitHost"), "note live");
     } catch (error) {
+      if (mine !== attempt) return;
       joinGo.disabled = false;
       fail(meaning(error, "status.reachFail"));
     }
@@ -685,6 +701,7 @@ export function createLobby({ root, ui, onPlay, onBack, onEnded, settings }) {
   back.addEventListener("click", goBack);
 
   function tearDown() {
+    attempt++;
     unwatch?.();
     unwatch = null;
     session?.leave();

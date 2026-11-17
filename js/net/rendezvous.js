@@ -217,6 +217,7 @@ export async function hostRendezvous(code, onPeer) {
       close: rtc.close,
     };
   }
+  let peer = null;
   try {
     const Peer = await loadBroker();
     // The pipe is a WebRTC connection of its own, so it gets our TURN too;
@@ -224,7 +225,7 @@ export async function hostRendezvous(code, onPeer) {
     // needs one would depend on that before ours was ever asked. PeerJS reads
     // this once, so a lobby left open past the credentials' hour relays new
     // pipes no longer — direct ones are unaffected, and hosting again fixes it.
-    const peer = new Peer(brokerId(code), { config: await iceConfig() });
+    peer = new Peer(brokerId(code), { config: await iceConfig() });
     await waitFor(
       peer,
       20000,
@@ -294,6 +295,8 @@ export async function hostRendezvous(code, onPeer) {
       },
     };
   } catch (error) {
+    // A peer that never opened still holds a broker socket and a heartbeat.
+    peer?.destroy();
     // Offline or blocked. Another phone may still be in reach over
     // Bluetooth, if Gopher Connect is running; null means it is not.
     const nearby = await hostNearby(code, onPeer).catch(() => null);
@@ -353,21 +356,27 @@ export async function joinRendezvous(code) {
     throw error;
   }
   const pipe = peer.connect(brokerId(code), { reliable: true });
-  await new Promise((resolve, reject) => {
-    pipe.on("open", resolve);
-    // peer-unavailable is a mistyped code, a finished game — or a host whose
-    // screen went to sleep, which drops it off the broker. Worth saying,
-    // because from here the three are indistinguishable and only one of them
-    // is the player's own fault.
-    peer.on("error", (error) =>
-      reject(
-        error.type === "peer-unavailable"
-          ? said("err.noGame", code)
-          : said("err.noReach", error.type),
-      ),
-    );
-    setTimeout(() => reject(said("err.noAnswer")), 20000);
-  });
+  try {
+    await new Promise((resolve, reject) => {
+      pipe.on("open", resolve);
+      // peer-unavailable is a mistyped code, a finished game — or a host whose
+      // screen went to sleep, which drops it off the broker. Worth saying,
+      // because from here the three are indistinguishable and only one of them
+      // is the player's own fault.
+      peer.on("error", (error) =>
+        reject(
+          error.type === "peer-unavailable"
+            ? said("err.noGame", code)
+            : said("err.noReach", error.type),
+        ),
+      );
+      setTimeout(() => reject(said("err.noAnswer")), 20000);
+    });
+  } catch (error) {
+    // A wrong code must not leave its broker socket and heartbeat behind.
+    peer.destroy();
+    throw error;
+  }
   const signalling = brokerGuestSignalling(pipe);
   try {
     const channel = await joinOverWebRTC(signalling);

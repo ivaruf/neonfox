@@ -164,7 +164,7 @@
 //         Android companion app, on 127.0.0.1 and play over Bluetooth. Online
 //         nothing changes, and without the app nothing is shown.
 // v1.20.0 An opening sting: trails, a flash, the logo lands.
-const VERSION = "v1.20.1"; // bad stored volumes ignored, menu title without (Esc), close words say window
+const VERSION = "v1.20.2"; // lobby survives the rider model landing, Back cancels a room in flight, keys let go on blur, a hidden solo round pauses
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting

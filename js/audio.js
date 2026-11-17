@@ -192,7 +192,8 @@ export class Sfx {
         this._sfxGain.gain.value = this._sfxVolume;
         this._sfxGain.connect(this._masterGain);
       }
-      if (this._ctx.state === "suspended") this._ctx.resume();
+      // Not only "suspended": iOS leaves a context "interrupted" after a call.
+      if (this._ctx.state !== "running") this._ctx.resume().catch(() => {});
     } catch {
       // No WebAudio support, or the browser refused: every play method
       // below already checks for a live context and stays silent, and the
@@ -206,6 +207,14 @@ export class Sfx {
       this._themeStarted = true;
       this.#startTheme();
     }
+  }
+
+  /** A hidden page goes quiet, the theme included; coming back wakes it,
+   *  unless it was never unlocked in the first place. */
+  setHidden(hidden) {
+    if (!this._ctx) return;
+    if (hidden) this._ctx.suspend().catch(() => {});
+    else this._ctx.resume().catch(() => {});
   }
 
   /**

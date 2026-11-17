@@ -687,6 +687,10 @@
               );
               return;
             }
+            // An image, stylesheet or media element that fails is a missing
+            // asset, not a broken game; only scripts and real exceptions
+            // belong on this bar.
+            if (t && t !== window && t.tagName) return;
             show(
               (nb() ? "Noe gikk i stykker: " : "Something broke: ") +
                 (e.message || e.type),

@@ -103,7 +103,8 @@ function boot() {
    */
   preloadRiders(view.scene).then(
     () => {
-      if (mode === "menu") enterMenu();
+      // Not over an open lobby: enterMenu would close it and the room with it.
+      if (mode === "menu" && !lobby.isOpen) enterMenu();
     },
     () => {},
   );
@@ -794,9 +795,20 @@ function boot() {
 
   /* Browsers will not make noise until the player has touched the page, and
    * the menu's own buttons are not the only way in — the keyboard starts a
-   * match too. Both listeners are one-shot; unlock() is safe either way. */
-  window.addEventListener("pointerdown", () => sfx.unlock(), { once: true });
-  window.addEventListener("keydown", () => sfx.unlock(), { once: true });
+   * match too. Every gesture, not only the first, because iOS can leave the
+   * context suspended after a call or the lock screen, mid-round included;
+   * unlock() is safe to repeat. Capture phase, so a handler that stops the
+   * event cannot keep the game mute. */
+  window.addEventListener("pointerdown", () => sfx.unlock(), true);
+  window.addEventListener("keydown", () => sfx.unlock(), true);
+
+  /* A hidden page: the theme goes quiet, and a solo or hot-seat round stops
+   * behind the pause panel rather than carrying on the instant the page is
+   * back, before anybody is looking. A net round is the host's and rides on. */
+  document.addEventListener("visibilitychange", () => {
+    sfx.setHidden(document.hidden);
+    if (document.hidden && mode === "match" && match?.state !== "matchOver") setPaused(true);
+  });
 
   /* id -> alive, the shape ui.setScores wants for dimming the dead. */
   function aliveMap() {

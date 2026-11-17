@@ -234,6 +234,8 @@ export function createScene(canvas) {
   let dist = fit.dist;
   let tz = fit.tz;
   let shake = 0;
+  // A player who asked the system for less motion gets a still camera.
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)");
 
   /* The pose being chased, in sim coordinates, last set by setFollow(). Only
    * read while the mode is 'follow'; main.js keeps it current every frame.
@@ -654,6 +656,7 @@ export function createScene(canvas) {
   /* A kick never shortens an ongoing one: two riders crashing together
    * should feel like the bigger of the two, not like a reset. */
   function kick(amount) {
+    if (reduced.matches) return;
     shake = Math.max(shake, amount);
   }
 

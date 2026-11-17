@@ -100,10 +100,14 @@ export class Input {
 
     window.addEventListener("keydown", (event) => {
       // Arrows and space must never scroll the page, even on the very
-      // first (non-repeat) press, so this runs before the repeat check.
-      if (SCROLL_KEYS.has(event.code)) event.preventDefault();
-
-      this.held.add(event.code);
+      // first (non-repeat) press, so this runs before the repeat check —
+      // except where they are the control's own: a focused slider's arrows,
+      // a focused button's Space. Neither is then steering either.
+      const tag = event.target?.tagName;
+      if (!(tag === "INPUT" || (tag === "BUTTON" && event.code === "Space"))) {
+        if (SCROLL_KEYS.has(event.code)) event.preventDefault();
+        this.held.add(event.code);
+      }
 
       // A held key auto-repeats keydown at the OS rate; commands are
       // one-shot, so a repeat must not re-fire 'start' a dozen times.
@@ -131,6 +135,12 @@ export class Input {
 
     window.addEventListener("keyup", (event) => {
       this.held.delete(event.code);
+    });
+    // A key let go while the window was away never sends its keyup, and the
+    // rider would circle on it forever.
+    window.addEventListener("blur", () => this.held.clear());
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) this.held.clear();
     });
   }
 
