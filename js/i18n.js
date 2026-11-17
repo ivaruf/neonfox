@@ -142,11 +142,11 @@ const STRINGS = {
     "turn.3": "Svev",
     "exit.arcade": "Tilbake til arkaden",
     "exit.close": "Lukk",
-    "exit.refused": "Lukk fanen selv",
+    "exit.refused": "Lukk vinduet selv",
 
     // The corner and the menu panel.
     menu: "Meny",
-    "menu.title": "Meny (Esc)",
+    "menu.title": "Meny",
     mute: "Lyd av",
     unmute: "Lyd på",
     "lang.label": "Språk",
@@ -300,10 +300,10 @@ const STRINGS = {
     "turn.3": "Glide",
     "exit.arcade": "Back to arcade",
     "exit.close": "Close",
-    "exit.refused": "Close this tab yourself",
+    "exit.refused": "Close the window yourself",
 
     menu: "Menu",
-    "menu.title": "Menu (Esc)",
+    "menu.title": "Menu",
     mute: "Mute",
     unmute: "Unmute",
     "lang.label": "Language",

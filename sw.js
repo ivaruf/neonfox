@@ -163,7 +163,8 @@
 //         the broker cannot be reached, Host and Join try Gopher Connect, the
 //         Android companion app, on 127.0.0.1 and play over Bluetooth. Online
 //         nothing changes, and without the app nothing is shown.
-const VERSION = "v1.20.0"; // an opening sting: trails, a flash, the logo lands
+// v1.20.0 An opening sting: trails, a flash, the logo lands.
+const VERSION = "v1.20.1"; // bad stored volumes ignored, menu title without (Esc), close words say window
 
 // Bumped only when something under models/, audio/ or vendor/ actually changes.
 // Deliberately independent of VERSION: that is the entire point of splitting

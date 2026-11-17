@@ -95,8 +95,12 @@ export class Sfx {
           this._sfxVolume = 0;
         }
       } else {
-        if (storedMusic !== null) this._musicVolume = clamp01(Number(storedMusic));
-        if (storedSfx !== null) this._sfxVolume = clamp01(Number(storedSfx));
+        // Anything on the origin may have written here: a non-finite value
+        // is not a level, and clamp01(NaN) would hand unlock() a NaN gain.
+        const music = Number(storedMusic);
+        const effects = Number(storedSfx);
+        if (storedMusic !== null && Number.isFinite(music)) this._musicVolume = clamp01(music);
+        if (storedSfx !== null && Number.isFinite(effects)) this._sfxVolume = clamp01(effects);
       }
     } catch {
       // Private mode / quota errors: keep the defaults above.
