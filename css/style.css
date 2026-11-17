@@ -335,8 +335,12 @@ button:focus-visible {
   background: linear-gradient(135deg, #46e6ff, #3aa0ff 55%, #ff5fb4);
   box-shadow: 0 0 14px rgba(70, 230, 255, 0.7);
 }
+/* One width for every value so the tracks line up, wide enough for "60 poeng"
+ * and "Bitteliten" on one line; anything longer grows rather than wraps. */
 .slider output {
-  flex: 0 0 64px;
+  flex: 0 0 auto;
+  min-width: 76px;
+  white-space: nowrap;
   text-align: right;
   font-weight: 700;
   color: var(--rim);
